@@ -214,3 +214,65 @@ the reference shipped with the installed package
   versions and source texts are stored in English (SPEC §3.1 rule 8) and are not translated;
   labels around them are. Unverified sets show "—" instead of a percentage plus their note and
   an "Unverified data" badge, and no load is ever shown in this screen.
+
+## 2026-11-05 — Stage 5: Periodization generator + three-week table
+
+- **Engine signature and placement.** `generatePeriodization(slots, templates, oneRms, rounding,
+  params)` lives in `src/domain/periodization.ts`, as SPEC §4.3 and the PLAN require. It imports
+  the pure `src/programs/` layer (schema types, `getBlock`, `resolveTemplate`,
+  `resolveParamValues`), so `domain/` may now depend on `programs/` for this module (the reverse
+  direction already existed for types such as `Lift`; there is no import cycle). Both layers stay
+  free of React, Expo, `data/` and `i18n/`.
+- **Exact arithmetic.** `exactKg = round(1RM_µg × percent_µ / 10⁶) + addKg_µg`, on integer
+  micrograms (the Stage 3 scale), so `100.25 × 0.755 = 75.68875` exactly; `roundLoad` then
+  applies the per-lift increment and the mode. Tonnage is summed in micrograms too.
+- **`addKg` semantics.** A set's `addKg` is the absolute increment, in kg, added to
+  `1RM × percent` for that set (the value of the referenced `kg` parameter: the athlete's
+  choice when valid, else the default). The SPEC's "Σ cumulative addKg" is expressed by the data:
+  a later week's set references the parameter that holds its total increment. If Smolov Jr.
+  needs a multiple of one parameter (e.g. week 3 = 2 × the weekly increment), Stage 7 extends
+  `ParamRef`; the engine has a single place to apply it. An `addKg` that cannot be resolved
+  produces no load (`unverified`), never a guess.
+- **No load without confirmed data.** A set gets `load: 'unverified'` (no exact/rounded kg) when
+  it is marked `unverified` (even if it carries a percentage), has no percentage, or has an
+  unresolved `addKg`; `load: 'missingOneRm'` when its lift has no reference 1RM. Reps of such
+  sets still count in the total reps; tonnage counts only sets with a rounded load.
+- **Lifts of items.** A `main` item with `lift: 'selected'` uses the slot's lift; a fixed-lift
+  item (e.g. a Sheiko multi-lift day) uses its own lift's 1RM and increment, and its volume is
+  attributed to that lift. Filtering a day's items by the slot's lift is left to Stage 9.
+- **Warnings (codes).** Session: `missingOneRm(lift)`, `unverifiedData`. Periodization:
+  `invalidSlot(reason: unknownTemplate | liftNotAllowed | invalidProgramDay | invalidStartWeek)`
+  (no sessions for that slot, but its session number is kept), `partialBlock(weeks)`,
+  `missingOneRm(lift)` once per lift, `incompleteFrequency(templateId, lift, configured,
+  prescribed)` grouped by template and lift (distinct program days of the valid slots versus
+  `daysPerWeek`). The engine accepts a start week up to `durationWeeks` (as `getBlock` does);
+  the slot editor offers up to `maxBlockStartWeek`, so partial blocks arise only for programs
+  shorter than three weeks.
+- **Activation.** `activationIssues` blocks activation when there are no sessions, a missing
+  1RM (SPEC §2: no sessions for a lift without a 1RM) or an invalid slot; frequency,
+  partial-block and unverified-data warnings are informational. The start date is a `YYYY-MM-DD`
+  text field (default: today on the device) validated by `validateIsoDate`; a native date
+  picker would need a new native module.
+- **Storage (migration 006).** `session_slots(id, profile_id, position, lift, template_id,
+  program_day, start_week)` with CHECKs on lift and positive day/week; positions are rewritten
+  0..n−1 inside a transaction on every insert, remove and reorder. Template ids are not foreign
+  keys (templates live in code); the store validates slots against the registry
+  (`InvalidSessionSlotError`). `periodizations(id, profile_id, start_date, created_at, config
+  JSON)` and `generated_sessions(id, periodization_id, block_week, session_number, payload JSON,
+  UNIQUE(periodization_id, block_week, session_number))`. Activating again inserts a new
+  periodization; nothing is deleted, and the latest one is the active periodization. The
+  config snapshot holds the slots, 1RMs, rounding and parameters in effect, so Stage 6/10 read
+  frozen values.
+- **Reactivity.** `selectPeriodization` memoizes on the references of `sessionSlots`,
+  `oneRmHistory`, `rounding` and `programParams` (last-call cache), so unrelated state changes
+  return the same object and every view reading it (table now, calendar in Stage 6) is
+  synchronized by construction.
+- **Table layout.** At ≥ 900 px (`layout.wideBreakpoint`) the three weeks are side by side
+  (rows = sessions); on narrower screens a Week 1 | 2 | 3 toggle shows one week at a time
+  (SPEC §6-A allows either a pinned-column scroll or a per-week toggle; the toggle needs no
+  horizontal scrolling on phones). Each set always shows `exact → rounded` (SPEC §5).
+- **Program parameters in the slot editor.** Parameters are per profile and template
+  (Stage 4), not per slot; the slot editor links to the program's detail screen
+  ("Program settings") instead of duplicating the editor.
+- **`Button.accessibilityLabel`.** Short visible labels (`↑`, `↓`, `−`, `+`) get a full accessible
+  name ("Move session 2 up"), keeping the action row compact at phone width.

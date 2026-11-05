@@ -7,6 +7,8 @@ import { Text } from './Text';
 
 export type ButtonProps = {
   label: string;
+  /** Accessible name when the visible label is too short to stand alone (defaults to `label`). */
+  accessibilityLabel?: string;
   onPress: () => void;
   variant?: 'primary' | 'secondary';
   disabled?: boolean;
@@ -15,13 +17,13 @@ export type ButtonProps = {
 };
 
 /** Accessible button with a ≥ 44 pt touch target. `primary` is the only accent-colored action. */
-export function Button({ label, onPress, variant = 'primary', disabled, hint, testID }: ButtonProps) {
+export function Button({ label, accessibilityLabel, onPress, variant = 'primary', disabled, hint, testID }: ButtonProps) {
   const { colors } = useTheme();
   const primary = variant === 'primary';
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={hint}
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}

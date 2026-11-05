@@ -3,7 +3,14 @@ import type { RoundingMode } from '@/domain/rounding';
 import { validateReferenceOneRm } from '@/domain/validation';
 
 import {
+  assertPermutation,
   assertValidIncrement,
+  assertValidSlotInput,
+  assertValidStartDate,
+  SessionSlotNotFoundError,
+  type SessionSlot,
+  type StoredGeneratedSession,
+  type StoredPeriodization,
   DEFAULT_ROUNDING,
   DEFAULT_SETTINGS,
   InvalidReferenceOneRmError,
@@ -29,6 +36,13 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
   const rounding = new Map<number, { incrementKg: number; mode: RoundingMode }>();
   const programParams = new Map<number, ProgramParamValues>();
   const liftIncrements = new Map<number, Partial<Record<Lift, number>>>();
+  /** Slots per profile, in order. */
+  const slots = new Map<number, SessionSlot[]>();
+  const periodizations: StoredPeriodization[] = [];
+  const generated: StoredGeneratedSession[] = [];
+  let nextSlotId = 1;
+  let nextPeriodizationId = 1;
+  let nextGeneratedId = 1;
   let activeProfileId: number | null = null;
   let nextId = 1;
   let nextOneRmId = 1;
@@ -57,6 +71,22 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
     return Object.fromEntries(
       Object.entries(programParams.get(profileId) ?? {}).map(([template, values]) => [template, { ...values }]),
     );
+  }
+
+  /** Deep copy through JSON, as the SQLite implementation stores snapshots. */
+  const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+
+  function slotList(profileId: number): SessionSlot[] {
+    requireProfile(profileId);
+    return slots.get(profileId) ?? [];
+  }
+
+  const slotSnapshot = (profileId: number) => slotList(profileId).map((slot) => ({ ...slot }));
+
+  function indexOfSlot(profileId: number, id: number): number {
+    const index = slotList(profileId).findIndex((slot) => slot.id === id);
+    if (index < 0) throw new SessionSlotNotFoundError(id);
+    return index;
   }
 
   return {
@@ -173,6 +203,87 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
         delete all[templateId];
         programParams.set(profileId, all);
         return paramSnapshot(profileId);
+      },
+    },
+    sessionSlots: {
+      async list(profileId) {
+        return slotSnapshot(profileId);
+      },
+      async add(profileId, input, index) {
+        const list = [...slotList(profileId)];
+        assertValidSlotInput(input);
+        const slot: SessionSlot = { id: nextSlotId++, profileId, ...input };
+        const at = index === undefined || index < 0 || index > list.length ? list.length : index;
+        list.splice(at, 0, slot);
+        slots.set(profileId, list);
+        return slotSnapshot(profileId);
+      },
+      async update(profileId, id, input) {
+        const index = indexOfSlot(profileId, id);
+        assertValidSlotInput(input);
+        const list = [...slotList(profileId)];
+        list[index] = { id, profileId, ...input };
+        slots.set(profileId, list);
+        return slotSnapshot(profileId);
+      },
+      async remove(profileId, id) {
+        const index = indexOfSlot(profileId, id);
+        slots.set(
+          profileId,
+          slotList(profileId).filter((_, i) => i !== index),
+        );
+        return slotSnapshot(profileId);
+      },
+      async reorder(profileId, ids) {
+        const list = slotList(profileId);
+        assertPermutation(
+          list.map((slot) => slot.id),
+          ids,
+        );
+        slots.set(
+          profileId,
+          ids.map((id) => list.find((slot) => slot.id === id) as SessionSlot),
+        );
+        return slotSnapshot(profileId);
+      },
+    },
+    periodizations: {
+      async create({ profileId, startDate, config, sessions }) {
+        requireProfile(profileId);
+        assertValidStartDate(startDate);
+        const stored: StoredPeriodization = {
+          id: nextPeriodizationId++,
+          profileId,
+          startDate,
+          createdAt: clock().toISOString(),
+          config: clone(config),
+        };
+        periodizations.push(stored);
+        for (const session of sessions) {
+          generated.push({ id: nextGeneratedId++, periodizationId: stored.id, session: clone(session) });
+        }
+        return clone(stored);
+      },
+      async getLatest(profileId) {
+        requireProfile(profileId);
+        const latest = periodizations.filter((p) => p.profileId === profileId).at(-1);
+        return latest ? clone(latest) : null;
+      },
+      async list(profileId) {
+        requireProfile(profileId);
+        return clone(periodizations.filter((p) => p.profileId === profileId).reverse());
+      },
+      async listSessions(profileId, periodizationId) {
+        requireProfile(profileId);
+        if (!periodizations.some((p) => p.id === periodizationId && p.profileId === profileId)) return [];
+        return clone(
+          generated
+            .filter((g) => g.periodizationId === periodizationId)
+            .sort(
+              (a, b) =>
+                a.session.blockWeek - b.session.blockWeek || a.session.sessionNumber - b.session.sessionNumber,
+            ),
+        );
       },
     },
   };

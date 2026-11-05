@@ -1,4 +1,4 @@
-import type { Lift } from '@/domain/lifts';
+import { isLift, type Lift } from '@/domain/lifts';
 import {
   DEFAULT_INCREMENT_KG,
   DEFAULT_ROUNDING_MODE,
@@ -6,6 +6,15 @@ import {
   type RoundingMode,
 } from '@/domain/rounding';
 import type { NumberValidationError } from '@/domain/number-validation';
+import type {
+  GeneratedSession,
+  OneRmMap,
+  RoundingConfig,
+  SessionSlotConfig,
+  TemplateParams,
+} from '@/domain/periodization';
+import type { SessionSlotInput } from '@/domain/session-slots';
+import { validateIsoDate } from '@/domain/validation';
 import type { LanguageSetting } from '@/i18n/locale';
 
 export type ThemeSetting = 'dark' | 'light';
@@ -137,12 +146,74 @@ export interface ProgramParamRepository {
   reset(profileId: number, templateId: string): Promise<ProgramParamValues>;
 }
 
+/** A configured session of the week (SPEC §4.1); its position is its index in `list`. */
+export type SessionSlot = SessionSlotConfig & { profileId: number };
+
+/**
+ * The profile's session slots, in order. Every write returns the whole ordered list. The
+ * repository checks the shape (lift, positive integer day and start week, non-blank template
+ * id) and throws `RangeError` otherwise; template-specific ranges are checked by the caller.
+ */
+export interface SessionSlotRepository {
+  list(profileId: number): Promise<SessionSlot[]>;
+  /** Inserts at `index` (0-based; default and out-of-range values append). */
+  add(profileId: number, input: SessionSlotInput, index?: number): Promise<SessionSlot[]>;
+  /** Throws `SessionSlotNotFoundError` when the profile has no slot with that id. */
+  update(profileId: number, id: number, input: SessionSlotInput): Promise<SessionSlot[]>;
+  remove(profileId: number, id: number): Promise<SessionSlot[]>;
+  /** `ids` must be a permutation of the profile's slot ids (`RangeError` otherwise). */
+  reorder(profileId: number, ids: readonly number[]): Promise<SessionSlot[]>;
+}
+
+/** What a periodization was generated from, frozen at activation (SPEC §4.4). */
+export type PeriodizationConfig = {
+  slots: SessionSlotConfig[];
+  oneRms: OneRmMap;
+  rounding: RoundingConfig;
+  params: TemplateParams;
+};
+
+export type StoredPeriodization = {
+  id: number;
+  profileId: number;
+  /** ISO calendar date (`YYYY-MM-DD`) on which the block starts. */
+  startDate: string;
+  /** ISO 8601 timestamp of the activation. */
+  createdAt: string;
+  config: PeriodizationConfig;
+};
+
+export type StoredGeneratedSession = { id: number; periodizationId: number; session: GeneratedSession };
+
+export type CreatePeriodizationInput = {
+  profileId: number;
+  startDate: string;
+  config: PeriodizationConfig;
+  sessions: readonly GeneratedSession[];
+};
+
+/**
+ * Activated periodizations (immutable snapshots). Activating again creates a new one; nothing
+ * is deleted. The latest activation is the active periodization.
+ */
+export interface PeriodizationRepository {
+  /** Throws `RangeError` for a start date that is not a real `YYYY-MM-DD` date. */
+  create(input: CreatePeriodizationInput): Promise<StoredPeriodization>;
+  getLatest(profileId: number): Promise<StoredPeriodization | null>;
+  /** Newest first. */
+  list(profileId: number): Promise<StoredPeriodization[]>;
+  /** Sessions ordered by block week, then session number; empty for another profile's id. */
+  listSessions(profileId: number, periodizationId: number): Promise<StoredGeneratedSession[]>;
+}
+
 export type Repositories = {
   profiles: ProfileRepository;
   settings: SettingsRepository;
   referenceOneRms: ReferenceOneRmRepository;
   rounding: RoundingRepository;
   programParams: ProgramParamRepository;
+  sessionSlots: SessionSlotRepository;
+  periodizations: PeriodizationRepository;
 };
 
 export type Clock = () => Date;
@@ -152,6 +223,38 @@ export class ProfileNotFoundError extends Error {
   constructor(readonly profileId: number) {
     super(`Profile ${profileId} not found`);
     this.name = 'ProfileNotFoundError';
+  }
+}
+
+export class SessionSlotNotFoundError extends Error {
+  readonly code = 'SESSION_SLOT_NOT_FOUND';
+  constructor(readonly slotId: number) {
+    super(`Session slot ${slotId} not found`);
+    this.name = 'SessionSlotNotFoundError';
+  }
+}
+
+/** Throws `RangeError` unless `input` has a valid shape (see `SessionSlotRepository`). */
+export function assertValidSlotInput(input: SessionSlotInput): void {
+  const positive = (n: number) => Number.isInteger(n) && n >= 1;
+  if (!isLift(input.lift)) throw new RangeError(`Unknown lift: ${String(input.lift)}`);
+  if (input.templateId.trim() === '') throw new RangeError('Template id must not be blank');
+  if (!positive(input.programDay)) throw new RangeError(`Invalid program day: ${input.programDay}`);
+  if (!positive(input.startWeek)) throw new RangeError(`Invalid start week: ${input.startWeek}`);
+}
+
+/** Throws `RangeError` unless `ids` is a permutation of `current`. */
+export function assertPermutation(current: readonly number[], ids: readonly number[]): void {
+  const sorted = (list: readonly number[]) => [...list].sort((a, b) => a - b).join(',');
+  if (ids.length !== current.length || sorted(ids) !== sorted(current)) {
+    throw new RangeError('Slot order must list every slot exactly once');
+  }
+}
+
+/** Throws `RangeError` unless `startDate` is a real `YYYY-MM-DD` date. */
+export function assertValidStartDate(startDate: string): void {
+  if (validateIsoDate(startDate) !== null || startDate.trim() !== startDate) {
+    throw new RangeError(`Invalid start date: ${startDate}`);
   }
 }
 

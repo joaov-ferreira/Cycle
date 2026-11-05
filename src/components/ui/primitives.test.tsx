@@ -57,6 +57,12 @@ describe('Button', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
+  it('can have an accessible name that differs from its short visible label', async () => {
+    await render(<Button label="↑" accessibilityLabel="Move session 2 up" onPress={() => {}} />);
+    expect(screen.getByRole('button', { name: 'Move session 2 up' })).toBeOnTheScreen();
+    expect(screen.getByText('↑')).toBeOnTheScreen();
+  });
+
   it('has a touch target of at least 44 pt', async () => {
     await render(<Button label="Go" onPress={() => {}} />);
     expect(screen.getByRole('button', { name: 'Go' })).toHaveStyle({ minHeight: 44 });

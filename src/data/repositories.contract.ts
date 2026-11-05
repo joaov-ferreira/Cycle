@@ -2,8 +2,11 @@
  * Behavioral contract every `Repositories` implementation must satisfy. Run against the
  * in-memory implementation and the SQLite implementation (on node:sqlite) in tests.
  */
+import type { GeneratedSession } from '@/domain/periodization';
+
 import {
   InvalidIncrementError,
+  SessionSlotNotFoundError,
   InvalidReferenceOneRmError,
   ProfileNotFoundError,
   type Clock,
@@ -395,6 +398,191 @@ export function describeRepositoriesContract(name: string, factory: Repositories
         await expect(repos.programParams.getAll(9)).rejects.toThrow(ProfileNotFoundError);
         await expect(repos.programParams.set(9, 't', 'a', 1)).rejects.toThrow(ProfileNotFoundError);
         await expect(repos.programParams.reset(9, 't')).rejects.toThrow(ProfileNotFoundError);
+      });
+    });
+    describe('session slots', () => {
+      const bench = { lift: 'bench' as const, templateId: 'cycle-531-custom', programDay: 1, startWeek: 1 };
+      const squat = { lift: 'squat' as const, templateId: 'smolov-jr', programDay: 2, startWeek: 1 };
+      const dead = { lift: 'deadlift' as const, templateId: 'sheiko-29', programDay: 3, startWeek: 4 };
+
+      it('starts empty and appends slots in order with new ids', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        expect(await repos.sessionSlots.list(p.id)).toEqual([]);
+        await repos.sessionSlots.add(p.id, bench);
+        const list = await repos.sessionSlots.add(p.id, squat);
+        expect(list).toEqual([
+          { id: 1, profileId: p.id, ...bench },
+          { id: 2, profileId: p.id, ...squat },
+        ]);
+        expect(await repos.sessionSlots.list(p.id)).toEqual(list);
+      });
+
+      it('inserts at an index (duplicate below the original)', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        await repos.sessionSlots.add(p.id, bench);
+        await repos.sessionSlots.add(p.id, squat);
+        const list = await repos.sessionSlots.add(p.id, dead, 1);
+        expect(list.map((s) => s.id)).toEqual([1, 3, 2]);
+        expect(await repos.sessionSlots.list(p.id)).toEqual(list);
+      });
+
+      it('updates a slot in place', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        await repos.sessionSlots.add(p.id, bench);
+        await repos.sessionSlots.add(p.id, squat);
+        const list = await repos.sessionSlots.update(p.id, 1, dead);
+        expect(list).toEqual([
+          { id: 1, profileId: p.id, ...dead },
+          { id: 2, profileId: p.id, ...squat },
+        ]);
+      });
+
+      it('removes a slot and keeps the order of the others', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        await repos.sessionSlots.add(p.id, bench);
+        await repos.sessionSlots.add(p.id, squat);
+        await repos.sessionSlots.add(p.id, dead);
+        expect((await repos.sessionSlots.remove(p.id, 2)).map((s) => s.id)).toEqual([1, 3]);
+        expect((await repos.sessionSlots.add(p.id, squat)).map((s) => s.id)).toEqual([1, 3, 4]);
+      });
+
+      it('reorders slots to a permutation of their ids', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        await repos.sessionSlots.add(p.id, bench);
+        await repos.sessionSlots.add(p.id, squat);
+        await repos.sessionSlots.add(p.id, dead);
+        expect((await repos.sessionSlots.reorder(p.id, [3, 1, 2])).map((s) => s.id)).toEqual([3, 1, 2]);
+        expect((await repos.sessionSlots.list(p.id)).map((s) => s.id)).toEqual([3, 1, 2]);
+        await expect(repos.sessionSlots.reorder(p.id, [1, 2])).rejects.toThrow(RangeError);
+        await expect(repos.sessionSlots.reorder(p.id, [1, 2, 2])).rejects.toThrow(RangeError);
+        await expect(repos.sessionSlots.reorder(p.id, [1, 2, 9])).rejects.toThrow(RangeError);
+        expect((await repos.sessionSlots.list(p.id)).map((s) => s.id)).toEqual([3, 1, 2]);
+      });
+
+      it('rejects malformed slots', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        await expect(repos.sessionSlots.add(p.id, { ...bench, programDay: 0 })).rejects.toThrow(RangeError);
+        await expect(repos.sessionSlots.add(p.id, { ...bench, startWeek: 1.5 })).rejects.toThrow(RangeError);
+        await expect(repos.sessionSlots.add(p.id, { ...bench, lift: 'curl' as never })).rejects.toThrow(RangeError);
+        await expect(repos.sessionSlots.add(p.id, { ...bench, templateId: ' ' })).rejects.toThrow(RangeError);
+        expect(await repos.sessionSlots.list(p.id)).toEqual([]);
+      });
+
+      it('isolates slots per profile', async () => {
+        const repos = await factory(fixedClock);
+        const a = await repos.profiles.create({ name: 'Ana' });
+        const b = await repos.profiles.create({ name: 'Bruno' });
+        await repos.sessionSlots.add(a.id, bench);
+        expect(await repos.sessionSlots.list(b.id)).toEqual([]);
+        await expect(repos.sessionSlots.update(b.id, 1, squat)).rejects.toThrow(SessionSlotNotFoundError);
+        await expect(repos.sessionSlots.remove(b.id, 1)).rejects.toThrow(SessionSlotNotFoundError);
+        await expect(repos.sessionSlots.reorder(b.id, [1])).rejects.toThrow(RangeError);
+        expect(await repos.sessionSlots.list(a.id)).toHaveLength(1);
+      });
+
+      it('throws ProfileNotFoundError for an unknown profile', async () => {
+        const repos = await factory(fixedClock);
+        await expect(repos.sessionSlots.list(9)).rejects.toThrow(ProfileNotFoundError);
+        await expect(repos.sessionSlots.add(9, bench)).rejects.toThrow(ProfileNotFoundError);
+      });
+    });
+
+    describe('periodizations', () => {
+      const session = (blockWeek: number, sessionNumber: number): GeneratedSession => ({
+        key: `1-w${blockWeek}`,
+        slotId: 1,
+        sessionNumber,
+        blockWeek,
+        programWeek: blockWeek,
+        lift: 'bench',
+        templateId: 'cycle-531-custom',
+        templateName: '5/3/1 (custom)',
+        templateVersion: 'v',
+        verification: 'verified',
+        programDay: 1,
+        daysPerWeek: 1,
+        items: [
+          {
+            kind: 'main',
+            lift: 'bench',
+            sets: [
+              { sets: 3, reps: 5, percent: 0.75, addKg: null, amrap: false, exactKg: 75.68875, roundedKg: 75, load: 'calculated' },
+            ],
+          },
+        ],
+        volume: { tonnageKg: 1125, totalReps: 15 },
+        volumeByLift: { bench: { tonnageKg: 1125, totalReps: 15 } },
+        warnings: [],
+      });
+      const config = {
+        slots: [{ id: 1, lift: 'bench' as const, templateId: 'cycle-531-custom', programDay: 1, startWeek: 1 }],
+        oneRms: { bench: 100.25 },
+        rounding: { incrementKg: 2.5, mode: 'nearest' as const, liftIncrementsKg: {} },
+        params: { 'cycle-531-custom': { week1Percent: 0.755 } },
+      };
+
+      it('stores a snapshot with its start date and sessions, newest first', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        expect(await repos.periodizations.getLatest(p.id)).toBeNull();
+        const first = await repos.periodizations.create({
+          profileId: p.id,
+          startDate: '2026-11-09',
+          config,
+          sessions: [session(2, 1), session(1, 1)],
+        });
+        expect(first).toEqual({
+          id: 1,
+          profileId: p.id,
+          startDate: '2026-11-09',
+          createdAt: '2026-11-05T10:00:00.000Z',
+          config,
+        });
+        const second = await repos.periodizations.create({ profileId: p.id, startDate: '2026-12-07', config, sessions: [] });
+        expect(await repos.periodizations.getLatest(p.id)).toEqual(second);
+        expect(await repos.periodizations.list(p.id)).toEqual([second, first]);
+        expect(await repos.periodizations.listSessions(p.id, first.id)).toEqual([
+          { id: expect.any(Number), periodizationId: first.id, session: session(1, 1) },
+          { id: expect.any(Number), periodizationId: first.id, session: session(2, 1) },
+        ]);
+        expect(await repos.periodizations.listSessions(p.id, second.id)).toEqual([]);
+      });
+
+      it('rejects an invalid start date and stores nothing', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        await expect(
+          repos.periodizations.create({ profileId: p.id, startDate: '2026-02-30', config, sessions: [] }),
+        ).rejects.toThrow(RangeError);
+        expect(await repos.periodizations.list(p.id)).toEqual([]);
+      });
+
+      it('isolates periodizations per profile', async () => {
+        const repos = await factory(fixedClock);
+        const a = await repos.profiles.create({ name: 'Ana' });
+        const b = await repos.profiles.create({ name: 'Bruno' });
+        const created = await repos.periodizations.create({
+          profileId: a.id,
+          startDate: '2026-11-09',
+          config,
+          sessions: [session(1, 1)],
+        });
+        expect(await repos.periodizations.getLatest(b.id)).toBeNull();
+        expect(await repos.periodizations.listSessions(b.id, created.id)).toEqual([]);
+      });
+
+      it('throws ProfileNotFoundError for an unknown profile', async () => {
+        const repos = await factory(fixedClock);
+        await expect(repos.periodizations.list(9)).rejects.toThrow(ProfileNotFoundError);
+        await expect(
+          repos.periodizations.create({ profileId: 9, startDate: '2026-11-09', config, sessions: [] }),
+        ).rejects.toThrow(ProfileNotFoundError);
       });
     });
   });

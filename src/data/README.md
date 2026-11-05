@@ -10,7 +10,10 @@ SQLite (`expo-sqlite`) database, versioned migrations and repositories.
   the remembered active profile, `settings`, append-only `referenceOneRms`, `rounding`:
   the load increment, rounding mode and per-lift increment overrides, `programParams`:
   athlete-chosen values of configurable template parameters, by template and parameter id;
-  ranges are validated by `src/programs/` through the store, not by the repository).
+  ranges are validated by `src/programs/` through the store, not by the repository;
+  `sessionSlots`: the ordered session slots of the periodization editor; `periodizations`:
+  activated periodizations, immutable snapshots of the configuration and the generated sessions
+  stored as JSON, the latest being the active one).
 - `memory/` — in-memory implementation (tests).
 - `sqlite/` — SQLite implementation and `openAppDatabase()` / `openSqliteRepositories()`.
 - `repositories.contract.ts` — one behavioral test suite run against **both**

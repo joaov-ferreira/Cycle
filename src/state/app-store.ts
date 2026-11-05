@@ -5,13 +5,16 @@ import {
   DEFAULT_SETTINGS,
   InvalidReferenceOneRmError,
   ProfileNotFoundError,
+  SessionSlotNotFoundError,
   type OneRmOrigin,
   type Profile,
   type ProgramParamValues,
   type ReferenceOneRm,
   type Repositories,
   type RoundingSettings,
+  type SessionSlot,
   type Settings,
+  type StoredPeriodization,
   type SettingsPatch,
   type ThemeSetting,
 } from '@/data/repositories';
@@ -22,10 +25,25 @@ import {
   effectiveIncrement,
   type RoundingMode,
 } from '@/domain/rounding';
-import { validateProfileName, validateReferenceOneRm, type ProfileNameError } from '@/domain/validation';
+import {
+  activationIssues,
+  generatePeriodization,
+  validateSlot,
+  type ActivationIssue,
+  type RoundingConfig,
+  type SlotIssue,
+} from '@/domain/periodization';
+import { defaultSlotInput, moveItem, type SessionSlotInput } from '@/domain/session-slots';
+import {
+  validateIsoDate,
+  validateProfileName,
+  validateReferenceOneRm,
+  type IsoDateError,
+  type ProfileNameError,
+} from '@/domain/validation';
 import type { LanguageSetting } from '@/i18n/locale';
 import { resolveParamValues, validateParamValue, type ParamValueError } from '@/programs/params';
-import { findTemplate } from '@/programs/registry';
+import { findTemplate, listTemplates } from '@/programs/registry';
 
 export type AppStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -46,6 +64,32 @@ export class InvalidProgramParamError extends Error {
   constructor(readonly reason: ParamValueError | 'unknownParam') {
     super(`Invalid program parameter: ${reason}`);
     this.name = 'InvalidProgramParamError';
+  }
+}
+
+/** Thrown for a session slot that does not fit its program (SPEC §4.1). */
+export class InvalidSessionSlotError extends Error {
+  readonly code = 'INVALID_SESSION_SLOT';
+  constructor(readonly reason: SlotIssue) {
+    super(`Invalid session slot: ${reason}`);
+    this.name = 'InvalidSessionSlotError';
+  }
+}
+
+/** Thrown when the current configuration cannot be activated; `issues` are the reasons. */
+export class PeriodizationNotReadyError extends Error {
+  readonly code = 'PERIODIZATION_NOT_READY';
+  constructor(readonly issues: ActivationIssue[]) {
+    super(`Periodization cannot be activated: ${issues.join(', ')}`);
+    this.name = 'PeriodizationNotReadyError';
+  }
+}
+
+export class InvalidStartDateError extends Error {
+  readonly code = 'INVALID_START_DATE';
+  constructor(readonly reason: IsoDateError) {
+    super(`Invalid start date: ${reason}`);
+    this.name = 'InvalidStartDateError';
   }
 }
 
@@ -89,6 +133,24 @@ export type AppState = {
   setProgramParam: (templateId: string, paramId: string, value: number) => Promise<void>;
   /** Restores every parameter of a template to its default. */
   resetProgramParams: (templateId: string) => Promise<void>;
+  /** The active profile's session slots, in session order (SPEC §4.1). */
+  sessionSlots: SessionSlot[];
+  /** Appends a slot for `lift` with its first program, day 1 and start week 1. */
+  addSessionSlot: (lift: Lift) => Promise<void>;
+  /** Replaces a slot's choices. Throws `InvalidSessionSlotError` when they do not fit the program. */
+  updateSessionSlot: (id: number, input: SessionSlotInput) => Promise<void>;
+  /** Inserts a copy right below the slot. */
+  duplicateSessionSlot: (id: number) => Promise<void>;
+  removeSessionSlot: (id: number) => Promise<void>;
+  /** Moves a slot one position up (−1) or down (+1); no-op at the edges. */
+  moveSessionSlot: (id: number, offset: -1 | 1) => Promise<void>;
+  /** The latest activated periodization (snapshot), or null. */
+  activePeriodization: StoredPeriodization | null;
+  /**
+   * Freezes the current periodization with a start date (`YYYY-MM-DD`). Throws
+   * `InvalidStartDateError` or `PeriodizationNotReadyError`; earlier activations are kept.
+   */
+  activatePeriodization: (startDate: string) => Promise<void>;
 };
 
 export type AppStore = StoreApi<AppState>;
@@ -119,14 +181,27 @@ export function createAppStore(repos: Repositories): AppStore {
 
     /** Loads everything belonging to `profile` in one go, so state never mixes profiles. */
     async function loadProfile(profile: Profile) {
-      const [profiles, settings, oneRmHistory, rounding, programParams] = await Promise.all([
-        repos.profiles.list(),
-        repos.settings.get(profile.id),
-        repos.referenceOneRms.listHistory(profile.id),
-        repos.rounding.get(profile.id),
-        repos.programParams.getAll(profile.id),
-      ]);
-      set({ status: 'ready', profile, profiles, settings, oneRmHistory, rounding, programParams });
+      const [profiles, settings, oneRmHistory, rounding, programParams, sessionSlots, activePeriodization] =
+        await Promise.all([
+          repos.profiles.list(),
+          repos.settings.get(profile.id),
+          repos.referenceOneRms.listHistory(profile.id),
+          repos.rounding.get(profile.id),
+          repos.programParams.getAll(profile.id),
+          repos.sessionSlots.list(profile.id),
+          repos.periodizations.getLatest(profile.id),
+        ]);
+      set({
+        status: 'ready',
+        profile,
+        profiles,
+        settings,
+        oneRmHistory,
+        rounding,
+        programParams,
+        sessionSlots,
+        activePeriodization,
+      });
     }
 
     async function saveReferenceOneRms(values: OneRmValues, origin: OneRmOrigin) {
@@ -149,6 +224,19 @@ export function createAppStore(repos: Repositories): AppStore {
       return changed.length;
     }
 
+    function checkedSlot(input: SessionSlotInput): SessionSlotInput {
+      const issue = validateSlot(input, listTemplates());
+      if (issue) throw new InvalidSessionSlotError(issue);
+      return input;
+    }
+
+    function slotInput(id: number): { index: number; input: SessionSlotInput } {
+      const index = get().sessionSlots.findIndex((slot) => slot.id === id);
+      if (index < 0) throw new SessionSlotNotFoundError(id);
+      const { lift, templateId, programDay, startWeek } = get().sessionSlots[index];
+      return { index, input: { lift, templateId, programDay, startWeek } };
+    }
+
     return {
       status: 'idle',
       profile: null,
@@ -157,6 +245,8 @@ export function createAppStore(repos: Repositories): AppStore {
       oneRmHistory: [],
       rounding: null,
       programParams: {},
+      sessionSlots: [],
+      activePeriodization: null,
       async init(defaultProfileName) {
         set({ status: 'loading' });
         try {
@@ -217,8 +307,87 @@ export function createAppStore(repos: Repositories): AppStore {
         const profile = requireReady();
         set({ programParams: await repos.programParams.reset(profile.id, templateId) });
       },
+      async addSessionSlot(lift) {
+        const profile = requireReady();
+        const input = defaultSlotInput(lift, listTemplates());
+        if (!input) throw new InvalidSessionSlotError('liftNotAllowed');
+        set({ sessionSlots: await repos.sessionSlots.add(profile.id, input) });
+      },
+      async updateSessionSlot(id, input) {
+        const profile = requireReady();
+        set({ sessionSlots: await repos.sessionSlots.update(profile.id, id, checkedSlot(input)) });
+      },
+      async duplicateSessionSlot(id) {
+        const profile = requireReady();
+        const { index, input } = slotInput(id);
+        set({ sessionSlots: await repos.sessionSlots.add(profile.id, input, index + 1) });
+      },
+      async removeSessionSlot(id) {
+        const profile = requireReady();
+        set({ sessionSlots: await repos.sessionSlots.remove(profile.id, id) });
+      },
+      async moveSessionSlot(id, offset) {
+        const profile = requireReady();
+        const { index } = slotInput(id);
+        const ids = moveItem(
+          get().sessionSlots.map((slot) => slot.id),
+          index,
+          offset,
+        );
+        set({ sessionSlots: await repos.sessionSlots.reorder(profile.id, ids) });
+      },
+      async activatePeriodization(startDate) {
+        const profile = requireReady();
+        const invalidDate = validateIsoDate(startDate);
+        if (invalidDate) throw new InvalidStartDateError(invalidDate);
+        const state = get();
+        const config = {
+          slots: state.sessionSlots.map(({ id, lift, templateId, programDay, startWeek }) => ({
+            id,
+            lift,
+            templateId,
+            programDay,
+            startWeek,
+          })),
+          oneRms: currentOneRms(state),
+          rounding: roundingConfig(state),
+          params: state.programParams,
+        };
+        const periodization = generatePeriodization(
+          config.slots,
+          listTemplates(),
+          config.oneRms,
+          config.rounding,
+          config.params,
+        );
+        const issues = activationIssues(periodization);
+        if (issues.length > 0) throw new PeriodizationNotReadyError(issues);
+        const activePeriodization = await repos.periodizations.create({
+          profileId: profile.id,
+          startDate: startDate.trim(),
+          config,
+          sessions: periodization.weeks.flatMap((week) => week.sessions),
+        });
+        set({ activePeriodization });
+      },
     };
   });
+}
+
+/** Current reference 1RM per lift (lifts never entered are absent). */
+export function currentOneRms(state: Pick<AppState, 'oneRmHistory'>): Partial<Record<Lift, number>> {
+  const values: Partial<Record<Lift, number>> = {};
+  for (const record of state.oneRmHistory) values[record.lift] ??= record.value;
+  return values;
+}
+
+/** Rounding settings in effect (defaults until loaded). */
+export function roundingConfig(state: Pick<AppState, 'rounding'>): RoundingConfig {
+  return {
+    incrementKg: state.rounding?.incrementKg ?? DEFAULT_INCREMENT_KG,
+    mode: state.rounding?.mode ?? DEFAULT_ROUNDING_MODE,
+    liftIncrementsKg: { ...state.rounding?.liftIncrementsKg },
+  };
 }
 
 export const selectLanguageSetting = (state: AppState): LanguageSetting =>

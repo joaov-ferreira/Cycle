@@ -23,6 +23,7 @@ describe('registered migrations', () => {
       [3, 'profile_state'],
       [4, 'rounding'],
       [5, 'program_params'],
+      [6, 'periodization'],
     ]);
   });
 
@@ -31,7 +32,7 @@ describe('registered migrations', () => {
     const again = await runMigrations(db, migrations);
     expect(again.applied).toEqual([]);
     const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version', []);
-    expect(version).toEqual({ user_version: 5 });
+    expect(version).toEqual({ user_version: 6 });
   });
 });
 
@@ -213,5 +214,83 @@ describe('005_program_params', () => {
     await db.runAsync('INSERT INTO program_params VALUES (?, ?, ?, ?)', [1, 't', 'p', 0.8]);
     await db.runAsync('DELETE FROM profiles WHERE id = ?', [1]);
     expect(await db.getAllAsync('SELECT * FROM program_params', [])).toEqual([]);
+  });
+});
+
+describe('006_periodization', () => {
+  async function withProfile() {
+    const db = await migratedDb();
+    await db.runAsync('INSERT INTO profiles (name, created_at) VALUES (?, ?)', ['A', 'x']);
+    return db;
+  }
+
+  it('creates the slot, periodization and generated session tables', async () => {
+    const db = await migratedDb();
+    expect(await columns(db, 'session_slots')).toEqual([
+      'id',
+      'profile_id',
+      'position',
+      'lift',
+      'template_id',
+      'program_day',
+      'start_week',
+    ]);
+    expect(await columns(db, 'periodizations')).toEqual(['id', 'profile_id', 'start_date', 'created_at', 'config']);
+    expect(await columns(db, 'generated_sessions')).toEqual([
+      'id',
+      'periodization_id',
+      'block_week',
+      'session_number',
+      'payload',
+    ]);
+  });
+
+  it('constrains slot values', async () => {
+    const db = await withProfile();
+    const insert = (lift: string, day: number, week: number) =>
+      db.runAsync(
+        'INSERT INTO session_slots (profile_id, position, lift, template_id, program_day, start_week) VALUES (?, ?, ?, ?, ?, ?)',
+        [1, 0, lift, 't', day, week],
+      );
+    await insert('bench', 1, 1);
+    await expect(insert('curl', 1, 1)).rejects.toThrow(/CHECK constraint failed/);
+    await expect(insert('bench', 0, 1)).rejects.toThrow(/CHECK constraint failed/);
+    await expect(insert('bench', 1, 0)).rejects.toThrow(/CHECK constraint failed/);
+  });
+
+  it('keeps one generated session per block week and session number', async () => {
+    const db = await withProfile();
+    await db.runAsync(
+      'INSERT INTO periodizations (profile_id, start_date, created_at, config) VALUES (?, ?, ?, ?)',
+      [1, '2026-11-09', 'x', '{}'],
+    );
+    const insert = (week: number, n: number) =>
+      db.runAsync(
+        'INSERT INTO generated_sessions (periodization_id, block_week, session_number, payload) VALUES (?, ?, ?, ?)',
+        [1, week, n, '{}'],
+      );
+    await insert(1, 1);
+    await expect(insert(1, 1)).rejects.toThrow(/UNIQUE constraint failed/);
+    await expect(insert(4, 1)).rejects.toThrow(/CHECK constraint failed/);
+  });
+
+  it('deletes slots, periodizations and their sessions with the profile', async () => {
+    const db = await withProfile();
+    await db.runAsync(
+      'INSERT INTO session_slots (profile_id, position, lift, template_id, program_day, start_week) VALUES (?, ?, ?, ?, ?, ?)',
+      [1, 0, 'squat', 't', 1, 1],
+    );
+    await db.runAsync(
+      'INSERT INTO periodizations (profile_id, start_date, created_at, config) VALUES (?, ?, ?, ?)',
+      [1, '2026-11-09', 'x', '{}'],
+    );
+    await db.runAsync(
+      'INSERT INTO generated_sessions (periodization_id, block_week, session_number, payload) VALUES (?, ?, ?, ?)',
+      [1, 1, 1, '{}'],
+    );
+    await db.runAsync('DELETE FROM profiles WHERE id = ?', [1]);
+    expect(await db.getAllAsync('SELECT * FROM session_slots', [])).toEqual([]);
+    expect(await db.getAllAsync('SELECT * FROM periodizations', [])).toEqual([]);
+    expect(await db.getAllAsync('SELECT * FROM generated_sessions', [])).toEqual([]);
   });
 });

@@ -11,6 +11,8 @@
   `rounding/` — `IncrementPicker` (presets and custom increment).
 - `programs/` — Programs screen (list), program detail, original-structure view and the
   percentage editor.
+- `periodization/` — Periodization screen: session-slot editor, warnings, the responsive
+  three-week table (weeks side by side at ≥ 900 px, a week toggle on phones) and activation.
 - `navigation/` — main tabs and the wide-screen sidebar.
 
 Rules:

@@ -4,7 +4,15 @@ import { validateReferenceOneRm } from '@/domain/validation';
 
 import type { SqlDatabase } from '../database';
 import {
+  assertPermutation,
   assertValidIncrement,
+  assertValidSlotInput,
+  assertValidStartDate,
+  SessionSlotNotFoundError,
+  type PeriodizationConfig,
+  type SessionSlot,
+  type StoredGeneratedSession,
+  type StoredPeriodization,
   DEFAULT_ROUNDING,
   InvalidReferenceOneRmError,
   ProfileNotFoundError,
@@ -67,6 +75,36 @@ const SETTINGS_COLUMNS: Record<keyof SettingsPatch, string> = {
   onboardingCompleted: 'onboarding_completed',
 };
 
+type SlotRow = {
+  id: number;
+  profile_id: number;
+  position: number;
+  lift: Lift;
+  template_id: string;
+  program_day: number;
+  start_week: number;
+};
+const toSlot = (row: SlotRow): SessionSlot => ({
+  id: row.id,
+  profileId: row.profile_id,
+  lift: row.lift,
+  templateId: row.template_id,
+  programDay: row.program_day,
+  startWeek: row.start_week,
+});
+
+type PeriodizationRow = { id: number; profile_id: number; start_date: string; created_at: string; config: string };
+const toPeriodization = (row: PeriodizationRow): StoredPeriodization => ({
+  id: row.id,
+  profileId: row.profile_id,
+  startDate: row.start_date,
+  createdAt: row.created_at,
+  config: JSON.parse(row.config) as PeriodizationConfig,
+});
+const PERIODIZATION_COLUMNS = 'id, profile_id, start_date, created_at, config';
+
+type GeneratedRow = { id: number; periodization_id: number; payload: string };
+
 type RoundingRow = { increment_kg: number; rounding_mode: RoundingMode };
 type ParamRow = { template_id: string; param_id: string; value: number };
 type OverrideRow = { lift: Lift; increment_kg: number };
@@ -124,6 +162,29 @@ export function createSqliteRepositories(
       values[row.template_id] = { ...values[row.template_id], [row.param_id]: row.value };
     }
     return values;
+  }
+
+  async function listSlots(profileId: number): Promise<SessionSlot[]> {
+    await requireProfile(profileId);
+    const rows = await db.getAllAsync<SlotRow>(
+      `SELECT id, profile_id, position, lift, template_id, program_day, start_week FROM session_slots
+       WHERE profile_id = ? ORDER BY position, id`,
+      [profileId],
+    );
+    return rows.map(toSlot);
+  }
+
+  async function slotPosition(profileId: number, id: number): Promise<number> {
+    const index = (await listSlots(profileId)).findIndex((slot) => slot.id === id);
+    if (index < 0) throw new SessionSlotNotFoundError(id);
+    return index;
+  }
+
+  /** Rewrites positions 0..n-1 in the given order. */
+  async function writeOrder(ids: readonly number[]) {
+    for (const [position, id] of ids.entries()) {
+      await db.runAsync('UPDATE session_slots SET position = ? WHERE id = ?', [position, id]);
+    }
   }
 
   return {
@@ -289,6 +350,104 @@ export function createSqliteRepositories(
           templateId,
         ]);
         return getParams(profileId);
+      },
+    },
+    sessionSlots: {
+      list: listSlots,
+      async add(profileId, input, index) {
+        const ids = (await listSlots(profileId)).map((slot) => slot.id);
+        assertValidSlotInput(input);
+        const at = index === undefined || index < 0 || index > ids.length ? ids.length : index;
+        await db.withTransactionAsync(async () => {
+          const result = await db.runAsync(
+            `INSERT INTO session_slots (profile_id, position, lift, template_id, program_day, start_week)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [profileId, at, input.lift, input.templateId, input.programDay, input.startWeek],
+          );
+          ids.splice(at, 0, result.lastInsertRowId);
+          await writeOrder(ids);
+        });
+        return listSlots(profileId);
+      },
+      async update(profileId, id, input) {
+        await slotPosition(profileId, id);
+        assertValidSlotInput(input);
+        await db.runAsync(
+          `UPDATE session_slots SET lift = ?, template_id = ?, program_day = ?, start_week = ?
+           WHERE id = ? AND profile_id = ?`,
+          [input.lift, input.templateId, input.programDay, input.startWeek, id, profileId],
+        );
+        return listSlots(profileId);
+      },
+      async remove(profileId, id) {
+        await slotPosition(profileId, id);
+        await db.withTransactionAsync(async () => {
+          await db.runAsync('DELETE FROM session_slots WHERE id = ? AND profile_id = ?', [id, profileId]);
+          await writeOrder((await listSlots(profileId)).map((slot) => slot.id));
+        });
+        return listSlots(profileId);
+      },
+      async reorder(profileId, ids) {
+        assertPermutation(
+          (await listSlots(profileId)).map((slot) => slot.id),
+          ids,
+        );
+        await db.withTransactionAsync(() => writeOrder(ids));
+        return listSlots(profileId);
+      },
+    },
+    periodizations: {
+      async create({ profileId, startDate, config, sessions }) {
+        await requireProfile(profileId);
+        assertValidStartDate(startDate);
+        const createdAt = clock().toISOString();
+        let id = 0;
+        await db.withTransactionAsync(async () => {
+          const result = await db.runAsync(
+            'INSERT INTO periodizations (profile_id, start_date, created_at, config) VALUES (?, ?, ?, ?)',
+            [profileId, startDate, createdAt, JSON.stringify(config)],
+          );
+          id = result.lastInsertRowId;
+          for (const session of sessions) {
+            await db.runAsync(
+              `INSERT INTO generated_sessions (periodization_id, block_week, session_number, payload)
+               VALUES (?, ?, ?, ?)`,
+              [id, session.blockWeek, session.sessionNumber, JSON.stringify(session)],
+            );
+          }
+        });
+        return { id, profileId, startDate, createdAt, config: JSON.parse(JSON.stringify(config)) };
+      },
+      async getLatest(profileId) {
+        await requireProfile(profileId);
+        const row = await db.getFirstAsync<PeriodizationRow>(
+          `SELECT ${PERIODIZATION_COLUMNS} FROM periodizations WHERE profile_id = ? ORDER BY id DESC LIMIT 1`,
+          [profileId],
+        );
+        return row ? toPeriodization(row) : null;
+      },
+      async list(profileId) {
+        await requireProfile(profileId);
+        const rows = await db.getAllAsync<PeriodizationRow>(
+          `SELECT ${PERIODIZATION_COLUMNS} FROM periodizations WHERE profile_id = ? ORDER BY id DESC`,
+          [profileId],
+        );
+        return rows.map(toPeriodization);
+      },
+      async listSessions(profileId, periodizationId): Promise<StoredGeneratedSession[]> {
+        await requireProfile(profileId);
+        const rows = await db.getAllAsync<GeneratedRow>(
+          `SELECT g.id, g.periodization_id, g.payload FROM generated_sessions g
+           JOIN periodizations p ON p.id = g.periodization_id
+           WHERE p.profile_id = ? AND g.periodization_id = ?
+           ORDER BY g.block_week, g.session_number`,
+          [profileId, periodizationId],
+        );
+        return rows.map((row) => ({
+          id: row.id,
+          periodizationId: row.periodization_id,
+          session: JSON.parse(row.payload),
+        }));
       },
     },
   };

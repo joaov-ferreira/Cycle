@@ -1,11 +1,12 @@
-import { PlaceholderScreen } from '@/components/placeholder-screen';
+import { useRouter } from 'expo-router';
 
-export default function PeriodizationScreen() {
+import { PeriodizationScreen } from '@/components/periodization/periodization-screen';
+
+export default function PeriodizationRoute() {
+  const router = useRouter();
   return (
-    <PlaceholderScreen
-      id="periodization"
-      title="screens.periodization.title"
-      description="screens.periodization.placeholder"
+    <PeriodizationScreen
+      onOpenProgram={(id) => router.push({ pathname: '/programs/[id]', params: { id } })}
     />
   );
 }

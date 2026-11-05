@@ -34,7 +34,14 @@ adds the program database and the Programs screen (More → Programs): each temp
 its version, source, duration, frequency and verification badge, and a detail view with the
 full original structure week by week. The first template is the custom 5/3/1 (3 sets of
 5 / 3 / 1 reps at 75 / 85 / 95 % by default); its three percentages can be edited per
-profile (30–105 % in 0.5 % steps). Features
+profile (30–105 % in 0.5 % steps). Stage 5 adds the periodization generator (Periodization
+tab): build the week's sessions (add, duplicate, remove, reorder with ↑/↓; choose the lift,
+the program, the program day and the block's starting week), and the three-week table shows
+every set as `sets × reps @ %` with the exact and the rounded load (`119.0 kg → 120.0 kg`),
+volume (tonnage and reps) per session, week and lift, and warnings (missing 1RM, incomplete
+program frequency, unverified data, invalid sessions). Any change to sessions, 1RMs, increments
+or program percentages updates the table immediately. "Activate periodization" saves a
+snapshot with a start date; later edits do not change it. Features
 are built stage by stage; the current state of each stage is in the status table of
 [`docs/PLAN.md`](docs/PLAN.md).
 
@@ -83,6 +90,15 @@ one omits its source or version), the `registry.ts` (list, find by id, filter by
 fewer at the end of the program) and `params.ts` (configurable parameters such as the 5/3/1
 percentages, with their allowed range). Parameter values chosen by the athlete are stored
 per profile in `program_params`; the template defaults apply until one is saved.
+
+The periodization generator (SPEC §4) is `generatePeriodization(slots, templates, 1RMs,
+rounding, params)` in `src/domain/periodization.ts`: pure and synchronous (a test checks that 10 sessions take
+less than 50 ms), computing `1RM × percent (+ addKg)` in integer micrograms and rounding with
+`roundLoad`. Sets without a confirmed percentage, or whose lift has no 1RM, get no load ("—").
+Warnings are codes that the UI translates. The store exposes it through the memoized
+`selectPeriodization` (`src/state/periodization-selectors.ts`). Session slots are stored per
+profile in `session_slots`; activated periodizations in `periodizations` (configuration
+snapshot) and `generated_sessions` (one JSON snapshot per session).
 
 Supporting folders: `src/constants/theme.ts` (design tokens) and `src/test-utils/`
 (test-only helpers). Each layer has a `README.md` describing its contents and dependency
