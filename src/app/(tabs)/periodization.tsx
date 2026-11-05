@@ -7,6 +7,7 @@ export default function PeriodizationRoute() {
   return (
     <PeriodizationScreen
       onOpenProgram={(id) => router.push({ pathname: '/programs/[id]', params: { id } })}
+      onOpenSession={(id) => router.push({ pathname: '/session/[id]', params: { id } })}
     />
   );
 }

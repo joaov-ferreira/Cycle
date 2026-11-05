@@ -47,7 +47,7 @@ When done, open the PR to main and update the stage status in PLAN.md within the
 | 3 | Increments and rounding | haiku | `feat/03-rounding` | ✅ |
 | 4 | Program database + custom 5/3/1 + Programs screen | sonnet | `feat/04-programs-531` | ✅ |
 | 5 | Periodization generator + three-week table | opus | `feat/05-periodization` | ✅ |
-| 6 | Calendar + session detail | sonnet | `feat/06-calendar` | ⬜ |
+| 6 | Calendar + session detail | sonnet | `feat/06-calendar` | ✅ |
 | 7 | Smolov Jr. | opus | `feat/07-smolov-jr` | ⬜ |
 | 8 | Smolov (full program, block selection) | opus | `feat/08-smolov` | ⬜ |
 | 9 | Sheiko (multiple templates) | opus | `feat/09-sheiko` | ⬜ |

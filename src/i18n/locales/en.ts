@@ -115,6 +115,17 @@ export const en = {
       remove: 'Remove',
       removeFor: 'Remove session {{number}}',
     },
+    view: {
+      label: 'View',
+      table: 'Table',
+      calendar: 'Calendar',
+    },
+    calendar: {
+      title: 'Calendar',
+      empty: 'Add a session to see the calendar.',
+      open: 'Week {{week}}, session {{number}}: {{lift}}, {{program}}',
+      setLoad: '{{line}} → {{load}}',
+    },
     table: {
       title: 'Three-week table',
       weekSelector: 'Week shown',
@@ -185,6 +196,15 @@ export const en = {
         invalidSlot: 'Fix the sessions that do not match their program.',
       },
     },
+  },
+  session: {
+    title: 'Session',
+    heading: 'Session {{number}} · Week {{week}}',
+    back: 'Back',
+    notFound: 'Session not found. It may have been removed from your periodization.',
+    prescription: 'Prescription',
+    volume: 'Volume',
+    unverifiedWarning: 'Some sets have unverified data. No load is calculated for them.',
   },
   common: {
     comingSoon: 'Coming soon',

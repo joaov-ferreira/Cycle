@@ -31,7 +31,7 @@ const summaries = () => screen.getAllByText(/ · 5\/3\/1 \(custom\)$/).map((node
 
 describe('PeriodizationScreen (en)', () => {
   it('starts empty and builds bench / squat / deadlift with the correct three-week table', async () => {
-    await renderInApp(<PeriodizationScreen onOpenProgram={() => {}} />, { seed: seedOneRms(SPEC_1RMS) });
+    await renderInApp(<PeriodizationScreen onOpenProgram={() => {}} onOpenSession={() => {}} />, { seed: seedOneRms(SPEC_1RMS) });
     expect(await screen.findByText('No sessions yet. Add one to start your periodization.')).toBeOnTheScreen();
 
     await addSession();
@@ -64,7 +64,7 @@ describe('PeriodizationScreen (en)', () => {
   it('recalculates the table when a 1RM is edited in Settings', async () => {
     await renderInApp(
       <>
-        <PeriodizationScreen onOpenProgram={() => {}} />
+        <PeriodizationScreen onOpenProgram={() => {}} onOpenSession={() => {}} />
         <SettingsScreen />
       </>,
       { seed: seedOneRms(SPEC_1RMS) },
@@ -78,7 +78,7 @@ describe('PeriodizationScreen (en)', () => {
   });
 
   it('reorders, duplicates and removes sessions; the session number follows the order', async () => {
-    const { repos, profileId } = await renderInApp(<PeriodizationScreen onOpenProgram={() => {}} />, {
+    const { repos, profileId } = await renderInApp(<PeriodizationScreen onOpenProgram={() => {}} onOpenSession={() => {}} />, {
       seed: seedOneRms(SPEC_1RMS),
     });
     await addSession();
@@ -100,14 +100,14 @@ describe('PeriodizationScreen (en)', () => {
 
   it('opens the program settings', async () => {
     const onOpenProgram = jest.fn();
-    await renderInApp(<PeriodizationScreen onOpenProgram={onOpenProgram} />, { seed: seedOneRms(SPEC_1RMS) });
+    await renderInApp(<PeriodizationScreen onOpenProgram={onOpenProgram} onOpenSession={() => {}} />, { seed: seedOneRms(SPEC_1RMS) });
     await addSession();
     await fireEvent.press(await screen.findByRole('button', { name: 'Open the settings of 5/3/1 (custom)' }));
     expect(onOpenProgram).toHaveBeenCalledWith('cycle-531-custom');
   });
 
   it('warns about a missing 1RM and blocks activation until it is entered', async () => {
-    const { repos, profileId } = await renderInApp(<PeriodizationScreen onOpenProgram={() => {}} />, {
+    const { repos, profileId } = await renderInApp(<PeriodizationScreen onOpenProgram={() => {}} onOpenSession={() => {}} />, {
       seed: seedOneRms({ bench: 100 }),
     });
     await addSession();
@@ -120,7 +120,7 @@ describe('PeriodizationScreen (en)', () => {
   });
 
   it('activates the periodization with a start date and shows it as active', async () => {
-    const { repos, profileId } = await renderInApp(<PeriodizationScreen onOpenProgram={() => {}} />, {
+    const { repos, profileId } = await renderInApp(<PeriodizationScreen onOpenProgram={() => {}} onOpenSession={() => {}} />, {
       seed: seedOneRms(SPEC_1RMS),
     });
     expect(await screen.findByText('No periodization activated yet.')).toBeOnTheScreen();
@@ -144,7 +144,7 @@ describe('PeriodizationScreen (en)', () => {
 
 describe('PeriodizationScreen (pt-BR)', () => {
   it('renders labels, warnings and loads in Portuguese', async () => {
-    await renderInApp(<PeriodizationScreen onOpenProgram={() => {}} />, {
+    await renderInApp(<PeriodizationScreen onOpenProgram={() => {}} onOpenSession={() => {}} />, {
       language: 'pt-BR',
       seed: seedOneRms({ bench: 100 }),
     });
@@ -157,5 +157,67 @@ describe('PeriodizationScreen (pt-BR)', () => {
     expect(
       await screen.findByText('Informe seu 1RM de Agachamento nas Configurações para calcular as cargas.'),
     ).toBeOnTheScreen();
+  });
+});
+
+describe('PeriodizationScreen — Table | Calendar', () => {
+  it('toggles between the table and the calendar, keeping both in sync with the slots', async () => {
+    await renderInApp(<PeriodizationScreen onOpenProgram={() => {}} onOpenSession={() => {}} />, {
+      seed: seedOneRms(SPEC_1RMS),
+    });
+    await addSession();
+    await addSession();
+    await chooseLift(2, 'Squat');
+
+    // table is the default view
+    expect(await screen.findByRole('header', { name: 'Three-week table' })).toBeOnTheScreen();
+    expect(screen.queryByRole('header', { name: 'Calendar' })).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Calendar' }));
+    expect(await screen.findByRole('header', { name: 'Calendar' })).toBeOnTheScreen();
+    expect(screen.queryByRole('header', { name: 'Three-week table' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Week 1, session 1: Bench Press, 5/3/1 (custom)' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Week 3, session 2: Squat, 5/3/1 (custom)' })).toBeOnTheScreen();
+    // squat 140 × 0.95 = 133 → 132.5
+    expect(within(screen.getByTestId('calendar-card-2-w3')).getByText(kg('3 × 1 @ 95% → 132.5 kg'))).toBeOnTheScreen();
+
+    // editing a slot while the calendar is shown updates the calendar...
+    await chooseLift(1, 'Deadlift');
+    expect(
+      await screen.findByRole('button', { name: 'Week 2, session 1: Deadlift, 5/3/1 (custom)' }),
+    ).toBeOnTheScreen();
+    // deadlift 180 × 0.85 = 153 → 152.5
+    expect(within(screen.getByTestId('calendar-card-1-w2')).getByText(kg('3 × 3 @ 85% → 152.5 kg'))).toBeOnTheScreen();
+
+    // ...and the table shows the same change
+    await fireEvent.press(screen.getByRole('button', { name: 'Table' }));
+    expect(await screen.findByRole('header', { name: 'Three-week table' })).toBeOnTheScreen();
+    expect(screen.getByText('Deadlift · 5/3/1 (custom)')).toBeOnTheScreen();
+    expect(within(screen.getByTestId('cell-1-w1')).getByText(kg('135.0 kg → 135.0 kg'))).toBeOnTheScreen();
+  });
+
+  it('opens the session detail of the tapped card with its key', async () => {
+    const onOpenSession = jest.fn();
+    await renderInApp(<PeriodizationScreen onOpenProgram={() => {}} onOpenSession={onOpenSession} />, {
+      seed: seedOneRms(SPEC_1RMS),
+    });
+    await addSession();
+    await addSession();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Calendar' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Week 2, session 2: Bench Press, 5/3/1 (custom)' }));
+    expect(onOpenSession).toHaveBeenCalledTimes(1);
+    expect(onOpenSession).toHaveBeenCalledWith('2-w2');
+  });
+
+  it('labels the toggle in Portuguese', async () => {
+    await renderInApp(<PeriodizationScreen onOpenProgram={() => {}} onOpenSession={() => {}} />, {
+      language: 'pt-BR',
+      seed: seedOneRms(SPEC_1RMS),
+    });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Adicionar sessão' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Calendário' }));
+    expect(await screen.findByRole('header', { name: 'Calendário' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Tabela' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Semana 1, sessão 1: Supino, 5/3/1 (custom)' })).toBeOnTheScreen();
   });
 });

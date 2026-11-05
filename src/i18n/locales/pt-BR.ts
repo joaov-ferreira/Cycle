@@ -112,6 +112,17 @@ export const ptBR: Catalog = {
       remove: 'Remover',
       removeFor: 'Remover a sessão {{number}}',
     },
+    view: {
+      label: 'Visualização',
+      table: 'Tabela',
+      calendar: 'Calendário',
+    },
+    calendar: {
+      title: 'Calendário',
+      empty: 'Adicione uma sessão para ver o calendário.',
+      open: 'Semana {{week}}, sessão {{number}}: {{lift}}, {{program}}',
+      setLoad: '{{line}} → {{load}}',
+    },
     table: {
       title: 'Tabela de três semanas',
       weekSelector: 'Semana exibida',
@@ -182,6 +193,15 @@ export const ptBR: Catalog = {
         invalidSlot: 'Corrija as sessões que não correspondem ao programa.',
       },
     },
+  },
+  session: {
+    title: 'Sessão',
+    heading: 'Sessão {{number}} · Semana {{week}}',
+    back: 'Voltar',
+    notFound: 'Sessão não encontrada. Ela pode ter sido removida da sua periodização.',
+    prescription: 'Prescrição',
+    volume: 'Volume',
+    unverifiedWarning: 'Algumas séries têm dados não verificados. Nenhuma carga é calculada para elas.',
   },
   common: {
     comingSoon: 'Em breve',

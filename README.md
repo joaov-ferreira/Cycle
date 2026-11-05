@@ -41,7 +41,11 @@ every set as `sets × reps @ %` with the exact and the rounded load (`119.0 kg �
 volume (tonnage and reps) per session, week and lift, and warnings (missing 1RM, incomplete
 program frequency, unverified data, invalid sessions). Any change to sessions, 1RMs, increments
 or program percentages updates the table immediately. "Activate periodization" saves a
-snapshot with a start date; later edits do not change it. Features
+snapshot with a start date; later edits do not change it. Stage 6 adds a Table | Calendar toggle to
+the Periodization tab: the calendar is a week × session grid of cards (lift, program and a set
+summary with the rounded load), and tapping a card opens the session detail (`/session/[id]`) with
+every set (`exact → rounded` load), volume, accessories, warnings and the program's version and
+source. Both views read the same selector, so they always agree. Features
 are built stage by stage; the current state of each stage is in the status table of
 [`docs/PLAN.md`](docs/PLAN.md).
 
@@ -98,7 +102,8 @@ less than 50 ms), computing `1RM × percent (+ addKg)` in integer micrograms and
 Warnings are codes that the UI translates. The store exposes it through the memoized
 `selectPeriodization` (`src/state/periodization-selectors.ts`). Session slots are stored per
 profile in `session_slots`; activated periodizations in `periodizations` (configuration
-snapshot) and `generated_sessions` (one JSON snapshot per session).
+snapshot) and `generated_sessions` (one JSON snapshot per session). The session detail route
+(`/session/<slotId>-w<blockWeek>`) shows a session of the live periodization.
 
 Supporting folders: `src/constants/theme.ts` (design tokens) and `src/test-utils/`
 (test-only helpers). Each layer has a `README.md` describing its contents and dependency

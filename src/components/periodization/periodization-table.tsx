@@ -4,17 +4,15 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { layout, spacing } from '@/constants/theme';
 import { LIFTS } from '@/domain/lifts';
 import type {
-  GeneratedMainItem,
   GeneratedSession,
-  GeneratedSet,
   Periodization,
   Volume,
 } from '@/domain/periodization';
 import { useI18n } from '@/i18n';
-import { pickLocalized } from '@/programs/localized';
 
 import { useTheme } from '../theme-provider';
 import { Card, SegmentedControl, Text } from '../ui';
+import { SessionItems, useSessionContext } from './session-prescription';
 
 const WEEKS = [1, 2, 3] as const;
 type WeekNumber = (typeof WEEKS)[number];
@@ -40,62 +38,11 @@ function useVolumeParams() {
   return (volume: Volume) => ({ tonnage: formatKg(volume.tonnageKg), count: volume.totalReps });
 }
 
-function SetLines({ set }: { set: GeneratedSet }) {
-  const { t, locale, formatKg, formatPercent } = useI18n();
-  const params = {
-    sets: set.sets,
-    reps: set.reps,
-    percent: set.percent === null ? t('periodization.table.noLoad') : formatPercent(set.percent),
-  };
-  const line =
-    set.addKg === null
-      ? t('periodization.table.set', params)
-      : t('periodization.table.setWithAdd', { ...params, add: formatKg(set.addKg) });
-  return (
-    <View style={styles.set}>
-      <Text tabular>{set.amrap ? `${line} — ${t('periodization.table.amrap')}` : line}</Text>
-      {set.exactKg !== null && set.roundedKg !== null ? (
-        <Text tabular variant="label">
-          {t('periodization.table.load', { exact: formatKg(set.exactKg), rounded: formatKg(set.roundedKg) })}
-        </Text>
-      ) : (
-        <>
-          <Text variant="label">{t('periodization.table.noLoad')}</Text>
-          <Text variant="caption" tone="danger">
-            {set.load === 'missingOneRm' ? t('periodization.table.missingOneRm') : t('periodization.table.unverified')}
-          </Text>
-        </>
-      )}
-      {set.note ? (
-        <Text variant="caption" tone="secondary">
-          {pickLocalized(set.note, locale)}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
-function MainItemView({ item, sessionLift }: { item: GeneratedMainItem; sessionLift: GeneratedSession['lift'] }) {
-  const { t, locale } = useI18n();
-  return (
-    <View style={styles.set}>
-      {item.lift !== sessionLift ? <Text variant="label">{t(`lifts.${item.lift}`)}</Text> : null}
-      {item.sets.map((set, index) => (
-        <SetLines key={index} set={set} />
-      ))}
-      {item.note ? (
-        <Text variant="caption" tone="secondary">
-          {pickLocalized(item.note, locale)}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
 /** One session of one block week: program week/day, sets with exact → rounded loads, volume. */
 function SessionCell({ session, testID }: { session: GeneratedSession | null; testID: string }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const volume = useVolumeParams();
+  const sessionContext = useSessionContext();
   if (!session) {
     return (
       <View testID={testID} style={styles.cell}>
@@ -103,29 +50,12 @@ function SessionCell({ session, testID }: { session: GeneratedSession | null; te
       </View>
     );
   }
-  const parts = [t('periodization.table.programWeek', { week: session.programWeek })];
-  if (session.phase) parts.push(pickLocalized(session.phase, locale));
-  if (session.daysPerWeek > 1 || session.dayLabel) {
-    const day = t('periodization.table.day', { day: session.programDay });
-    parts.push(session.dayLabel ? `${day} — ${pickLocalized(session.dayLabel, locale)}` : day);
-  }
   return (
     <View testID={testID} style={styles.cell}>
       <Text variant="caption" tone="secondary">
-        {parts.join(' · ')}
+        {sessionContext(session)}
       </Text>
-      {session.items.map((item, index) =>
-        item.kind === 'main' ? (
-          <MainItemView key={index} item={item} sessionLift={session.lift} />
-        ) : (
-          <Text key={index}>
-            {t('programs.detail.accessory', {
-              name: pickLocalized(item.name, locale),
-              text: pickLocalized(item.text, locale),
-            })}
-          </Text>
-        ),
-      )}
+      <SessionItems session={session} />
       <Text variant="caption" tone="secondary" tabular>
         {t('periodization.table.volume', volume(session.volume))}
       </Text>
@@ -248,7 +178,6 @@ export function PeriodizationTable({ periodization }: { periodization: Periodiza
 
 const styles = StyleSheet.create({
   root: { gap: spacing.md },
-  set: { gap: spacing.xs / 2 },
   cell: { gap: spacing.sm },
   rowHeader: { gap: spacing.xs },
   grid: { padding: 0, gap: 0 },

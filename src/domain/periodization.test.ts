@@ -3,6 +3,7 @@ import type { ProgramTemplate } from '@/programs/schema';
 
 import {
   activationIssues,
+  findSession,
   generatePeriodization,
   validateSlot,
   type GeneratedMainItem,
@@ -576,5 +577,27 @@ describe('activationIssues', () => {
     );
     expect(result.warnings.map((w) => w.code)).toEqual(['partialBlock', 'incompleteFrequency']);
     expect(activationIssues(result)).toEqual([]);
+  });
+});
+
+describe('findSession', () => {
+  const result = generatePeriodization(
+    [slot({ id: 7 }), slot({ id: 9, lift: 'squat' })],
+    TEMPLATES,
+    { bench: 100, squat: 100 },
+    ROUND_2_5,
+    {},
+  );
+
+  it('finds a session by its key (<slotId>-w<blockWeek>)', () => {
+    expect(findSession(result, '9-w2')).toMatchObject({ key: '9-w2', slotId: 9, blockWeek: 2, sessionNumber: 2 });
+    expect(findSession(result, '7-w1')).toMatchObject({ slotId: 7, blockWeek: 1, sessionNumber: 1 });
+  });
+
+  it('returns null for unknown, malformed or removed keys', () => {
+    expect(findSession(result, '8-w1')).toBeNull();
+    expect(findSession(result, '7-w4')).toBeNull();
+    expect(findSession(result, 'abc')).toBeNull();
+    expect(findSession(result, '')).toBeNull();
   });
 });

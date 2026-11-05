@@ -351,3 +351,12 @@ export function activationIssues(periodization: Periodization): ActivationIssue[
   if (periodization.warnings.some((w) => w.code === 'invalidSlot')) issues.push('invalidSlot');
   return issues;
 }
+
+/** The session with the given key (`<slotId>-w<blockWeek>`), or null when there is none. */
+export function findSession(periodization: Periodization, key: string): GeneratedSession | null {
+  for (const week of periodization.weeks) {
+    const session = week.sessions.find((candidate) => candidate.key === key);
+    if (session) return session;
+  }
+  return null;
+}

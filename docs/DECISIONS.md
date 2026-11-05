@@ -276,3 +276,32 @@ the reference shipped with the installed package
   ("Program settings") instead of duplicating the editor.
 - **`Button.accessibilityLabel`.** Short visible labels (`↑`, `↓`, `−`, `+`) get a full accessible
   name ("Move session 2 up"), keeping the action row compact at phone width.
+
+## 2026-11-05 — Stage 6: Calendar + session detail
+
+- **Meaning of the session `id`.** `/session/[id]` takes the session key already produced by the
+  generator, `<slotId>-w<blockWeek>` (e.g. `2-w3`), and resolves it against the **live**
+  periodization (`selectPeriodization`), not against the activated snapshot. The table, the
+  calendar and the detail therefore share one data source and one id space, and an edit to a slot or
+  a 1RM is visible in the detail immediately (SPEC §6, §12.5). The key is stable while the slot
+  exists, but it is not a durable identity: removing the slot, or a start week that ends the
+  program, makes the key resolve to nothing. Activated snapshots (`generated_sessions`) are
+  addressed by their own rows; Stage 10 will link logged sessions to a snapshot and can add a
+  snapshot-based id form (e.g. `p<periodizationId>-<key>`) without changing this one.
+- **Unknown ids.** `findSession(periodization, key)` (pure, in `src/domain/periodization.ts`)
+  returns `null` for unknown, malformed, empty or removed keys; the screen then shows a localized
+  "Session not found" message with a Back button instead of throwing or redirecting.
+- **Views.** A `SegmentedControl` (Table | Calendar) in the Periodization screen switches the view;
+  the choice is local UI state (table by default) and not persisted. The calendar is one section
+  per block week with the sessions as wrapping cards (rows = weeks, one card per session), so it needs
+  no horizontal scroll at phone width and fills columns on wide screens. Each card is a single
+  button with a full accessible name ("Week 2, session 2: Squat, 5/3/1 (custom)") and shows the
+  lift, program and one line per set (`3 × 3 @ 85% → 120.0 kg`, `→ —` when no load exists).
+- **Shared rendering.** The set/accessory rendering moved from the table into
+  `session-prescription.tsx` and is reused by the detail; the program source block moved into
+  `programs/source-card.tsx` and is reused by the program detail. No behavior change in the table.
+  Accessory notes are now shown (table and detail) when the template provides one.
+- **Detail content.** Lift, program, verification badge, version, program week/phase/day,
+  prescription (every set with exact → rounded load, notes, AMRAP, unverified sets as "—"),
+  accessories, volume (plus per-lift volume when the session spans several lifts), session
+  warning codes translated, and the program source. Performance logging entry points are Stage 10.

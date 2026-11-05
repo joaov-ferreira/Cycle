@@ -7,16 +7,10 @@ import { selectProgramParamOverrides } from '@/state/app-store';
 import { useAppStore } from '@/state/app-store-context';
 
 import { Button, Card, Screen, Text } from '../ui';
+import { SourceCard } from './source-card';
 import { PercentConfig } from './percent-config';
 import { ProgramStructure } from './program-structure';
 import { VerificationBadge } from './verification-badge';
-
-const SOURCE_DATE: Intl.DateTimeFormatOptions = {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC',
-};
 
 export type ProgramDetailScreenProps = { templateId: string; onBack?: () => void };
 
@@ -25,7 +19,7 @@ export type ProgramDetailScreenProps = { templateId: string; onBack?: () => void
  * week by week and, for templates with configurable percentages, the profile's own values.
  */
 export function ProgramDetailScreen({ templateId, onBack }: ProgramDetailScreenProps) {
-  const { t, formatDate } = useI18n();
+  const { t } = useI18n();
   const template = findTemplate(templateId);
   const overrides = useAppStore(selectProgramParamOverrides(templateId));
   const values = useMemo(() => (template ? resolveParamValues(template, overrides) : {}), [template, overrides]);
@@ -41,7 +35,6 @@ export function ProgramDetailScreen({ templateId, onBack }: ProgramDetailScreenP
     );
   }
 
-  const { source } = template;
   return (
     <Screen title={template.name} testID="screen-program-detail">
       {back}
@@ -57,18 +50,7 @@ export function ProgramDetailScreen({ templateId, onBack }: ProgramDetailScreenP
         </Text>
         {template.liftSelectable ? <Text tone="secondary">{t('programs.detail.liftChoice')}</Text> : null}
       </Card>
-      <Card>
-        <Text variant="heading">{t('programs.detail.source')}</Text>
-        <Text tone="secondary">{t('programs.detail.author', { author: source.author })}</Text>
-        <Text tone="secondary">{t('programs.detail.reference', { reference: source.reference })}</Text>
-        {source.url ? <Text tone="secondary">{t('programs.detail.url', { url: source.url })}</Text> : null}
-        <Text tone="secondary">
-          {t('programs.detail.accessed', {
-            date: formatDate(new Date(`${source.accessedAt}T00:00:00Z`), SOURCE_DATE),
-          })}
-        </Text>
-        {source.notes ? <Text tone="secondary">{t('programs.detail.notes', { notes: source.notes })}</Text> : null}
-      </Card>
+      <SourceCard source={template.source} />
       <PercentConfig template={template} values={values} />
       <Text variant="heading">{t('programs.detail.structure')}</Text>
       <ProgramStructure template={resolved} />
