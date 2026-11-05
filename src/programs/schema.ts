@@ -63,6 +63,11 @@ export type SetPrescription = {
 export type MainItem = {
   kind: 'main';
   lift: Lift | 'selected';
+  /**
+   * Name of the variation when it is not the competition lift itself (e.g. "Deadlift from boxes").
+   * Percentages still refer to the competition 1RM of `lift`.
+   */
+  exercise?: LocalizedText;
   sets: SetPrescription[];
   note?: LocalizedText;
 };
@@ -80,6 +85,8 @@ export type AccessoryItem = {
  */
 export type InfoItem = {
   kind: 'info';
+  /** The lift the line belongs to, on days that train several lifts (filtered like main items). */
+  lift?: Lift;
   text: LocalizedText;
   unverified?: boolean;
   note?: LocalizedText;
@@ -95,6 +102,8 @@ export type ProgramTemplate = {
   id: string;
   family: ProgramFamily;
   name: string;
+  /** Short label that tells templates of the same family apart (e.g. "#29"). */
+  variant?: string;
   version: string;
   source: ProgramSource;
   verification: Verification;

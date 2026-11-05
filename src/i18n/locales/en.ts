@@ -52,6 +52,12 @@ export const en = {
     back: 'Back',
     intro: 'The original programs in the database, with their sources. Nothing here is calculated from your 1RMs.',
     open: 'Open {{name}}',
+    family: {
+      '531-custom': '5/3/1 (custom)',
+      'smolov-jr': 'Smolov Jr.',
+      smolov: 'Smolov',
+      sheiko: 'Sheiko',
+    },
     version: 'Version: {{version}}',
     duration: {
       one: '{{count}} week',
@@ -80,6 +86,7 @@ export const en = {
       day: 'Day {{day}}',
       selectedLift: 'Selected lift',
       accessory: 'Accessory: {{name}} — {{text}}',
+      liftExercise: '{{lift}} — {{exercise}}',
     },
     set: '{{sets}} × {{reps}} @ {{percent}}',
     setWithAdd: '{{sets}} × {{reps}} @ {{percent}} + {{add}}',
@@ -108,6 +115,7 @@ export const en = {
       title: 'Session {{number}}',
       lift: 'Lift for session {{number}}',
       program: 'Program for session {{number}}',
+      template: 'Template for session {{number}}',
       day: 'Program day for session {{number}}',
       dayOption: 'Day {{day}}',
       startWeek: 'Block starts at program week {{week}} of {{total}}',
@@ -151,6 +159,7 @@ export const en = {
       amrap: 'last set: as many reps as possible',
       load: '{{exact}} → {{rounded}}',
       noLoad: '—',
+      otherLifts: 'Other lifts this day (information, not calculated)',
       unverified: 'Unverified data: no load calculated',
       missingOneRm: 'No 1RM: no load calculated',
       volume: {
@@ -217,6 +226,8 @@ export const en = {
     prescription: 'Prescription',
     volume: 'Volume',
     unverifiedWarning: 'Some sets have unverified data. No load is calculated for them.',
+    liftNotInDayWarning:
+      'This program day has no work for this lift. The other lifts of the day are shown for information.',
   },
   common: {
     comingSoon: 'Coming soon',

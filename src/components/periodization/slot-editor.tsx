@@ -8,7 +8,8 @@ import { useI18n } from '@/i18n';
 import { maxBlockStartWeek } from '@/programs/blocks';
 import { pickLocalized } from '@/programs/localized';
 import type { ParamValues } from '@/programs/params';
-import type { ConfigurableParam, ProgramTemplate } from '@/programs/schema';
+import { groupByFamily } from '@/programs/registry';
+import type { ConfigurableParam, ProgramFamily, ProgramTemplate } from '@/programs/schema';
 
 import { Button, Card, NumberInput, SegmentedControl, Text } from '../ui';
 
@@ -56,7 +57,8 @@ export function SlotEditor({
   const { t, locale, formatKg } = useI18n();
   const { id: _id, ...input } = slot;
   const template = templates.find((candidate) => candidate.id === slot.templateId);
-  const forLift = templates.filter((candidate) => candidate.allowedLifts.includes(slot.lift));
+  const families = groupByFamily(templates.filter((candidate) => candidate.allowedLifts.includes(slot.lift)));
+  const family = families.find((group) => group.family === template?.family);
   const maxStart = template ? maxBlockStartWeek(template) : 1;
   const kgParams = (template?.configurable ?? []).filter((param) => param.unit === 'kg');
   const kgRules = (param: ConfigurableParam) => ({
@@ -76,12 +78,27 @@ export function SlotEditor({
         value={slot.lift}
         onChange={(lift) => onChange(changeSlotLift(input, lift, templates))}
       />
-      <SegmentedControl
+      <SegmentedControl<ProgramFamily>
         label={t('periodization.slot.program', { number })}
-        options={forLift.map((candidate) => ({ value: candidate.id, label: candidate.name }))}
-        value={slot.templateId}
-        onChange={(templateId) => onChange(changeSlotTemplate(input, templateId, templates))}
+        options={families.map((group) => ({
+          value: group.family,
+          // a family with one template shows its name; one with several (Sheiko) its family name
+          label: group.templates.length === 1 ? group.templates[0].name : t(`programs.family.${group.family}`),
+        }))}
+        value={family?.family ?? ('' as ProgramFamily)}
+        onChange={(next) => {
+          const first = families.find((group) => group.family === next)?.templates[0];
+          if (first) onChange(changeSlotTemplate(input, first.id, templates));
+        }}
       />
+      {family && family.templates.length > 1 ? (
+        <SegmentedControl
+          label={t('periodization.slot.template', { number })}
+          options={family.templates.map((candidate) => ({ value: candidate.id, label: candidate.variant ?? candidate.name }))}
+          value={slot.templateId}
+          onChange={(templateId) => onChange(changeSlotTemplate(input, templateId, templates))}
+        />
+      ) : null}
       {template && template.daysPerWeek > 1 ? (
         <SegmentedControl
           label={t('periodization.slot.day', { number })}

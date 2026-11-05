@@ -39,7 +39,16 @@ function MainBlock({ item, values }: { item: MainItem; values: ParamValues }) {
   const { t, locale } = useI18n();
   return (
     <View style={{ gap: spacing.xs }}>
-      <Text variant="label">{item.lift === 'selected' ? t('programs.detail.selectedLift') : t(`lifts.${item.lift}`)}</Text>
+      <Text variant="label">
+        {item.lift === 'selected'
+          ? t('programs.detail.selectedLift')
+          : item.exercise
+            ? t('programs.detail.liftExercise', {
+                lift: t(`lifts.${item.lift}`),
+                exercise: pickLocalized(item.exercise, locale),
+              })
+            : t(`lifts.${item.lift}`)}
+      </Text>
       {item.sets.map((set, index) => (
         <SetLine key={index} set={set} values={values} />
       ))}

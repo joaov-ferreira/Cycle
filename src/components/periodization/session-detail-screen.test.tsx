@@ -123,7 +123,12 @@ const fake: ProgramTemplate = {
               { reps: 4, unverified: true, note: { en: 'Percentage illegible' } },
             ],
           },
-          { kind: 'main' as const, lift: 'squat' as const, sets: [{ reps: 6, percent: 0.5, repeat: 2 }] },
+          {
+            kind: 'main' as const,
+            lift: 'squat' as const,
+            exercise: { en: 'Front squat', 'pt-BR': 'Agachamento frontal' },
+            sets: [{ reps: 6, percent: 0.5, repeat: 2 }],
+          },
           {
             kind: 'accessory' as const,
             name: { en: 'Rows', 'pt-BR': 'Remadas' },
@@ -161,8 +166,7 @@ describe('SessionDetail', () => {
     expect(screen.getByText('Notes: Transcribed from a scan')).toBeOnTheScreen();
     // bench 100 × 0.7 = 70; 2 × 5 @ 70% → 70.0 kg
     expect(screen.getByText('2 × 5 @ 70%')).toBeOnTheScreen();
-    // (bench 70 and the fixed squat item 140 × 0.5 = 70 show the same load)
-    expect(screen.getAllByText(kg('70.0 kg → 70.0 kg'))).toHaveLength(2);
+    expect(screen.getAllByText(kg('70.0 kg → 70.0 kg'))).toHaveLength(1);
     // unverified set: no load, with the note and the explanation
     expect(screen.getByText('1 × 4 @ —')).toBeOnTheScreen();
     expect(screen.getByText('Percentage illegible')).toBeOnTheScreen();
@@ -170,7 +174,12 @@ describe('SessionDetail', () => {
     expect(
       screen.getByText('Some sets have unverified data. No load is calculated for them.'),
     ).toBeOnTheScreen();
-    expect(screen.getByText('2 × 6 @ 50%')).toBeOnTheScreen();
+    // the squat item belongs to another lift of the day: information only, no load and no volume
+    const others = screen.getByTestId('other-lifts');
+    expect(within(others).getByText('Other lifts this day (information, not calculated)')).toBeOnTheScreen();
+    expect(within(others).getByText('Squat — Front squat')).toBeOnTheScreen();
+    expect(within(others).getByText('2 × 6 @ 50%')).toBeOnTheScreen();
+    expect(within(others).queryByText(/kg/)).toBeNull();
     // accessory with note
     expect(screen.getByText('Accessory: Rows — 3 x 10')).toBeOnTheScreen();
     expect(screen.getByText('Light')).toBeOnTheScreen();
@@ -178,10 +187,9 @@ describe('SessionDetail', () => {
     expect(screen.getByText('Speed work')).toBeOnTheScreen();
     expect(screen.getByText('Not confirmed')).toBeOnTheScreen();
     expect(screen.getByText('Unverified data')).toBeOnTheScreen();
-    // bench: 2 × 5 × 70 = 700 (+ 4 unverified reps); squat: 2 × 6 × 70 = 840; total 1,540, 26 reps
-    expect(screen.getByText(kg('Volume: 1,540.0 kg · 26 reps'))).toBeOnTheScreen();
-    expect(screen.getByText(kg('Bench Press: 700.0 kg · 14 reps'))).toBeOnTheScreen();
-    expect(screen.getByText(kg('Squat: 840.0 kg · 12 reps'))).toBeOnTheScreen();
+    // bench only: 2 × 5 × 70 = 700 (+ 4 unverified reps); one lift, so no per-lift lines
+    expect(screen.getByText(kg('Volume: 700.0 kg · 14 reps'))).toBeOnTheScreen();
+    expect(screen.queryByText(kg('Bench Press: 700.0 kg · 14 reps'))).toBeNull();
     const warnings = screen.getByTestId('session-warnings');
     expect(within(warnings).getAllByText(/unverified/i)).toHaveLength(1);
   });
@@ -195,5 +203,47 @@ describe('SessionDetail', () => {
     expect(screen.getByText('Não confirmado')).toBeOnTheScreen();
     expect(screen.getByText('Dados não verificados')).toBeOnTheScreen();
     expect(screen.getByText('Parcialmente verificado')).toBeOnTheScreen();
+    const others = screen.getByTestId('other-lifts');
+    expect(within(others).getByText('Outros levantamentos do dia (informação, sem cálculo)')).toBeOnTheScreen();
+    expect(within(others).getByText('Agachamento — Agachamento frontal')).toBeOnTheScreen();
+  });
+
+  it('shows the variation name of the slot lift and warns when the day has no work for it', async () => {
+    const squatSession = generatePeriodization(
+      [{ id: 6, lift: 'squat', templateId: 'fake', programDay: 1, startWeek: 1 }],
+      [fake],
+      { squat: 140 },
+      ROUND,
+      {},
+    ).weeks[0].sessions[0];
+    await renderInApp(<SessionDetail session={squatSession} template={fake} />);
+    // 140 × 0.5 = 70; the variation is named above its sets
+    expect(await screen.findByText('Front squat')).toBeOnTheScreen();
+    expect(screen.getByText(kg('70.0 kg → 70.0 kg'))).toBeOnTheScreen();
+    screen.unmount();
+
+    const deadliftDay: ProgramTemplate = {
+      ...fake,
+      allowedLifts: ['bench', 'squat', 'deadlift'],
+      weeks: fake.weeks.map((week) => ({
+        ...week,
+        days: [{ day: 1, items: [{ kind: 'main', lift: 'bench', sets: [{ reps: 3, percent: 0.8 }] }] }],
+      })),
+    };
+    const deadliftSession = generatePeriodization(
+      [{ id: 7, lift: 'deadlift', templateId: 'fake', programDay: 1, startWeek: 1 }],
+      [deadliftDay],
+      { deadlift: 180 },
+      ROUND,
+      {},
+    ).weeks[0].sessions[0];
+    await renderInApp(<SessionDetail session={deadliftSession} template={deadliftDay} />, { language: 'pt-BR' });
+    const warnings = await screen.findByTestId('session-warnings');
+    expect(
+      within(warnings).getByText(
+        'Este dia do programa não tem trabalho para este levantamento. Os outros levantamentos do dia aparecem como informação.',
+      ),
+    ).toBeOnTheScreen();
+    expect(within(screen.getByTestId('other-lifts')).getByText('1 × 3 @ 80%')).toBeOnTheScreen();
   });
 });

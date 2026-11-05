@@ -50,7 +50,7 @@ When done, open the PR to main and update the stage status in PLAN.md within the
 | 6 | Calendar + session detail | sonnet | `feat/06-calendar` | ✅ |
 | 7 | Smolov Jr. | opus | `feat/07-smolov-jr` | ✅ |
 | 8 | Smolov (full program, block selection) | opus | `feat/08-smolov` | ✅ |
-| 9 | Sheiko (multiple templates) | opus | `feat/09-sheiko` | ⬜ |
+| 9 | Sheiko (multiple templates) | opus | `feat/09-sheiko` | ✅ |
 | 10 | Performance tracking + RIR/RPE | sonnet | `feat/10-performance` | ⬜ |
 | 11 | e1RM engine + session estimate | opus | `feat/11-e1rm` | ⬜ |
 | 12 | Strength progression dashboard + charts | sonnet | `feat/12-progress` | ⬜ |

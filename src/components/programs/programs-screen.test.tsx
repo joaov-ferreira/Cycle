@@ -38,6 +38,26 @@ describe('ProgramsScreen (en)', () => {
     expect(card.getByText('Partially verified')).toBeOnTheScreen();
   });
 
+  it('groups the Sheiko templates under one heading, each with its source, duration, frequency and badge', async () => {
+    await renderInApp(<ProgramsScreen onOpen={() => {}} />);
+    const group = within(await screen.findByTestId('program-family-sheiko'));
+    expect(group.getByRole('header', { name: 'Sheiko' })).toBeOnTheScreen();
+    expect(group.getAllByRole('button').map((b) => b.props.accessibilityLabel)).toEqual([
+      'Open Sheiko #29',
+      'Open Sheiko #30',
+      'Open Sheiko #31',
+      'Open Sheiko #32',
+      'Open Sheiko #37',
+    ]);
+    const card = within(group.getByRole('button', { name: 'Open Sheiko #37' }));
+    expect(card.getByText(/^Reference: Lift Vault, “Sheiko Program Spreadsheets”/)).toBeOnTheScreen();
+    expect(card.getByText('4 weeks')).toBeOnTheScreen();
+    expect(card.getByText('3 sessions per week')).toBeOnTheScreen();
+    expect(card.getByText('Partially verified')).toBeOnTheScreen();
+    // single-template families have no group heading
+    expect(screen.queryByTestId('program-family-smolov-jr')).toBeNull();
+  });
+
   it('opens a program and goes back', async () => {
     const onOpen = jest.fn();
     const onBack = jest.fn();
@@ -65,6 +85,12 @@ describe('ProgramsScreen (pt-BR)', () => {
     expect(full.getByText('13 semanas')).toBeOnTheScreen();
     expect(full.getByText('Parcialmente verificado')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Voltar' })).toBeOnTheScreen();
+    const sheiko = within(screen.getByTestId('program-family-sheiko'));
+    expect(sheiko.getByRole('header', { name: 'Sheiko' })).toBeOnTheScreen();
+    const sheiko29 = within(sheiko.getByRole('button', { name: 'Abrir Sheiko #29' }));
+    expect(sheiko29.getByText('4 semanas')).toBeOnTheScreen();
+    expect(sheiko29.getByText('3 sessões por semana')).toBeOnTheScreen();
+    expect(sheiko29.getByText('Parcialmente verificado')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Abrir 5/3/1 (custom)' })).toBeOnTheScreen();
   });
 });

@@ -1,6 +1,8 @@
 import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { cycle531Custom } from '@/programs/data/cycle-531-custom';
+import { sheiko29 } from '@/programs/data/sheiko-29';
+import { sheiko37 } from '@/programs/data/sheiko-37';
 import { smolovJr } from '@/programs/data/smolov-jr';
 import type { ProgramTemplate } from '@/programs/schema';
 import { renderInApp } from '@/test-utils/render-app';
@@ -11,6 +13,7 @@ import { SlotEditor, type SlotEditorProps } from './slot-editor';
 const long: ProgramTemplate = {
   ...cycle531Custom,
   id: 'long',
+  family: 'smolov',
   name: 'Long program',
   configurable: [],
   durationWeeks: 6,
@@ -192,5 +195,46 @@ describe('SlotEditor: add all days of the program (SPEC §1.1)', () => {
     await setup({ slot: SMOLOV_SLOT, onAddAllDays: jest.fn() }, 'pt-BR');
     const button = await screen.findByRole('button', { name: 'Adicionar os dias que faltam de Smolov Jr. após a sessão 2' });
     expect(within(button).getByText('Adicionar todos os dias deste programa')).toBeOnTheScreen();
+  });
+});
+
+describe('SlotEditor: Sheiko templates (SPEC §3.3-D)', () => {
+  const SHEIKO_TEMPLATES = [cycle531Custom, smolovJr, sheiko29, sheiko37];
+  const SHEIKO_SLOT = { id: 4, lift: 'deadlift' as const, templateId: 'sheiko-29', programDay: 2, startWeek: 2 };
+
+  it('offers Sheiko once among the programs and its templates in a second selector', async () => {
+    await setup({ slot: SHEIKO_SLOT, templates: SHEIKO_TEMPLATES });
+    const programs = within(await screen.findByLabelText('Program for session 2'));
+    // Smolov Jr. is not a deadlift program
+    expect(programs.getAllByRole('button').map((b) => b.props.accessibilityLabel)).toEqual(['5/3/1 (custom)', 'Sheiko']);
+    expect(programs.getByRole('button', { name: 'Sheiko' })).toBeSelected();
+    const templates = within(screen.getByLabelText('Template for session 2'));
+    expect(templates.getAllByRole('button').map((b) => b.props.accessibilityLabel)).toEqual(['#29', '#37']);
+    expect(templates.getByRole('button', { name: '#29' })).toBeSelected();
+    expect(screen.getByRole('button', { name: 'Day 2' })).toBeSelected();
+    expect(screen.getByText('Block starts at program week 2 of 4')).toBeOnTheScreen();
+  });
+
+  it('switches template keeping the day and the start week', async () => {
+    const props = await setup({ slot: SHEIKO_SLOT, templates: SHEIKO_TEMPLATES });
+    await fireEvent.press(within(await screen.findByLabelText('Template for session 2')).getByRole('button', { name: '#37' }));
+    expect(props.onChange).toHaveBeenCalledWith({ lift: 'deadlift', templateId: 'sheiko-37', programDay: 2, startWeek: 2 });
+  });
+
+  it('choosing the Sheiko family picks its first template', async () => {
+    const props = await setup({
+      slot: { id: 4, lift: 'deadlift', templateId: 'cycle-531-custom', programDay: 1, startWeek: 1 },
+      templates: SHEIKO_TEMPLATES,
+    });
+    expect(screen.queryByLabelText('Template for session 2')).toBeNull();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Sheiko' }));
+    expect(props.onChange).toHaveBeenCalledWith({ lift: 'deadlift', templateId: 'sheiko-29', programDay: 1, startWeek: 1 });
+  });
+
+  it('is localized (pt-BR)', async () => {
+    await setup({ slot: SHEIKO_SLOT, templates: SHEIKO_TEMPLATES }, 'pt-BR');
+    expect(await screen.findByLabelText('Modelo da sessão 2')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Sheiko' })).toBeSelected();
+    expect(screen.getByRole('button', { name: 'Dia 2' })).toBeSelected();
   });
 });

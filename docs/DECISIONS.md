@@ -452,3 +452,101 @@ the reference shipped with the installed package
 - Non-blocking follow-ups: weekday labels for weeks 1–2 (week 1 Mon/Tue/Wed, week 2
   Mon/Wed/Fri per Tadlock/Hunt); disclose that non-squat intro work (lunges) is not
   transcribed.
+
+## 2026-11-05 — Stage 9: Sheiko (multiple templates)
+
+- **Sources consulted (all accessed 2026-11-05).** No primary text by B. Sheiko with the numbered
+  routines was located. The sheiko-program.ru forum, which the circulated spreadsheets cite, now serves
+  unrelated (gambling) content; PowerliftingToWin returned an Incapsula challenge page; Scribd uploads
+  did not render. Readable sources:
+  - **Adopted reference:** Lift Vault, "Sheiko Program Spreadsheets" (Google Sheets, linked from
+    https://liftvault.com/programs/powerlifting/sheiko-spreadsheets/,
+    https://docs.google.com/spreadsheets/d/1vBdL47glReiNALmFw1_ieRg6nMYaJ5OFlmidJ9nUNNM/edit), the
+    spreadsheet "Made by ChaseT 2008.05.09" with one tab per routine ("Monthly training plan #N": #29,
+    #30, #31, #32, #37, #39, #40). Each row is % / reps / sets, and the weight formula multiplies the %
+    by the squat, bench or deadlift max (variations included). It was exported as `.xlsx` and parsed
+    cell by cell, formulas included.
+  - Cross-check 1: Liftosaur, "Sheiko #29-32" (https://www.liftosaur.com/programs/sheiko-29-32), a
+    16-week program text (#29 = weeks 1–4 … #32 = weeks 13–16). It agrees with the adopted tabs on
+    every main-lift set of #29, #30 and #31 (36 days) and on #32 except one day (below). It replaces
+    some accessories (e.g. dumbbell bench instead of incline bench, chest fly instead of dumbbell fly)
+    and adds its own default weights, so accessories were taken from the spreadsheet.
+  - Cross-check 2: Lift Vault, "Sheiko 3 Day Under 80 kg" workbook (ChaseT format,
+    https://docs.google.com/spreadsheets/d/12VzUk4JAWHulBnYfJIo4-JUAEe9yBxD6F5hy1jw9eKk/edit), tabs
+    "#37" and "#32": identical to the adopted tabs on every main set and accessory.
+  - Seen but not used for data: Boostcamp "Sheiko Template #37" (community page, week 1 only; same
+    content, but the bench pyramid is merged and reordered); Jefit "Sheiko 37v2" (no percentages, a
+    different variant).
+- **Templates shipped:** `sheiko-29`, `sheiko-30`, `sheiko-31`, `sheiko-32`, `sheiko-37` (one file
+  each, `src/programs/data/sheiko-<number>.ts`, shared helpers in `sheiko-common.ts`), each 4 weeks ×
+  3 days (Monday / Wednesday / Friday, the spreadsheet's "1 / 3 / 5 day"), `allowedLifts` = all three,
+  verification `partial` (consistent secondary transcriptions, no primary source). **Not shipped:**
+  #39 and #40. Only the adopted spreadsheet has them; no second readable transcription was found.
+  Shipping fewer, cross-checked routines was preferred.
+- **Variants not mixed (SPEC §3.1 rule 2).** The under-80 kg workbook's "#30", the over-80 kg workbook's
+  "#31", "#37v2" and "#32v2" tabs are different programs (other bench and squat work, other set
+  counts), not transcriptions of the numbered routines. They were not used. A combined 16-week
+  "#29–#32" template (Liftosaur's layout) was not created; the four routines are separate templates
+  that can be run back to back.
+- **Discrepancy: #32 week 1 Wednesday (max-test day).** After the 90% single, the adopted spreadsheet
+  and the under-80 kg workbook give "100%-105% × 1 × 2-3" for each lift, and Liftosaur gives 3 × 1 @
+  100%. There is no single set count or percentage, so each lift has an unverified informational line
+  ("Max attempts: 2–3 singles at 100–105% of 1RM") with both readings in the note and no load. The sets
+  up to 90% are calculated. #32 week 4 has two training days and then "5-6-7 day: Competition"
+  ("Competition / Test" in the under-80 kg workbook), stored as day 3 with the label "Days 5–7" and an
+  informational line.
+- **Transcription details.** Rows with a formula on the lift's max are main items; rows without
+  are accessories (`kind: 'accessory'`, "5 sets × 10 reps", no weight, as in the source). The #31
+  squat ladders (reps "2,4,6,8,7,5,3" and "5,8,3,6,2,7,4" at 70%, one set each, as the volume column
+  confirms: 35 reps) are seven single sets in the source order. Accessory names follow the source
+  ("Press", "Triceps", "Abs" are not expanded); "Leg Press" / "Leg press" and "Incline Bench press"
+  are normalized in case only. Exercise numbering typo "1, 1, 3" in #32 week 4 Monday (present in both
+  spreadsheets) does not affect the order.
+- **Schema extensions.** `MainItem.exercise?: LocalizedText` names a variation (deadlift up to knees,
+  from boxes, deficit deadlift, front squat). Its percentages refer to the competition 1RM of `lift`
+  (SPEC §3.3-D), which is what the spreadsheet computes, so they are calculated and counted in that
+  lift's volume. `InfoItem.lift?: Lift` ties an informational line to one lift of a multi-lift day.
+  `ProgramTemplate.variant?: string` is the short label used inside a family ("#29"). The validator
+  rejects blank values and info lifts outside `allowedLifts`.
+- **Multi-lift days (engine).** A slot calculates only the items of its own lift (main items with that
+  lift or `selected`, lift-tied info lines). Main items and lift-tied info lines of other lifts go to
+  `GeneratedSession.otherItems` unchanged (the original prescription, no load, no volume, no
+  `missingOneRm` or `unverifiedData` warning for the slot). Accessories and info lines without a lift
+  stay in `items`. This replaces the Stage 5 behavior ("a fixed-lift item uses its own lift's 1RM")
+  for items of another lift. A Sheiko day trains up to three lifts, and calculating them all in every
+  slot would count the same work again in each lift's slot and require 1RMs for lifts the user does
+  not assign. When a day has items for other lifts only (e.g. a deadlift slot on #29 Monday), the
+  session gets the warning `liftNotInDay`. Activated snapshots saved before this stage have no
+  `otherItems`; readers (Stage 10) should treat it as empty.
+- **Frequency.** The existing `incompleteFrequency` rule (distinct days per template and lift versus
+  `daysPerWeek`) is kept: a deadlift slot on one Sheiko day reports "1 of 3". It is informational;
+  "Add all days of this program" adds the other two days, which show the deadlift work they contain
+  (or the `liftNotInDay` warning).
+- **UI.** The slot editor's program control lists one option per family (`groupByFamily`, registry):
+  a single-template family shows its template name, and a family with several templates shows its
+  localized family name ("Sheiko"). A second control "Template for session N" lists the variants
+  (#29 … #37). Choosing the family selects its first template; switching template keeps the day and
+  the start week (4-week templates: start week 1–2, partial blocks at 3–4 via `getBlock`). The
+  Programs screen groups the Sheiko templates under a "Sheiko" heading. Variation names are shown as
+  "Deadlift — Deadlift from boxes" (program structure, other-lift lines) or as the item label
+  (session views). Other lifts appear under "Other lifts this day (information, not calculated)"
+  in the table and the session detail; the calendar cards show the slot lift only.
+- **SPEC §13 Session 4.** Deadlift / Sheiko #29, day 2 (Wednesday: deadlift up to knees + deadlift
+  from boxes) is the reference configuration of `src/domain/sheiko-loads.test.ts`. It uses
+  hand-computed loads for deadlift 180 kg, 2.5 kg, nearest (e.g. week 1: 90, 107.5, 125, 135 / 100,
+  117.5, 135, 152.5 kg; tonnage 7,065 kg).
+- **Test method.** The data files were generated from the parsed adopted spreadsheet. The expected
+  day tables in `sheiko-<number>.test.ts` take their main-lift sets from the second transcription
+  (Liftosaur for #29–#31, the under-80 kg workbook for #32 and #37), so each data test compares the two
+  sources. The notation helper is `src/test-utils/program-notation.ts`.
+
+### Stage 9 — independent audit notes (orchestrator)
+
+- An independent reviewer exported every tab of the adopted workbook (ChaseT 2008 via
+  Lift Vault) and the "Under 80 kg" workbook as CSV and compared them programmatically
+  with the five templates (#29, #30, #31, #32, #37), all 12 days each, including
+  accessories and variation-to-lift attribution (checked by weight ÷ %): verdict ACCEPT,
+  no mismatches, nothing invented. The #32 week-1 max attempts as unverified info items
+  were confirmed as the right handling.
+- Minor wording: the Under-80 #37 tab orders one W1 Monday accessory differently; every
+  set agrees.

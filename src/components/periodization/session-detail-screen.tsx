@@ -30,7 +30,9 @@ function SessionWarnings({ warnings }: { warnings: readonly SessionWarning[] }) 
         <Text key={index} tone="danger">
           {warning.code === 'missingOneRm'
             ? t('periodization.warnings.missingOneRm', { lift: t(`lifts.${warning.lift}`) })
-            : t('session.unverifiedWarning')}
+            : warning.code === 'liftNotInDay'
+              ? t('session.liftNotInDayWarning')
+              : t('session.unverifiedWarning')}
         </Text>
       ))}
     </Card>

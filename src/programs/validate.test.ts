@@ -247,6 +247,44 @@ describe('validateTemplate', () => {
     ).toEqual(['verifiedWithUnverifiedData']);
   });
 
+  it('accepts an informational item tied to an allowed lift and rejects any other lift', () => {
+    const t = valid();
+    const withInfo = (lift: string): ProgramTemplate => ({
+      ...t,
+      weeks: [
+        { week: 1, days: [{ day: 1, items: [{ kind: 'info', lift, text: { en: 'Max attempts' } } as never] }, t.weeks[0].days[1]] },
+        t.weeks[1],
+      ],
+    });
+    expect(validateTemplate(withInfo('squat'))).toEqual([]);
+    expect(validateTemplate(withInfo('bench'))).toEqual([{ code: 'liftNotAllowed', path: 'weeks[0].days[0].items[0]' }]);
+    expect(codes(withInfo('selected'))).toEqual(['liftNotAllowed']);
+  });
+
+  it('accepts a named variation of a main lift and rejects a blank name', () => {
+    const t = valid();
+    const withExercise = (exercise: object): ProgramTemplate => ({
+      ...t,
+      weeks: [
+        {
+          week: 1,
+          days: [
+            { day: 1, items: [{ kind: 'main', lift: 'squat', exercise, sets: [{ reps: 3, percent: 0.6 }] } as never] },
+            t.weeks[0].days[1],
+          ],
+        },
+        t.weeks[1],
+      ],
+    });
+    expect(validateTemplate(withExercise({ en: 'Front squat', 'pt-BR': 'Agachamento frontal' }))).toEqual([]);
+    expect(validateTemplate(withExercise({ en: ' ' }))).toEqual([{ code: 'missingText', path: 'weeks[0].days[0].items[0]' }]);
+  });
+
+  it('accepts a short variant label and rejects a blank one', () => {
+    expect(validateTemplate({ ...valid(), variant: '#29' })).toEqual([]);
+    expect(validateTemplate({ ...valid(), variant: ' ' })).toEqual([{ code: 'missingVariant', path: 'variant' }]);
+  });
+
   describe('configurable parameters', () => {
     const param = { id: 'p', label: { en: 'P' }, unit: 'fraction' as const, min: 0.3, max: 1.05, step: 0.005, default: 0.7, source: 's' };
     const withParam = (p: object, set: object = { reps: 5, percent: 0.7, percentParam: 'p' }): ProgramTemplate => {

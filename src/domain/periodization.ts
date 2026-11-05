@@ -13,6 +13,7 @@ import type {
   InfoItem,
   LocalizedText,
   MainItem,
+  PrescriptionItem,
   ProgramTemplate,
   SetPrescription,
   Verification,
@@ -62,7 +63,14 @@ export type GeneratedSet = {
   note?: LocalizedText;
 };
 
-export type GeneratedMainItem = { kind: 'main'; lift: Lift; sets: GeneratedSet[]; note?: LocalizedText };
+export type GeneratedMainItem = {
+  kind: 'main';
+  lift: Lift;
+  /** Variation name when it is not the competition lift itself; percentages refer to `lift`'s 1RM. */
+  exercise?: LocalizedText;
+  sets: GeneratedSet[];
+  note?: LocalizedText;
+};
 
 export type GeneratedItem = GeneratedMainItem | AccessoryItem | InfoItem;
 
@@ -70,7 +78,17 @@ export type Volume = { tonnageKg: number; totalReps: number };
 
 export type VolumeByLift = Partial<Record<Lift, Volume>>;
 
-export type SessionWarning = { code: 'missingOneRm'; lift: Lift } | { code: 'unverifiedData' };
+/**
+ * `liftNotInDay`: the program day trains other lifts only (multi-lift days, e.g. Sheiko), so the
+ * slot's lift has nothing to calculate on it.
+ */
+export type SessionWarning =
+  | { code: 'missingOneRm'; lift: Lift }
+  | { code: 'unverifiedData' }
+  | { code: 'liftNotInDay' };
+
+/** A line of the day that belongs to another lift: shown as information, never calculated. */
+export type OtherLiftItem = (Omit<MainItem, 'lift'> & { lift: Lift }) | InfoItem;
 
 export type GeneratedSession = {
   /** Stable key: `<slotId>-w<blockWeek>`. */
@@ -90,7 +108,10 @@ export type GeneratedSession = {
   daysPerWeek: number;
   dayLabel?: LocalizedText;
   phase?: LocalizedText;
+  /** The slot lift's work (with loads), accessories and lines that belong to no particular lift. */
   items: GeneratedItem[];
+  /** The day's work for other lifts (multi-lift days), as the original prescribes it, without loads. */
+  otherItems: OtherLiftItem[];
   /** Tonnage (Σ reps × rounded load of the sets with a load) and every prescribed rep. */
   volume: Volume;
   volumeByLift: VolumeByLift;
@@ -191,9 +212,16 @@ function generateMain(item: MainItem, slotLift: Lift, ctx: Context): GeneratedMa
   return {
     kind: 'main',
     lift,
+    ...(item.exercise ? { exercise: item.exercise } : {}),
     sets: item.sets.map((set) => generateSet(set, lift, ctx)),
     ...(item.note ? { note: item.note } : {}),
   };
+}
+
+/** The lift an item belongs to: the slot lift for `selected`, none for accessories and general info lines. */
+function itemLift(item: PrescriptionItem, slotLift: Lift): Lift | undefined {
+  if (item.kind === 'main') return item.lift === 'selected' ? slotLift : item.lift;
+  return item.kind === 'info' ? item.lift : undefined;
 }
 
 /**
@@ -257,9 +285,19 @@ export function generatePeriodization(
 
     for (const { blockWeek, week } of block.weeks) {
       const day = week.days[slot.programDay - 1];
-      const items: GeneratedItem[] = day.items.map((item) =>
-        item.kind === 'main' ? generateMain(item, slot.lift, ctx) : item,
-      );
+      // Multi-lift days: only the slot lift's work is calculated; other lifts are information.
+      const items: GeneratedItem[] = [];
+      const otherItems: OtherLiftItem[] = [];
+      let ownLiftWork = false;
+      for (const item of day.items) {
+        const lift = itemLift(item, slot.lift);
+        if (lift !== undefined && lift !== slot.lift && item.kind !== 'accessory') {
+          otherItems.push(item.kind === 'main' ? { ...item, lift } : item);
+          continue;
+        }
+        if (lift !== undefined) ownLiftWork = true;
+        items.push(item.kind === 'main' ? generateMain(item, slot.lift, ctx) : item);
+      }
       const acc = emptyAcc();
       const byLift: Partial<Record<Lift, VolumeAcc>> = {};
       const sessionWarnings: SessionWarning[] = [];
@@ -281,6 +319,7 @@ export function generatePeriodization(
       }
       for (const liftAcc of Object.values(byLift)) addAcc(acc, liftAcc);
       if (unverified) sessionWarnings.push({ code: 'unverifiedData' });
+      if (!ownLiftWork && otherItems.length > 0) sessionWarnings.push({ code: 'liftNotInDay' });
 
       const target = weeks[blockWeek - 1];
       addAcc(target.acc, acc);
@@ -301,6 +340,7 @@ export function generatePeriodization(
         ...(day.label ? { dayLabel: day.label } : {}),
         ...(week.phase ? { phase: week.phase } : {}),
         items,
+        otherItems,
         volume: toVolume(acc),
         volumeByLift: toVolumeByLift(byLift),
         warnings: sessionWarnings,

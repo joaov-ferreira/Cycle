@@ -169,9 +169,12 @@ describe('PeriodizationTable: programs with unverified data, increments and acce
     expect(within(cell).getByText('Unverified data: no load calculated')).toBeOnTheScreen();
     expect(within(cell).getByText('Percentage illegible')).toBeOnTheScreen();
     expect(within(cell).getByText('1 × 5 @ 70% — last set: as many reps as possible')).toBeOnTheScreen();
-    expect(within(cell).getByText('Bench Press')).toBeOnTheScreen();
-    expect(within(cell).getByText('No 1RM: no load calculated')).toBeOnTheScreen();
-    expect(within(cell).getAllByText('—')).toHaveLength(2);
+    // the fixed bench item is another lift of the day: listed as information, not calculated
+    const others = within(cell).getByTestId('other-lifts');
+    expect(within(others).getByText('Bench Press')).toBeOnTheScreen();
+    expect(within(others).getByText('1 × 6 @ 50%')).toBeOnTheScreen();
+    expect(within(cell).queryByText('No 1RM: no load calculated')).toBeNull();
+    expect(within(cell).getAllByText('—')).toHaveLength(1);
     expect(within(cell).getByText('Accessory: Rows — 3 x 10')).toBeOnTheScreen();
   });
 

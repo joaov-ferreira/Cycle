@@ -56,7 +56,15 @@ mesocycle with fixed +10 kg / +15 kg increments and a 1RM test, switching phase,
 taper and test). The session editor's block start week browses any three-week block (weeks 1–11);
 weeks with three sessions show a rest day in the fourth day slot, 1RM tests are shown as text, and
 the switching phase and two sets on which the sources disagree are flagged "Unverified data" with no
-load. Features
+load. Stage 9 adds five numbered Sheiko routines (#29, #30, #31, #32 and #37: one month each, three
+days a week, squat, bench press and deadlift work on the same days), transcribed from Lift Vault's
+spreadsheet collection and checked set by set against a second transcription. The session editor
+lists Sheiko once among the programs, with a second selector for the routine, and the Programs screen
+groups the routines under "Sheiko". On these multi-lift days only the session's lift is calculated;
+the day's other lifts are shown as information without loads, and a warning appears when the chosen
+day has no work for the session's lift. Variations such as "Deadlift from boxes" use the competition
+lift's 1RM, accessories are listed with sets and reps only, and the #32 max attempts (the sources give
+2–3 singles at 100–105%) are flagged "Unverified data" with no load. Features
 are built stage by stage; the current state of each stage is in the status table of
 [`docs/PLAN.md`](docs/PLAN.md).
 
@@ -105,9 +113,11 @@ one omits its source or version), the `registry.ts` (list, find by id, filter by
 fewer at the end of the program) and `params.ts` (configurable parameters such as the 5/3/1
 percentages, with their allowed range). Parameter values chosen by the athlete are stored
 per profile in `program_params`; the template defaults apply until one is saved. Templates so far:
-the custom 5/3/1 (`data/cycle-531-custom.ts`), Smolov Jr. (`data/smolov-jr.ts`) and Smolov
-(`data/smolov.ts`), the last two transcribed from the sources listed in `docs/DECISIONS.md`
-(verification `partial`). Besides sets, a program day can hold informational items
+the custom 5/3/1 (`data/cycle-531-custom.ts`), Smolov Jr. (`data/smolov-jr.ts`), Smolov
+(`data/smolov.ts`) and the Sheiko routines #29, #30, #31, #32 and #37 (`data/sheiko-<number>.ts`), all
+but the first transcribed from the sources listed in `docs/DECISIONS.md` (verification `partial`).
+A main item may name a variation of its lift (`exercise`), an informational item may belong to one
+lift (`lift`), and templates of one family carry a short `variant` label (`#29`). Besides sets, a program day can hold informational items
 (`kind: 'info'`: rest days, max tests, loosely described phases), and an absolute increment can be a
 parameter (`addKg: { param, times }`) or fixed by the original (`addKg: { kg }`).
 
@@ -115,6 +125,8 @@ The periodization generator (SPEC §4) is `generatePeriodization(slots, template
 rounding, params)` in `src/domain/periodization.ts`: pure and synchronous (a test checks that 10 sessions take
 less than 50 ms), computing `1RM × percent (+ addKg)` in integer micrograms and rounding with
 `roundLoad`. Sets without a confirmed percentage, or whose lift has no 1RM, get no load ("—").
+On days that train several lifts (Sheiko), only the slot's lift is calculated; the other lifts' items
+are returned as `otherItems` (information, no load or volume).
 Warnings are codes that the UI translates. The store exposes it through the memoized
 `selectPeriodization` (`src/state/periodization-selectors.ts`). Session slots are stored per
 profile in `session_slots`; activated periodizations in `periodizations` (configuration

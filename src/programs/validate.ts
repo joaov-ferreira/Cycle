@@ -11,6 +11,7 @@ export type TemplateIssueCode =
   | 'missingId'
   | 'missingName'
   | 'missingVersion'
+  | 'missingVariant'
   | 'missingSource'
   | 'invalidAccessDate'
   | 'invalidVerification'
@@ -91,6 +92,7 @@ export function validateTemplate(template: ProgramTemplate): TemplateIssue[] {
   if (blank(template.id)) add('missingId', 'id');
   if (blank(template.name)) add('missingName', 'name');
   if (blank(template.version)) add('missingVersion', 'version');
+  if (template.variant !== undefined && blank(template.variant)) add('missingVariant', 'variant');
 
   const { source } = template;
   if (!source) {
@@ -174,11 +176,13 @@ export function validateTemplate(template: ProgramTemplate): TemplateIssue[] {
               ? template.liftSelectable
               : (LIFTS as readonly string[]).includes(item.lift) && template.allowedLifts.includes(item.lift);
           if (!allowed) add('liftNotAllowed', itemPath);
+          if (item.exercise !== undefined && blank(item.exercise.en)) add('missingText', itemPath);
           if (item.sets.length === 0) add('emptySets', itemPath);
           item.sets.forEach((set, s) => checkSet(set, `${itemPath}.sets[${s}]`));
         } else if (item.kind === 'accessory') {
           if (blank(item.name.en) || blank(item.text.en)) add('missingText', itemPath);
         } else if (item.kind === 'info') {
+          if (item.lift !== undefined && !template.allowedLifts.includes(item.lift)) add('liftNotAllowed', itemPath);
           if (blank(item.text.en)) add('missingText', itemPath);
           if (item.unverified) checkUnverified(item.note, itemPath);
         } else {

@@ -1,10 +1,12 @@
 import { cycle531Custom } from './data/cycle-531-custom';
-import { findTemplate, listTemplates, templatesForLift } from './registry';
+import { findTemplate, groupByFamily, listTemplates, templatesForLift } from './registry';
 import { validateTemplate } from './validate';
 
+const SHEIKO = ['sheiko-29', 'sheiko-30', 'sheiko-31', 'sheiko-32', 'sheiko-37'];
+
 describe('registry', () => {
-  it('registers the custom 5/3/1, Smolov Jr. and Smolov, in display order', () => {
-    expect(listTemplates().map((t) => t.id)).toEqual(['cycle-531-custom', 'smolov-jr', 'smolov']);
+  it('registers the custom 5/3/1, Smolov Jr., Smolov and the Sheiko templates, in display order', () => {
+    expect(listTemplates().map((t) => t.id)).toEqual(['cycle-531-custom', 'smolov-jr', 'smolov', ...SHEIKO]);
   });
 
   it('has unique ids', () => {
@@ -17,21 +19,30 @@ describe('registry', () => {
     expect(findTemplate('nope')).toBeUndefined();
   });
 
-  it('offers 5/3/1 and Smolov Jr. for the bench press (Smolov is a squat program)', () => {
-    expect(templatesForLift('bench').map((t) => t.id)).toEqual(['cycle-531-custom', 'smolov-jr']);
+  it('offers 5/3/1, Smolov Jr. and Sheiko for the bench press (Smolov is a squat program)', () => {
+    expect(templatesForLift('bench').map((t) => t.id)).toEqual(['cycle-531-custom', 'smolov-jr', ...SHEIKO]);
   });
 
-  it('offers 5/3/1, Smolov Jr. and Smolov for the squat', () => {
-    expect(templatesForLift('squat').map((t) => t.id)).toEqual(['cycle-531-custom', 'smolov-jr', 'smolov']);
+  it('offers every program for the squat', () => {
+    expect(templatesForLift('squat').map((t) => t.id)).toEqual(['cycle-531-custom', 'smolov-jr', 'smolov', ...SHEIKO]);
   });
 
-  it('offers only 5/3/1 for the deadlift (Smolov Jr. is a bench or squat program)', () => {
-    expect(templatesForLift('deadlift').map((t) => t.id)).toEqual(['cycle-531-custom']);
+  it('offers 5/3/1 and Sheiko for the deadlift (Smolov Jr. is a bench or squat program)', () => {
+    expect(templatesForLift('deadlift').map((t) => t.id)).toEqual(['cycle-531-custom', ...SHEIKO]);
   });
 
   it('returns a fresh array each call, so callers cannot reorder the registry', () => {
     listTemplates().pop();
-    expect(listTemplates()).toHaveLength(3);
+    expect(listTemplates()).toHaveLength(8);
+  });
+
+  it('groups templates by family in display order, keeping the order inside each family', () => {
+    const groups = groupByFamily(templatesForLift('deadlift'));
+    expect(groups.map((g) => [g.family, g.templates.map((t) => t.id)])).toEqual([
+      ['531-custom', ['cycle-531-custom']],
+      ['sheiko', SHEIKO],
+    ]);
+    expect(groupByFamily([])).toEqual([]);
   });
 });
 

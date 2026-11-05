@@ -516,6 +516,7 @@ export function describeRepositoriesContract(name: string, factory: Repositories
             ],
           },
         ],
+        otherItems: [],
         volume: { tonnageKg: 1125, totalReps: 15 },
         volumeByLift: { bench: { tonnageKg: 1125, totalReps: 15 } },
         warnings: [],

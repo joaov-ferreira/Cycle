@@ -122,3 +122,50 @@ describe('ProgramStructure parameter values', () => {
     expect(await screen.findByText('Selected lift')).toBeOnTheScreen();
   });
 });
+
+describe('ProgramStructure multi-lift days', () => {
+  const multi: ProgramTemplate = {
+    ...template,
+    allowedLifts: ['bench', 'squat', 'deadlift'],
+    liftSelectable: true,
+    weeks: [
+      {
+        week: 1,
+        days: [
+          {
+            day: 1,
+            items: [
+              {
+                kind: 'main',
+                lift: 'deadlift',
+                exercise: { en: 'Deadlift from boxes', 'pt-BR': 'Levantamento terra a partir de blocos' },
+                sets: [{ reps: 4, percent: 0.55 }],
+              },
+              {
+                kind: 'info',
+                lift: 'squat',
+                text: { en: 'Max attempts: 2–3 singles at 100–105%', 'pt-BR': 'Tentativas máximas: 2–3 simples a 100–105%' },
+              },
+            ],
+          },
+          template.weeks[0].days[1],
+        ],
+      },
+    ],
+  };
+
+  it('names the variation next to its lift and labels lift-tied informational lines (en)', async () => {
+    await renderInApp(<ProgramStructure template={multi} />);
+    expect(await screen.findByText('Deadlift — Deadlift from boxes')).toBeOnTheScreen();
+    expect(screen.getByText('1 × 4 @ 55%')).toBeOnTheScreen();
+    expect(screen.getByText('Squat')).toBeOnTheScreen();
+    expect(screen.getByText('Max attempts: 2–3 singles at 100–105%')).toBeOnTheScreen();
+  });
+
+  it('names the variation next to its lift and labels lift-tied informational lines (pt-BR)', async () => {
+    await renderInApp(<ProgramStructure template={multi} />, { language: 'pt-BR' });
+    expect(await screen.findByText('Levantamento Terra — Levantamento terra a partir de blocos')).toBeOnTheScreen();
+    expect(screen.getByText('Agachamento')).toBeOnTheScreen();
+    expect(screen.getByText('Tentativas máximas: 2–3 simples a 100–105%')).toBeOnTheScreen();
+  });
+});

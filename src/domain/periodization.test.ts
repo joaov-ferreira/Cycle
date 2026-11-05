@@ -382,7 +382,8 @@ describe('generatePeriodization — generic multi-day, multi-week templates', ()
       {},
     );
     const [session] = sessionsOf(result, 1);
-    const [squat, bench] = mainItems(session);
+    const [squat] = mainItems(session);
+    expect(mainItems(session)).toHaveLength(1);
     expect(squat.sets).toEqual([
       {
         sets: 1,
@@ -398,15 +399,103 @@ describe('generatePeriodization — generic multi-day, multi-week templates', ()
       // 142.5 × 0.9 = 128.25 → 127.5
       { sets: 1, reps: 2, percent: 0.9, addKg: null, amrap: false, exactKg: 128.25, roundedKg: 127.5, load: 'calculated' },
     ]);
-    // A fixed-lift item uses its own lift's 1RM: 100 × 0.5 = 50
-    expect(bench).toMatchObject({ lift: 'bench', note: { en: 'Fixed bench item' } });
-    expect(bench.sets[0]).toMatchObject({ sets: 3, reps: 6, exactKg: 50, roundedKg: 50 });
+    // The fixed bench item belongs to another lift of the day: shown as information, not calculated.
+    expect(session.otherItems).toEqual([
+      { kind: 'main', lift: 'bench', sets: [{ reps: 6, percent: 0.5, repeat: 3 }], note: { en: 'Fixed bench item' } },
+    ]);
     expect(session.warnings).toEqual([{ code: 'unverifiedData' }]);
-    // tonnage: squat 2 × 127.5 = 255 (the unverified set adds reps, not load); bench 3 × 6 × 50 = 900
-    expect(session.volume).toEqual({ tonnageKg: 1155, totalReps: 4 + 2 + 18 });
-    expect(session.volumeByLift).toEqual({
-      squat: { tonnageKg: 255, totalReps: 6 },
-      bench: { tonnageKg: 900, totalReps: 18 },
+    // tonnage: squat 2 × 127.5 = 255 (the unverified set adds reps, not load); the bench item adds nothing
+    expect(session.volume).toEqual({ tonnageKg: 255, totalReps: 4 + 2 });
+    expect(session.volumeByLift).toEqual({ squat: { tonnageKg: 255, totalReps: 6 } });
+  });
+
+  it('calculates a fixed-lift item with its own 1RM when it matches the slot lift', () => {
+    const result = generatePeriodization(
+      [slot({ lift: 'bench', templateId: 'fake-multi', programDay: 2 })],
+      TEMPLATES,
+      oneRms,
+      ROUND_2_5,
+      {},
+    );
+    const [session] = sessionsOf(result, 1);
+    const [selected, fixed] = mainItems(session);
+    expect(selected.lift).toBe('bench');
+    // 100 × 0.9 = 90; fixed bench item 100 × 0.5 = 50
+    expect(selected.sets[1]).toMatchObject({ exactKg: 90, roundedKg: 90 });
+    expect(fixed).toMatchObject({ lift: 'bench', note: { en: 'Fixed bench item' } });
+    expect(fixed.sets[0]).toMatchObject({ sets: 3, reps: 6, exactKg: 50, roundedKg: 50 });
+    expect(session.otherItems).toEqual([]);
+    // 2 × 90 + 18 × 50 = 1080
+    expect(session.volume).toEqual({ tonnageKg: 1080, totalReps: 4 + 2 + 18 });
+  });
+
+  describe('multi-lift days (filtered by the slot lift)', () => {
+    const multi: ProgramTemplate = {
+      ...cycle531Custom,
+      id: 'multi-lift',
+      family: 'sheiko',
+      verification: 'partial',
+      allowedLifts: ['bench', 'squat', 'deadlift'],
+      liftSelectable: true,
+      configurable: undefined,
+      weeks: cycle531Custom.weeks.map((w) => ({
+        ...w,
+        days: [
+          {
+            day: 1,
+            items: [
+              { kind: 'main', lift: 'bench', sets: [{ reps: 3, percent: 0.7, repeat: 2 }] },
+              { kind: 'main', lift: 'squat', exercise: { en: 'Front squat' }, sets: [{ reps: 2, percent: 0.6 }] },
+              { kind: 'accessory', name: { en: 'Dumbbell fly' }, text: { en: '5 sets × 10 reps' } },
+              { kind: 'info', lift: 'squat', text: { en: 'Squat max attempts' }, unverified: true, note: { en: 'Range' } },
+              { kind: 'info', text: { en: 'Whole-day note' } },
+            ],
+          },
+        ],
+      })),
+    };
+    const oneRmsAll = { bench: 100, squat: 140, deadlift: 180 };
+    const run = (lift: SessionSlotConfig['lift']) =>
+      sessionsOf(generatePeriodization([slot({ lift, templateId: 'multi-lift' })], [multi], oneRmsAll, ROUND_2_5, {}), 1)[0];
+
+    it('keeps the slot lift (with its variation name), accessories and general info; moves the rest out', () => {
+      const squat = run('squat');
+      expect(squat.items).toEqual([
+        {
+          kind: 'main',
+          lift: 'squat',
+          exercise: { en: 'Front squat' },
+          // 140 × 0.6 = 84; 84 − 82.5 = 1.5 > 1.25 → 85
+          sets: [{ sets: 1, reps: 2, percent: 0.6, addKg: null, amrap: false, exactKg: 84, roundedKg: 85, load: 'calculated' }],
+        },
+        { kind: 'accessory', name: { en: 'Dumbbell fly' }, text: { en: '5 sets × 10 reps' } },
+        { kind: 'info', lift: 'squat', text: { en: 'Squat max attempts' }, unverified: true, note: { en: 'Range' } },
+        { kind: 'info', text: { en: 'Whole-day note' } },
+      ]);
+      expect(squat.otherItems).toEqual([{ kind: 'main', lift: 'bench', sets: [{ reps: 3, percent: 0.7, repeat: 2 }] }]);
+      // 2 × 85 = 170
+      expect(squat.volume).toEqual({ tonnageKg: 170, totalReps: 2 });
+      expect(squat.warnings).toEqual([{ code: 'unverifiedData' }]);
+    });
+
+    it("moves another lift's unverified line out, so it raises no warning for this slot", () => {
+      const bench = run('bench');
+      expect(mainItems(bench).map((item) => item.lift)).toEqual(['bench']);
+      expect(bench.otherItems.map((item) => (item.kind === 'main' ? item.lift : item.text.en))).toEqual([
+        'squat',
+        'Squat max attempts',
+      ]);
+      // 100 × 0.7 = 70 → 2 × 3 × 70 = 420
+      expect(bench.volume).toEqual({ tonnageKg: 420, totalReps: 6 });
+      expect(bench.warnings).toEqual([]);
+    });
+
+    it('warns when the day has work for other lifts only', () => {
+      const deadlift = run('deadlift');
+      expect(mainItems(deadlift)).toEqual([]);
+      expect(deadlift.otherItems).toHaveLength(3);
+      expect(deadlift.volume).toEqual({ tonnageKg: 0, totalReps: 0 });
+      expect(deadlift.warnings).toEqual([{ code: 'liftNotInDay' }]);
     });
   });
 

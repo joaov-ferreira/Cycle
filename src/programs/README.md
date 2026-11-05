@@ -18,6 +18,12 @@ selection.
   increments use `addKg: { kg }`; rest days, 1RM tests and the unverified switching phase are
   `kind: 'info'` items (text, optional note, optional `unverified`), which carry no load.
   `addKgValue` (params.ts) resolves both increment forms.
+- `data/sheiko-29.ts`, `sheiko-30.ts`, `sheiko-31.ts`, `sheiko-32.ts`, `sheiko-37.ts` — SPEC §3.3-D, one
+  file per numbered routine (4 weeks × 3 days, all three lifts), with the shared source, names and
+  helpers in `data/sheiko-common.ts` (sources in `docs/DECISIONS.md`, Stage 9). Variations of a lift
+  (`MainItem.exercise`, e.g. "Deadlift from boxes") are percentages of the competition lift's 1RM;
+  lift-tied informational lines use `InfoItem.lift`; `ProgramTemplate.variant` is the short label (`#29`).
+  `groupByFamily` (registry.ts) groups templates of one family for the UI.
 
 Dependency rules:
 

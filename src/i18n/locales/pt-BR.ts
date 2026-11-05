@@ -49,6 +49,12 @@ export const ptBR: Catalog = {
     back: 'Voltar',
     intro: 'Os programas originais do banco de dados, com suas fontes. Nada aqui é calculado a partir dos seus 1RMs.',
     open: 'Abrir {{name}}',
+    family: {
+      '531-custom': '5/3/1 (custom)',
+      'smolov-jr': 'Smolov Jr.',
+      smolov: 'Smolov',
+      sheiko: 'Sheiko',
+    },
     version: 'Versão: {{version}}',
     duration: {
       one: '{{count}} semana',
@@ -77,6 +83,7 @@ export const ptBR: Catalog = {
       day: 'Dia {{day}}',
       selectedLift: 'Exercício escolhido',
       accessory: 'Acessório: {{name}} — {{text}}',
+      liftExercise: '{{lift}} — {{exercise}}',
     },
     set: '{{sets}} × {{reps}} @ {{percent}}',
     setWithAdd: '{{sets}} × {{reps}} @ {{percent}} + {{add}}',
@@ -105,6 +112,7 @@ export const ptBR: Catalog = {
       title: 'Sessão {{number}}',
       lift: 'Exercício da sessão {{number}}',
       program: 'Programa da sessão {{number}}',
+      template: 'Modelo da sessão {{number}}',
       day: 'Dia do programa da sessão {{number}}',
       dayOption: 'Dia {{day}}',
       startWeek: 'O bloco começa na semana {{week}} de {{total}} do programa',
@@ -148,6 +156,7 @@ export const ptBR: Catalog = {
       amrap: 'última série: o máximo de repetições',
       load: '{{exact}} → {{rounded}}',
       noLoad: '—',
+      otherLifts: 'Outros levantamentos do dia (informação, sem cálculo)',
       unverified: 'Dados não verificados: nenhuma carga calculada',
       missingOneRm: 'Sem 1RM: nenhuma carga calculada',
       volume: {
@@ -214,6 +223,8 @@ export const ptBR: Catalog = {
     prescription: 'Prescrição',
     volume: 'Volume',
     unverifiedWarning: 'Algumas séries têm dados não verificados. Nenhuma carga é calculada para elas.',
+    liftNotInDayWarning:
+      'Este dia do programa não tem trabalho para este levantamento. Os outros levantamentos do dia aparecem como informação.',
   },
   common: {
     comingSoon: 'Em breve',

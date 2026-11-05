@@ -7,7 +7,8 @@ the `step` rule), `validation.ts` (reference 1RM and profile name rules), `round
 (load increments, rounding modes and `roundLoad`, SPEC §5), `periodization.ts`
 (`generatePeriodization`: slots × templates × 1RMs × rounding × parameters → three-week
 periodization with exact/rounded loads, volume and warning codes, SPEC §4; `findSession` looks
-a session up by its key) and
+a session up by its key; on multi-lift days only the slot lift's items are calculated, the other lifts'
+items go to `otherItems` and a day without work for the slot lift raises `liftNotInDay`) and
 `session-slots.ts` (slot editing rules: program filtered by lift, day and start week kept in range;
 `missingProgramDays` for "Add all days of this program").
 
