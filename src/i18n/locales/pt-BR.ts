@@ -21,7 +21,6 @@ export const ptBR: Catalog = {
   screens: {
     dashboard: {
       title: 'Painel',
-      placeholder: 'Seu bloco atual, a próxima sessão e as estimativas mais recentes aparecerão aqui.',
     },
     periodization: {
       title: 'Periodização',
@@ -304,6 +303,35 @@ export const ptBR: Catalog = {
     cancel: 'Cancelar',
     adopted: '1RM de referência de {{lift}} definido como {{value}}.',
   },
+  dashboard: {
+    intro: 'Seu bloco atual, a próxima sessão e suas estimativas mais recentes.',
+    block: {
+      heading: 'Bloco atual',
+      none: 'Nenhuma periodização ativada ainda. Ative uma em Periodização para acompanhar seu bloco aqui.',
+      open: 'Planejar seu bloco',
+      week: 'Semana {{week}} de {{total}}',
+      upcoming: {
+        one: 'Começa em {{count}} dia',
+        other: 'Começa em {{count}} dias',
+      },
+      finished: 'Bloco concluído',
+      startDate: 'Data de início: {{date}}',
+    },
+    inProgress: {
+      one: '{{count}} sessão em andamento',
+      other: '{{count}} sessões em andamento',
+    },
+    continue: 'Continuar em Treino',
+    e1rm: {
+      heading: 'Último e1RM',
+      none: 'Nenhum e1RM ainda. Conclua uma sessão para obter a primeira estimativa.',
+      recorded: 'Registrado em {{date}}',
+    },
+    shortcuts: {
+      heading: 'Atalhos',
+      open: 'Abrir {{section}}',
+    },
+  },
   training: {
     intro: 'Registre as séries que você realmente fez. Tudo é salvo enquanto você digita.',
     noPeriodization: 'Nenhuma periodização ativada ainda. Ative uma em Periodização para começar a registrar.',
@@ -377,9 +405,6 @@ export const ptBR: Catalog = {
       e1rm: 'e1RM {{value}} · esta sessão Δ {{deltaKg}} ({{deltaPercent}})',
       noE1rm: 'e1RM: indisponível nas duas sessões.',
     },
-  },
-  common: {
-    comingSoon: 'Em breve',
   },
   progress: {
     intro: 'Seu 1RM de referência e o 1RM estimado (e1RM) ao longo do tempo, para cada levantamento.',

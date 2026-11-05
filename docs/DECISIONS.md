@@ -812,3 +812,40 @@ the reference shipped with the installed package
   and the snapshot note (activation date and reference 1RM at that time). List items summarize consecutive equal sets
   (`2 × 75.0 kg × 5; 80.0 kg × 5 · RIR 1 · RPE 9`, `3×5 @ 75.0 kg`).
 - **Not in this stage.** Deleting a session, editing the prescription, a History entry in the wide-screen sidebar.
+
+## Stage 14 — Dashboard, responsiveness and audits
+
+- **Dashboard content (SPEC §11).** Four blocks: *Current block* (week N of 3 from the activation start date, "Starts in N
+  days" before it and "Block finished" after week 3, the start date, and a "sessions in progress" line with a link to
+  Training), *Next session* (the Training queue's next pending session with a Start button that opens the logger, or "every
+  session started"), *Latest e1RM* (per lift: the most recent stored estimate with its date, plus the current reference 1RM;
+  lifts without an estimate show "—" and the reference), and *Shortcuts* (Training, Periodization, Progress, History).
+  With no activated periodization the block card explains how to start and links to Periodization; the e1RM card still shows
+  the reference 1RMs. The week is computed from calendar days (`blockProgress`, pure, local date of "today" against the ISO
+  start date) so the time of day and DST never move a boundary; each block week lasts 7 days. The clock is injectable (`now`).
+- **Latest e1RM.** `selectLatestE1rms` takes the record with the latest `recordedAt` (ties: the higher id). The e1RM history
+  already holds only the current revision of each session (Stage 13), so a corrected session is read at its corrected value.
+- **Sidebar with every section.** SPEC §11 lists Dashboard, Periodization, Programs, Calendar, Training, Progress, History and
+  Settings for wide screens; Programs, History and Settings are stack routes (not tabs), so a sidebar rendered by the tab
+  navigator would vanish on them. The sidebar is therefore rendered by `AppShell` in the root layout, beside the whole stack,
+  at widths ≥ 900 px, and the tab navigator hides its own bar there. The active entry comes from `usePathname()` (a section
+  by first path segment; `/more` and `/session/*` highlight nothing). Mobile keeps the five tabs unchanged (More still lists
+  Programs, History and Settings). Alternatives rejected: moving those routes under `(tabs)` as hidden tabs (nested stacks,
+  route and test churn) and duplicating a sidebar in each screen.
+- **Calendar entry.** Calendar is a view of Periodization, not a route: the entry opens `/periodization?view=calendar` and
+  Periodization entry opens `?view=table`. `PeriodizationScreen` takes optional `view` / `onViewChange` props and the route
+  keeps the view in the `view` search param, so the sidebar highlight follows the Table | Calendar toggle and the view is
+  linkable. Without the props the screen keeps its own state (existing behavior).
+- **Accessibility audit.** Touch targets: every `Pressable` is a ≥ 44 pt control or a full-width card; the sidebar items and
+  Dashboard buttons are tested. Contrast: the red accent `#D32F2F` passes AA as a fill with white text (4.98:1) but not as
+  *text* on the dark surfaces (4.22 / 3.76 / 3.42:1), so `tone="accent"` text now uses a new `accentText` token (`#FF6B6B` dark,
+  `#B71C1C` light), asserted ≥ 4.5:1 on all three backgrounds of each scheme. Labels: every dashboard button has an accessible
+  name (shortcuts read "Open Training", distinct from the tab names) and each lift summary is one labelled element.
+- **i18n audit.** `src/i18n/no-hardcoded-strings.test.ts` parses every `.tsx` in `src/app` and `src/components` with the
+  TypeScript compiler (`test-utils/find-hardcoded-text.ts`) and fails on JSX text, string/template literals used as children
+  and literal `label` / `accessibilityLabel` / `accessibilityHint` / `placeholder` / `title` / `hint` / `alt` props that contain a
+  letter (symbols such as `+`, `−`, `↑` and numbers are allowed). The audit found no existing offender; key parity,
+  placeholder parity and locale formatting (`formatKg`, `formatDate`) were already enforced. The Stage 1 placeholder screen
+  (`PlaceholderScreen`, `common.comingSoon`, `screens.dashboard.placeholder`) was removed: no placeholder screen is left.
+- **Desktop review.** The three-week table (weeks side by side at ≥ 900 px, week toggle below) and the Screen max width (960 px,
+  centered) were kept; the Dashboard is two columns at ≥ 900 px and stacked below (tested at 375 and 1280 px).

@@ -1,11 +1,13 @@
-import { PlaceholderScreen } from '@/components/placeholder-screen';
+import { useRouter } from 'expo-router';
 
-export default function DashboardScreen() {
+import { DashboardScreen } from '@/components/dashboard/dashboard-screen';
+
+export default function DashboardRoute() {
+  const router = useRouter();
   return (
-    <PlaceholderScreen
-      id="dashboard"
-      title="screens.dashboard.title"
-      description="screens.dashboard.placeholder"
+    <DashboardScreen
+      onOpenSession={(id) => router.push({ pathname: '/session/[id]', params: { id } })}
+      onNavigate={(target) => router.navigate(`/${target}`)}
     />
   );
 }

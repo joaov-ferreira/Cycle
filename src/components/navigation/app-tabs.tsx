@@ -6,7 +6,6 @@ import { layout } from '@/constants/theme';
 import { useT, type MessageKey } from '@/i18n';
 
 import { useTheme } from '../theme-provider';
-import { Sidebar } from './sidebar';
 
 export type NavigationLayout = 'tabs' | 'sidebar';
 
@@ -34,10 +33,11 @@ export function AppTabs() {
 
   return (
     <Tabs
-      tabBar={wide ? (props) => <Sidebar {...props} /> : undefined}
+      // On wide screens the sidebar (AppShell, root layout) replaces the tab bar.
+      tabBar={wide ? () => null : undefined}
       screenOptions={{
         headerShown: false,
-        tabBarPosition: wide ? 'left' : 'bottom',
+        tabBarPosition: 'bottom',
         tabBarActiveTintColor: colors.text,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarActiveBackgroundColor: colors.surfaceRaised,

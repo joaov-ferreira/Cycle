@@ -21,7 +21,7 @@ differences as a note;
 performed session (named variations excluded) and Δ kg / Δ % against the previous estimate), `stats.ts`
 (SPEC §9: the period filter, current / latest / previous / highest and the improvement over the baseline of
 the period) `history.ts` (SPEC §10: newest-first ordering, lift / program / period filters, equivalent previous
-sessions, Δ tonnage and Δ e1RM, set groups for summaries) and `chart-scale.ts` (nice axis ticks, linear scales and `buildChartModel`, the pixel
+sessions, Δ tonnage and Δ e1RM, set groups for summaries) `block-progress.ts` (the current week of an activated three-week block from its start date and today, for the Dashboard) and `chart-scale.ts` (nice axis ticks, linear scales and `buildChartModel`, the pixel
 coordinates of the progress chart).
 
 Dependency rules:

@@ -18,6 +18,8 @@ Planned features (see [`docs/SPEC.md`](docs/SPEC.md) for the full specification)
 - Load increments and rounding rules.
 - Session logging with RIR/RPE, prescribed vs. actual comparison.
 - Estimated 1RM (e1RM) per session, with the RTS chart as default formula.
+- Dashboard (home): the current week of the active block, the next session, the latest e1RM and the
+  reference 1RM of each lift, and shortcuts.
 - Strength progression dashboard with e1RM / reference 1RM charts and a period filter.
 - Training history: completed sessions with filters, prescribed vs. actual, comparison with equivalent
   previous sessions, and correction of what was logged.
@@ -25,7 +27,7 @@ Planned features (see [`docs/SPEC.md`](docs/SPEC.md) for the full specification)
 
 **Status:** under development. The foundation is in place (Stage 1): test infrastructure,
 CYCLE dark theme and base components, bilingual i18n layer, five-tab navigation (sidebar on
-wide screens) with placeholder screens, and local SQLite persistence with migrations and a
+wide screens) with placeholder screens (all replaced by Stage 14), and local SQLite persistence with migrations and a
 default profile. Stage 2 adds profiles and reference 1RMs: a first-run onboarding for the
 Bench, Squat and Deadlift 1RMs, and Settings (More → Settings) to switch, create and
 rename profiles, edit the 1RMs (every change appends a record; the history is shown per
@@ -97,7 +99,11 @@ sessions*: earlier sessions of the same lift, program and program day (the 3 mos
 change in tonnage and e1RM. A history entry reads only the completion snapshot, so changing programs,
 1RMs or settings never alters it. "Edit session" corrects the sets and notes of a completed session;
 only that session's e1RM is recomputed, as a new revision that replaces the old one in reads (the old
-rows are kept). Features
+rows are kept). Stage 14 fills the Dashboard (the current block week, the next session with a Start
+button, the latest e1RM and reference 1RM per lift, shortcuts), shows the sidebar on every route at
+widths ≥ 900 px with all eight sections (Dashboard, Periodization, Programs, Calendar, Training,
+Progress, History, Settings), and audits accessibility and i18n (a test fails when a UI string is not
+translated). Features
 are built stage by stage; the current state of each stage is in the status table of
 [`docs/PLAN.md`](docs/PLAN.md).
 
@@ -106,7 +112,10 @@ are built stage by stage; the current state of each stage is in the status table
 - Expo SDK 58, React Native 0.88, TypeScript.
 - Expo Router for navigation: every file in `src/app/` is a screen, `_layout.tsx` files
   define navigators. Mobile uses five bottom tabs (Dashboard, Periodization, Training,
-  Progress, More); at window widths ≥ 900 px the tab bar becomes a sidebar.
+  Progress, More); at window widths ≥ 900 px the tab bar is replaced by a sidebar (`AppShell`, in the
+  root layout) with Dashboard, Periodization, Programs, Calendar, Training, Progress, History and
+  Settings. It stays visible on Programs, History, Settings and session detail. Calendar opens
+  Periodization with `?view=calendar`.
 - `expo-sqlite` for local persistence (native and web), behind repository interfaces.
 - `expo-localization` for device locale detection; in-house `t()` for translations.
 - `zustand` for app state (stores created per app run, consumed through selectors).
@@ -297,6 +306,10 @@ Placeholders use `{{name}}`: `t('validation.aboveMax', { max: 600 })`. Number pa
 formatted for the locale (`1,500` / `1.500`). Plurals are objects with `one` and `other`
 forms, selected by `params.count` (Portuguese treats 0 and 1 as singular):
 `t('validation.tooManyDecimals', { count: 2 })`.
+
+`src/i18n/no-hardcoded-strings.test.ts` scans `src/app` and `src/components` and fails on JSX text,
+string literals rendered as children and literal `label`, `accessibilityLabel`, `placeholder` or
+`title` props that contain letters: such text must come from `t()`.
 
 ### Formatting numbers and dates
 

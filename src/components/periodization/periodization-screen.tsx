@@ -19,18 +19,27 @@ export type PeriodizationScreenProps = {
   onOpenProgram: (templateId: string) => void;
   /** Opens a session's detail by its key (`<slotId>-w<blockWeek>`). */
   onOpenSession: (sessionKey: string) => void;
+  /** Initial view, and the view to show whenever it changes (e.g. from the sidebar's Calendar entry). */
+  view?: PeriodizationView;
+  /** Called when the user picks the other view. */
+  onViewChange?: (view: PeriodizationView) => void;
 };
 
-type View = 'table' | 'calendar';
+export type PeriodizationView = 'table' | 'calendar';
 
 /**
  * Periodization (SPEC §4, §6): the session-slot editor, warnings, the Table | Calendar views and
  * activation. Both views read the memoized `selectPeriodization`, so any change to slots, 1RMs,
  * rounding or program parameters shows up immediately.
  */
-export function PeriodizationScreen({ onOpenProgram, onOpenSession }: PeriodizationScreenProps) {
+export function PeriodizationScreen({ onOpenProgram, onOpenSession, view: viewProp, onViewChange }: PeriodizationScreenProps) {
   const t = useT();
-  const [view, setView] = useState<View>('table');
+  const [localView, setLocalView] = useState<PeriodizationView>('table');
+  const view = viewProp ?? localView;
+  const setView = (next: PeriodizationView) => {
+    setLocalView(next);
+    onViewChange?.(next);
+  };
   const templates = useMemo(() => listTemplates(), []);
   const slots = useAppStore((s) => s.sessionSlots);
   const periodization = useAppStore(selectPeriodization);

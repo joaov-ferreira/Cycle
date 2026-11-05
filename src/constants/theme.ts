@@ -20,6 +20,8 @@ export type Palette = {
   textSecondary: string;
   /** Restricted use: primary action, PR highlight, selection. */
   accent: string;
+  /** Accent-hue text on background/surfaces (AA 4.5:1; `accent` itself is a fill color). */
+  accentText: string;
   /** Text/icons drawn on top of `accent`. */
   onAccent: string;
   border: string;
@@ -35,6 +37,7 @@ export const palettes: Record<ColorScheme, Palette> = {
     text: '#FFFFFF',
     textSecondary: '#A1A1AA',
     accent: '#D32F2F',
+    accentText: '#FF6B6B',
     onAccent: '#FFFFFF',
     border: '#2A2A2A',
     danger: '#FF6B6B',
@@ -46,6 +49,7 @@ export const palettes: Record<ColorScheme, Palette> = {
     text: '#09090B',
     textSecondary: '#52525B',
     accent: '#C62828',
+    accentText: '#B71C1C',
     onAccent: '#FFFFFF',
     border: '#D4D4D8',
     danger: '#B71C1C',

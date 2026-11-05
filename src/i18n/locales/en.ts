@@ -24,7 +24,6 @@ export const en = {
   screens: {
     dashboard: {
       title: 'Dashboard',
-      placeholder: 'Your current block, next session and latest estimates will appear here.',
     },
     periodization: {
       title: 'Periodization',
@@ -307,6 +306,35 @@ export const en = {
     cancel: 'Cancel',
     adopted: '{{lift}} reference 1RM set to {{value}}.',
   },
+  dashboard: {
+    intro: 'Your current block, the next session and your latest estimates.',
+    block: {
+      heading: 'Current block',
+      none: 'No activated periodization yet. Activate one in Periodization to follow your block here.',
+      open: 'Plan your block',
+      week: 'Week {{week}} of {{total}}',
+      upcoming: {
+        one: 'Starts in {{count}} day',
+        other: 'Starts in {{count}} days',
+      },
+      finished: 'Block finished',
+      startDate: 'Start date: {{date}}',
+    },
+    inProgress: {
+      one: '{{count}} session in progress',
+      other: '{{count}} sessions in progress',
+    },
+    continue: 'Continue in Training',
+    e1rm: {
+      heading: 'Latest e1RM',
+      none: 'No e1RM yet. Complete a session to get your first estimate.',
+      recorded: 'Recorded {{date}}',
+    },
+    shortcuts: {
+      heading: 'Shortcuts',
+      open: 'Open {{section}}',
+    },
+  },
   training: {
     intro: 'Log the sets you actually performed. Everything is saved as you type.',
     noPeriodization: 'No activated periodization yet. Activate one in Periodization to start logging.',
@@ -380,9 +408,6 @@ export const en = {
       e1rm: 'e1RM {{value}} · this session Δ {{deltaKg}} ({{deltaPercent}})',
       noE1rm: 'e1RM: not available for both sessions.',
     },
-  },
-  common: {
-    comingSoon: 'Coming soon',
   },
   progress: {
     intro: 'Your reference 1RM and estimated 1RM (e1RM) over time, for each lift.',

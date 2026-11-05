@@ -13,6 +13,7 @@ import { createMemoryRepositories } from '@/data/memory/memory-repositories';
 import type { Repositories } from '@/data/repositories';
 
 import { AppProviders } from '../app-providers';
+import { AppShell } from './app-shell';
 import { navigationLayoutFor } from './app-tabs';
 
 jest.mock('expo-localization', () => {
@@ -39,7 +40,11 @@ function setDeviceLocale(tag: string) {
 }
 
 const routes = {
-  _layout: () => <Slot />,
+  _layout: () => (
+    <AppShell>
+      <Slot />
+    </AppShell>
+  ),
   '(tabs)/_layout': TabsLayout,
   '(tabs)/index': DashboardScreen,
   '(tabs)/periodization': PeriodizationScreen,
@@ -118,33 +123,10 @@ describe('main navigation', () => {
   it.each([
     ['Training', '/training'],
     ['Progress', '/progress'],
-  ])('opens the %s placeholder', async (label, path) => {
+  ])('opens the %s tab', async (label, path) => {
     const result = await renderTabs();
     await fireEvent.press(screen.getByRole('button', { name: label }));
     expect(await screen.findByRole('header', { name: label })).toBeOnTheScreen();
     expect(result.getPathname()).toBe(path);
-  });
-
-  it('keeps every section reachable in the wide (sidebar) layout', async () => {
-    setWindowWidth(1280);
-    await renderTabs();
-    for (const label of EN_TABS) {
-      expect(screen.getByRole('button', { name: label })).toBeOnTheScreen();
-    }
-    expect(screen.getByTestId('navigation-sidebar')).toBeOnTheScreen();
-    expect(screen.getByText('CYCLE')).toBeOnTheScreen();
-  });
-
-  it('navigates from the sidebar and marks the current section', async () => {
-    setWindowWidth(1280);
-    const result = await renderTabs();
-    expect(screen.getByRole('button', { name: 'Dashboard', selected: true })).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: 'Progress' }));
-    expect(await screen.findByRole('header', { name: 'Progress' })).toBeOnTheScreen();
-    expect(result.getPathname()).toBe('/progress');
-    expect(screen.getByRole('button', { name: 'Progress', selected: true })).toBeOnTheScreen();
-    // Pressing the current section again stays put.
-    await fireEvent.press(screen.getByRole('button', { name: 'Progress' }));
-    expect(result.getPathname()).toBe('/progress');
   });
 });

@@ -28,7 +28,8 @@
   accessible buttons) that draws the pure `buildChartModel`.
 - `history/` — History screen (SPEC §10: lift / program / period filters, list items) and the session
   detail (prescribed vs. performed, e1RM, equivalent previous sessions, edit mode built on the logger form).
-- `navigation/` — main tabs and the wide-screen sidebar.
+- `dashboard/` — Dashboard screen (SPEC §11: current block week, next session, latest e1RM and reference 1RM per lift, shortcuts; two columns at ≥ 900 px).
+- `navigation/` — main tabs, `AppShell` (puts the sidebar beside every route at ≥ 900 px) and the `Sidebar` with the eight SPEC §11 sections.
 
 Rules:
 

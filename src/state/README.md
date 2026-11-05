@@ -27,6 +27,7 @@ Connects persistence (`src/data/`) and the math engine (`src/domain/`) to the UI
 - `periodization-selectors.ts` — `selectPeriodization` (the live three-week periodization,
   memoized on the slots, 1RM history, rounding settings and program parameters) and
   `selectCurrentOneRms`.
+- `dashboard-selectors.ts` — `selectLatestE1rms` (the most recent e1RM record of each lift, memoized).
 - `app-store-context.tsx` — `AppStoreProvider` and `useAppStore(selector)`.
 - Derived data is exposed through selectors (`select*`), so screens never recompute it
   by hand (SPEC §12.5).

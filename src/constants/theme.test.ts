@@ -40,6 +40,8 @@ describe('theme tokens', () => {
       expect(contrast(p.text, bg)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(p.textSecondary, bg)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(p.danger, bg)).toBeGreaterThanOrEqual(4.5);
+      // Text in the accent hue (tone="accent") uses its own AA-safe token: the fill color does not pass on dark.
+      expect(contrast(p.accentText, bg)).toBeGreaterThanOrEqual(4.5);
     }
     expect(contrast(p.onAccent, p.accent)).toBeGreaterThanOrEqual(4.5);
   });

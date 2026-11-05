@@ -32,6 +32,7 @@ export function SegmentedControl<T extends string>({
         return (
           <Pressable
             key={option.value}
+            testID={`segment-${option.value}`}
             accessibilityRole="button"
             accessibilityLabel={option.label}
             accessibilityState={{ selected }}

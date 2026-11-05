@@ -9,7 +9,7 @@ export type TextTone = 'primary' | 'secondary' | 'accent' | 'danger';
 const TONE_COLOR: Record<TextTone, keyof Palette> = {
   primary: 'text',
   secondary: 'textSecondary',
-  accent: 'accent',
+  accent: 'accentText',
   danger: 'danger',
 };
 
