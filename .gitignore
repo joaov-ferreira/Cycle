@@ -45,3 +45,5 @@ example
 # local config files
 .claude
 .vscode
+# test coverage
+coverage/

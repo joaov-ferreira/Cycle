@@ -42,7 +42,7 @@ When done, open the PR to main and update the stage status in PLAN.md within the
 | Stage | Feature | Model | Branch | Status |
 |---|---|---|---|---|
 | 0 | Initial project README | haiku | `docs/00-readme` | ✅ |
-| 1 | Foundation (tests, theme, navigation, i18n, DB) | opus | `feat/01-foundation` | ⬜ |
+| 1 | Foundation (tests, theme, navigation, i18n, DB) | opus | `feat/01-foundation` | ✅ |
 | 2 | Profile + 1RM registration + 1RM history | sonnet | `feat/02-reference-1rm` | ⬜ |
 | 3 | Increments and rounding | haiku | `feat/03-rounding` | ⬜ |
 | 4 | Program database + custom 5/3/1 + Programs screen | sonnet | `feat/04-programs-531` | ⬜ |

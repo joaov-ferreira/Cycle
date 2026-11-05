@@ -1,65 +1,90 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://unistyl.es/), etc.
+ * CYCLE design tokens (SPEC §11). Dark is the default scheme; light is optional in Settings.
+ * Components read colors through `useTheme()` (src/components/theme-provider.tsx), never
+ * hard-coded hex values.
  */
+import type { TextStyle } from 'react-native';
 
-import '@/global.css';
+export type ColorScheme = 'dark' | 'light';
 
-import { Platform } from 'react-native';
+export const DEFAULT_COLOR_SCHEME: ColorScheme = 'dark';
 
-export const Colors = {
-  light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-  },
+export type Palette = {
+  /** Screen background. */
+  background: string;
+  /** Cards, inputs, tab bars. */
+  surface: string;
+  /** Elevated or selected surfaces. */
+  surfaceRaised: string;
+  text: string;
+  textSecondary: string;
+  /** Restricted use: primary action, PR highlight, selection. */
+  accent: string;
+  /** Text/icons drawn on top of `accent`. */
+  onAccent: string;
+  border: string;
+  /** Validation errors (text). */
+  danger: string;
+};
+
+export const palettes: Record<ColorScheme, Palette> = {
   dark: {
-    text: '#ffffff',
     background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    surface: '#121212',
+    surfaceRaised: '#1C1C1E',
+    text: '#FFFFFF',
+    textSecondary: '#A1A1AA',
+    accent: '#D32F2F',
+    onAccent: '#FFFFFF',
+    border: '#2A2A2A',
+    danger: '#FF6B6B',
   },
+  light: {
+    background: '#FFFFFF',
+    surface: '#F4F4F5',
+    surfaceRaised: '#E4E4E7',
+    text: '#09090B',
+    textSecondary: '#52525B',
+    accent: '#C62828',
+    onAccent: '#FFFFFF',
+    border: '#D4D4D8',
+    danger: '#B71C1C',
+  },
+};
+
+export const spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  xxl: 32,
 } as const;
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
-
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
-  },
-});
-
-export const Spacing = {
-  half: 2,
-  one: 4,
-  two: 8,
-  three: 16,
-  four: 24,
-  five: 32,
-  six: 64,
+export const radius = {
+  sm: 4,
+  md: 8,
+  lg: 12,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 800;
+export const layout = {
+  /** Minimum touch target (SPEC §11 accessibility). */
+  minTouchTarget: 44,
+  /** At or above this window width the app uses the sidebar layout (SPEC §11). */
+  wideBreakpoint: 900,
+  maxContentWidth: 960,
+  sidebarWidth: 240,
+} as const;
+
+export type TextVariant = 'title' | 'heading' | 'body' | 'label' | 'caption';
+
+export const typography: Record<TextVariant, TextStyle> = {
+  title: { fontSize: 28, lineHeight: 34, fontWeight: '700', letterSpacing: 0.5 },
+  heading: { fontSize: 20, lineHeight: 26, fontWeight: '600' },
+  body: { fontSize: 16, lineHeight: 22, fontWeight: '400' },
+  label: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  caption: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
+};
+
+/** Tabular figures keep columns of numbers aligned (SPEC §11). */
+export const tabularNumbers: TextStyle = { fontVariant: ['tabular-nums'] };

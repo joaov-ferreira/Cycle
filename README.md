@@ -21,18 +21,23 @@ Planned features (see [`docs/SPEC.md`](docs/SPEC.md) for the full specification)
 - Strength progression charts and training history.
 - Bilingual interface: English and Brazilian Portuguese.
 
-**Status:** under development. The codebase still contains the initial Expo template. Features
-are built stage by stage; the current state of each stage is in the status table of
-[`docs/PLAN.md`](docs/PLAN.md).
+**Status:** under development. The foundation is in place (Stage 1): test infrastructure,
+CYCLE dark theme and base components, bilingual i18n layer, five-tab navigation (sidebar on
+wide screens) with placeholder screens, and local SQLite persistence with migrations and a
+default profile. Features are built stage by stage; the current state of each stage is in
+the status table of [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Tech stack and architecture
 
 - Expo SDK 58, React Native 0.88, TypeScript.
 - Expo Router for navigation: every file in `src/app/` is a screen, `_layout.tsx` files
-  define navigators.
-- Planned: `expo-sqlite` for local persistence (Stage 1), `expo-localization` for locale
-  detection (Stage 1), `react-native-svg` for charts (Stage 12), `jest-expo` and
-  `@testing-library/react-native` for tests (Stage 1).
+  define navigators. Mobile uses five bottom tabs (Dashboard, Periodization, Training,
+  Progress, More); at window widths ≥ 900 px the tab bar becomes a sidebar.
+- `expo-sqlite` for local persistence (native and web), behind repository interfaces.
+- `expo-localization` for device locale detection; in-house `t()` for translations.
+- `zustand` for app state (stores created per app run, consumed through selectors).
+- `jest-expo` + `@testing-library/react-native` for tests.
+- Planned: `react-native-svg` for charts (Stage 12).
 
 Layers (from [SPEC §12.1](docs/SPEC.md#121-layered-architecture-mandatory-separation)):
 
@@ -47,6 +52,10 @@ src/
   app/         # Expo Router routes (screens and layouts only)
 ```
 
+Supporting folders: `src/constants/theme.ts` (design tokens) and `src/test-utils/`
+(test-only helpers). Each layer has a `README.md` describing its contents and dependency
+rules.
+
 Dependency rules:
 
 - `domain/` and `programs/` are pure TypeScript: they do not import React, Expo, `data/`
@@ -57,7 +66,7 @@ Dependency rules:
 
 ## Running the app
 
-Prerequisites: Node.js 22 with npm 10 (the version this project is developed with), and
+Prerequisites: Node.js 22 (22.13 or later, for the test suite) with npm 10 (the version this project is developed with), and
 either [Expo Go](https://expo.dev/go) on a phone or an iOS/Android simulator or emulator.
 Native modules added in later stages may require a development build (see
 [`AGENTS.md`](AGENTS.md)).
@@ -68,9 +77,43 @@ npx expo start       # start the dev server; scan the QR code with Expo Go, or p
 npx expo start --web # open the app in the browser
 npx expo lint        # lint
 npx tsc --noEmit     # typecheck
+npm test             # run the test suite
 ```
 
-Tests (`npm test`) are added in Stage 1.
+On the web, the database runs on SQLite compiled to WebAssembly. It needs cross-origin
+isolation: `metro.config.js` adds the `Cross-Origin-Embedder-Policy: credentialless` and
+`Cross-Origin-Opener-Policy: same-origin` headers in development, and any server that hosts
+an exported web build must send the same headers. The web build is a single-page app
+(`web.output: "single"`).
+
+## Tests
+
+Tests use Jest with the `jest-expo` preset and `@testing-library/react-native`. Test files
+live next to the code they test (`*.test.ts` / `*.test.tsx` under `src/`).
+
+```bash
+npm test                          # run all tests once
+npm run test:watch                # re-run on change
+npm run test:coverage             # with coverage report and thresholds
+npm test -- src/i18n              # only the tests under a path
+```
+
+Coverage thresholds (`jest.config.js`, SPEC §12.3): at least 80% of lines globally, and at
+least 95% in `src/domain/` and `src/programs/` once those folders contain code.
+
+Testing strategy:
+
+- Pure logic (`src/domain/`, `src/programs/`) has unit tests with hand-computed expected
+  values.
+- Persistence: repositories are written against interfaces in `src/data/`. One behavioral
+  contract suite runs against both the in-memory implementation and the SQLite
+  implementation. In Jest, SQLite runs on Node's built-in `node:sqlite` module through
+  `src/test-utils/node-sqlite.ts`, so tests need Node.js 22.13 or later. Migrations are
+  tested on a real SQLite engine too.
+- UI: behavior and accessible queries (no markup snapshots). Screens with formatted numbers
+  are tested in both `en` and `pt-BR`.
+
+The project follows test-driven development; see [`AGENTS.md`](AGENTS.md).
 
 Add dependencies with `npx expo install <package>` (not `npm install`), so the versions match
 the Expo SDK.
@@ -99,10 +142,38 @@ This requires an Expo account. The repository does not yet contain an `eas.json`
 ## Internationalization
 
 The app is bilingual: English (`en`, the source catalog) and Brazilian Portuguese (`pt-BR`).
-The language defaults to the device locale (`pt*` → Portuguese, anything else → English)
-and can be changed in Settings. Every user-facing string lives in `src/i18n/locales/`, and
-the catalog details (how to add strings) are documented when the i18n layer lands in
-Stage 1.
+The language defaults to the device locale (`pt*` → Portuguese, anything else → English).
+The per-profile `language` setting (`system`, `en` or `pt-BR`) overrides the device locale
+and applies right away, without a restart. The Settings screen for it arrives in Stage 2.
+
+### Adding a string
+
+1. Add the key to `src/i18n/locales/en.ts` (the source catalog). Group keys by feature,
+   for example `screens.training.title`.
+2. Add the same key to `src/i18n/locales/pt-BR.ts`. The catalog is typed against `en`,
+   so a missing or extra key fails `npx tsc --noEmit`, and `src/i18n/catalogs.test.ts`
+   fails if the keys or `{{placeholders}}` differ between the two catalogs.
+3. Use it in a component:
+
+   ```tsx
+   import { useT } from '@/i18n';
+
+   const t = useT();
+   <Text>{t('screens.training.title')}</Text>;
+   ```
+
+Placeholders use `{{name}}`: `t('validation.aboveMax', { max: 600 })`. Number params are
+formatted for the locale (`1,500` / `1.500`). Plurals are objects with `one` and `other`
+forms, selected by `params.count` (Portuguese treats 0 and 1 as singular):
+`t('validation.tooManyDecimals', { count: 2 })`.
+
+### Formatting numbers and dates
+
+Use the formatters from `useI18n()`: `formatKg(96.25)` gives `96.25 kg` in English and
+`96,25 kg` in Portuguese. There are also `formatNumber`, `formatPercent` and `formatDate`.
+Numeric inputs (`NumberInput`) accept the locale's decimal separator, and in Portuguese
+both `,` and `.`. Domain code returns error codes, and the UI turns them into localized
+messages.
 
 ## License
 
