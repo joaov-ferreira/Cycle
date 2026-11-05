@@ -5,9 +5,13 @@ import {
   createAppStore,
   selectColorScheme,
   selectCurrentOneRm,
+  selectDefaultIncrementKg,
+  selectIncrementKg,
   selectLanguageSetting,
+  selectLiftIncrementOverride,
   selectNeedsOnboarding,
   selectOneRmHistory,
+  selectRoundingMode,
 } from './app-store';
 
 describe('app store', () => {
@@ -258,5 +262,88 @@ describe('app store: reference 1RMs', () => {
       'App store is not ready',
     );
     await expect(store.getState().completeOnboarding({})).rejects.toThrow('App store is not ready');
+  });
+});
+
+describe('app store: increments and rounding (SPEC §5)', () => {
+  async function ready(repos = createMemoryRepositories()) {
+    const store = createAppStore(repos);
+    await store.getState().init('Default');
+    return { repos, store };
+  }
+
+  it('starts with a 2.5 kg increment and nearest rounding for every lift', async () => {
+    const { store } = await ready();
+    const state = store.getState();
+    expect(selectDefaultIncrementKg(state)).toBe(2.5);
+    expect(selectRoundingMode(state)).toBe('nearest');
+    expect(selectIncrementKg('bench')(state)).toBe(2.5);
+    expect(selectLiftIncrementOverride('bench')(state)).toBeUndefined();
+  });
+
+  it('uses the default increment and mode before the store is ready', () => {
+    const state = createAppStore(createMemoryRepositories()).getState();
+    expect(selectDefaultIncrementKg(state)).toBe(2.5);
+    expect(selectRoundingMode(state)).toBe('nearest');
+  });
+
+  it('sets the profile-wide increment and persists it', async () => {
+    const { repos, store } = await ready();
+    await store.getState().setIncrementKg(1.25);
+    expect(selectDefaultIncrementKg(store.getState())).toBe(1.25);
+    expect(selectIncrementKg('squat')(store.getState())).toBe(1.25);
+    expect((await repos.rounding.get(1)).incrementKg).toBe(1.25);
+  });
+
+  it('rejects an invalid increment with an error and keeps the current one', async () => {
+    const { store } = await ready();
+    await expect(store.getState().setIncrementKg(0.05)).rejects.toMatchObject({
+      code: 'INVALID_INCREMENT',
+      reason: 'belowMin',
+    });
+    expect(selectDefaultIncrementKg(store.getState())).toBe(2.5);
+  });
+
+  it('sets the rounding mode and persists it', async () => {
+    const { repos, store } = await ready();
+    await store.getState().setRoundingMode('up');
+    expect(selectRoundingMode(store.getState())).toBe('up');
+    expect((await repos.rounding.get(1)).mode).toBe('up');
+  });
+
+  it('overrides the increment of one lift, and clears the override', async () => {
+    const { repos, store } = await ready();
+    await store.getState().setLiftIncrementKg('bench', 1.25);
+    const state = store.getState();
+    expect(selectIncrementKg('bench')(state)).toBe(1.25);
+    expect(selectLiftIncrementOverride('bench')(state)).toBe(1.25);
+    expect(selectIncrementKg('squat')(state)).toBe(2.5);
+
+    await store.getState().setLiftIncrementKg('bench', null);
+    expect(selectIncrementKg('bench')(store.getState())).toBe(2.5);
+    expect((await repos.rounding.get(1)).liftIncrementsKg).toEqual({});
+  });
+
+  it('keeps rounding settings across restarts and loads them per profile', async () => {
+    const { repos, store } = await ready();
+    await store.getState().setIncrementKg(5);
+    await store.getState().setLiftIncrementKg('deadlift', 2);
+    await store.getState().createProfile('Bruno');
+    expect(selectDefaultIncrementKg(store.getState())).toBe(2.5);
+
+    await store.getState().switchProfile(1);
+    expect(selectDefaultIncrementKg(store.getState())).toBe(5);
+    expect(selectIncrementKg('deadlift')(store.getState())).toBe(2);
+
+    const restarted = createAppStore(repos);
+    await restarted.getState().init('Default');
+    expect(selectIncrementKg('deadlift')(restarted.getState())).toBe(2);
+  });
+
+  it('rejects rounding actions before init', async () => {
+    const store = createAppStore(createMemoryRepositories());
+    await expect(store.getState().setIncrementKg(1)).rejects.toThrow('App store is not ready');
+    await expect(store.getState().setRoundingMode('down')).rejects.toThrow('App store is not ready');
+    await expect(store.getState().setLiftIncrementKg('bench', 1)).rejects.toThrow('App store is not ready');
   });
 });

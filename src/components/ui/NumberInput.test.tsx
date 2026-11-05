@@ -94,3 +94,27 @@ describe('NumberInput (pt-BR)', () => {
     expect(screen.getByText('Deve ser no mínimo 1.500,5')).toBeOnTheScreen();
   });
 });
+
+describe('NumberInput step rule', () => {
+  const increment: NumberRules = { required: true, min: 0.1, max: 25, maxDecimals: 2, step: 0.05 };
+
+  it('explains a value that is not a multiple of the step, in each locale', async () => {
+    await render(
+      <I18nProvider locale="en">
+        <NumberInput label="Increment" value={2.5} rules={increment} onChange={jest.fn()} />
+      </I18nProvider>,
+    );
+    await fireEvent.changeText(screen.getByLabelText('Increment'), '2.52');
+    expect(screen.getByText('Use steps of 0.05')).toBeOnTheScreen();
+  });
+
+  it('formats the step with the Portuguese decimal comma', async () => {
+    await render(
+      <I18nProvider locale="pt-BR">
+        <NumberInput label="Incremento" value={2.5} rules={increment} onChange={jest.fn()} />
+      </I18nProvider>,
+    );
+    await fireEvent.changeText(screen.getByLabelText('Incremento'), '2,52');
+    expect(screen.getByText('Use múltiplos de 0,05')).toBeOnTheScreen();
+  });
+});

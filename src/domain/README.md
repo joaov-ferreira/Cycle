@@ -2,8 +2,9 @@
 
 Rounding, loads, periodization, RIR/RPE, e1RM, statistics and input validation rules.
 
-Contents: `lifts.ts` (the three lifts), `number-validation.ts` (generic decimal rules),
-`validation.ts` (reference 1RM and profile name rules).
+Contents: `lifts.ts` (the three lifts), `number-validation.ts` (generic decimal rules, incl.
+the `step` rule), `validation.ts` (reference 1RM and profile name rules), `rounding.ts`
+(load increments, rounding modes and `roundLoad`, SPEC §5).
 
 Dependency rules:
 

@@ -27,8 +27,11 @@ wide screens) with placeholder screens, and local SQLite persistence with migrat
 default profile. Stage 2 adds profiles and reference 1RMs: a first-run onboarding for the
 Bench, Squat and Deadlift 1RMs, and Settings (More → Settings) to switch, create and
 rename profiles, edit the 1RMs (every change appends a record; the history is shown per
-lift) and choose the language (System / English / Português). Features are built stage by stage; the current state of each stage is in
-the status table of [`docs/PLAN.md`](docs/PLAN.md).
+lift) and choose the language (System / English / Português). Stage 3 adds load increments
+and rounding to Settings: the rounding mode, the default increment (a preset or a custom
+value), a per-lift increment override, and a live example (`96.25 kg → 95.0 kg`). Features
+are built stage by stage; the current state of each stage is in the status table of
+[`docs/PLAN.md`](docs/PLAN.md).
 
 ## Tech stack and architecture
 
@@ -59,6 +62,14 @@ Reference 1RMs (SPEC §2) are validated in `src/domain/validation.ts` (> 0 and �
 to 2 decimals) and stored append-only in `reference_1rm_history`: the repository only adds
 records, and the current value is the latest by effective date. Data is scoped by profile;
 the active profile is remembered across launches.
+
+Load increments and rounding (SPEC §5) live in `src/domain/rounding.ts`. `roundLoad(kg,
+increment, mode)` works in integer micrograms, so ties and exact multiples are decided
+without floating-point error. The modes are `nearest` (the default; a tie rounds down, so a
+load is never prescribed above its percentage), `down` and `up`. The default increment is
+2.5 kg, a preset (1, 1.25, 1.5, 2 or 2.5 kg) or a custom value (0.1–25 kg in 0.05 steps).
+Each lift can override the default increment. The settings are stored per profile in
+`rounding_settings` and `lift_increment_overrides`.
 
 Supporting folders: `src/constants/theme.ts` (design tokens) and `src/test-utils/`
 (test-only helpers). Each layer has a `README.md` describing its contents and dependency

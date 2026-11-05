@@ -148,3 +148,17 @@ describe('SettingsScreen: profiles', () => {
     expect(await repos.profiles.list()).toHaveLength(1);
   });
 });
+
+describe('SettingsScreen: increments and rounding', () => {
+  it('shows the rounding section between the 1RMs and the language (en)', async () => {
+    await renderInApp(<SettingsScreen />);
+    expect(await screen.findByRole('header', { name: 'Increments and rounding' })).toBeOnTheScreen();
+    expect(screen.getByLabelText('Default increment')).toBeOnTheScreen();
+  });
+
+  it('shows the rounding section in Portuguese', async () => {
+    await renderInApp(<SettingsScreen />, { language: 'pt-BR' });
+    expect(await screen.findByRole('header', { name: 'Incrementos e arredondamento' })).toBeOnTheScreen();
+    expect(screen.getByLabelText('Incremento padrão')).toBeOnTheScreen();
+  });
+});

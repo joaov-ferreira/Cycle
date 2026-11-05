@@ -141,3 +141,39 @@ the reference shipped with the installed package
   Stage 14 navigation audit.
 - **Language selector** reuses the Stage 1 `language` setting through the store; it applies
   instantly because the locale is derived from the persisted setting.
+
+## 2026-11-05 — Stage 3: Increments and rounding
+
+- **Integer micrograms.** `roundLoad` converts kilograms to integer micrograms (10⁻⁶ kg) and
+  decides on integers only: `remainder = load % step`, a tie is `2·remainder = step`. Ties,
+  exact multiples and `0.1 + 0.2`-style inputs are therefore exact for values with up to six
+  decimals. The PLAN suggested grams or rounding to 3 decimals. Grams can misjudge a tie
+  when the exact load has sub-gram digits (96.2504 is nearer 97.5 than 95.0, but grams would
+  call it a tie). Micrograms keep the decision exact, and a decimal library would be an extra
+  dependency.
+- **Invalid arguments throw, invalid user input returns codes.** `roundLoad` throws a
+  `RangeError` for a negative, non-finite or non-positive argument (programming errors; the
+  result is never negative). User input goes through `validateIncrement` first, which returns
+  `NumberValidationError` codes (`belowMin`, `aboveMax`, `tooManyDecimals`,
+  `notMultipleOfStep`, `invalidNumber`). Repositories also validate and throw
+  `InvalidIncrementError(reason)`, as the 1RM history does.
+- **Step rule.** `NumberRules` gains an optional `step`: a value must be a multiple of the step,
+  counted from zero. It is checked on scaled integers, after range and decimal checks. It is
+  generic, so `NumberInput` shows the localized message without knowing about increments.
+- **Storage.** Migration `004_rounding` adds `rounding_settings` (increment and mode per
+  profile) and `lift_increment_overrides`. The alternative was columns on `settings`. A
+  separate table keeps the `Settings` contract, the profile creation and the 001 schema test
+  unchanged. A profile without a `rounding_settings` row uses the defaults (2.5 kg, nearest),
+  so no row has to be created when a profile is.
+- **Scope of overrides.** A per-lift override replaces only the increment. The rounding mode
+  is profile-wide, as SPEC §5 states ("profile-wide setting, optional per-lift override").
+- **Presets and custom.** The presets are `1, 1.25, 1.5, 2, 2.5` kg. The custom option opens
+  a field with the locale's decimal separator (0.1–25 kg, 0.05 steps). An invalid custom value
+  is not stored, and the stored value stays in effect until the user enters a valid one.
+  Per-lift choice is a two-segment control (Use default / Own), so the preset row is never
+  repeated across seven segments on a phone.
+- **Example.** The preview shows the SPEC §5 example (96.25 kg) with the current default
+  increment and mode, formatted by the locale (`96.25 kg → 95.0 kg`, `96,25 kg → 95,0 kg`).
+- **Naming.** The option that follows the profile default is labelled "Use default" (pt-BR
+  "Usar padrão"), not "Default", so it does not collide with the profile button of the same
+  name in Settings.

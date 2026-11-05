@@ -106,6 +106,27 @@ export const en = {
       en: 'English',
       ptBR: 'Português',
     },
+    rounding: {
+      title: 'Increments and rounding',
+      description: 'Calculated loads are rounded to the increment you can load.',
+      mode: {
+        label: 'Rounding mode',
+        nearest: 'Nearest',
+        down: 'Always down',
+        up: 'Always up',
+        hint: 'Halfway values round down, so a load is never above its percentage.',
+      },
+      defaultIncrement: 'Default increment',
+      custom: 'Custom',
+      customField: '{{label}} (custom)',
+      preview: 'Example: {{exact}} → {{rounded}}',
+      lifts: {
+        source: '{{lift}} increment source',
+        inherit: 'Use default',
+        own: 'Own',
+        incrementLabel: '{{lift}} increment',
+      },
+    },
   },
   profile: {
     defaultName: 'Default',
@@ -121,6 +142,7 @@ export const en = {
       one: 'Use at most {{count}} decimal place',
       other: 'Use at most {{count}} decimal places',
     },
+    notMultipleOfStep: 'Use steps of {{step}}',
   },
 };
 

@@ -55,3 +55,26 @@ describe('validateDecimal', () => {
     expect(validateDecimal('123456.789', {})).toEqual({ ok: true, value: 123456.789 });
   });
 });
+
+describe('validateDecimal step rule', () => {
+  const increment: NumberRules = { required: true, min: 0.1, max: 25, maxDecimals: 2, step: 0.05 };
+
+  it.each(['0.1', '0.15', '2.5', '1.25', '25', '24.95'])('accepts %p, a multiple of 0.05', (input) => {
+    expect(validateDecimal(input, increment).ok).toBe(true);
+  });
+
+  it.each(['2.52', '1.01', '0.12', '24.99'])('rejects %p, which is not a multiple of 0.05', (input) => {
+    expect(validateDecimal(input, increment)).toEqual({ ok: false, error: 'notMultipleOfStep' });
+  });
+
+  it('reports range and decimal errors before the step error', () => {
+    expect(validateDecimal('0.05', increment)).toEqual({ ok: false, error: 'belowMin' });
+    expect(validateDecimal('25.05', increment)).toEqual({ ok: false, error: 'aboveMax' });
+    expect(validateDecimal('1.333', increment)).toEqual({ ok: false, error: 'tooManyDecimals' });
+  });
+
+  it('measures multiples from zero, so a step of 1 accepts only integers', () => {
+    expect(validateDecimal('4', { step: 1 })).toEqual({ ok: true, value: 4 });
+    expect(validateDecimal('4.5', { step: 1 })).toEqual({ ok: false, error: 'notMultipleOfStep' });
+  });
+});

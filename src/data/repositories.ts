@@ -1,4 +1,10 @@
 import type { Lift } from '@/domain/lifts';
+import {
+  DEFAULT_INCREMENT_KG,
+  DEFAULT_ROUNDING_MODE,
+  validateIncrement,
+  type RoundingMode,
+} from '@/domain/rounding';
 import type { NumberValidationError } from '@/domain/number-validation';
 import type { LanguageSetting } from '@/i18n/locale';
 
@@ -83,10 +89,44 @@ export interface ReferenceOneRmRepository {
   record(input: RecordReferenceOneRmInput): Promise<ReferenceOneRm>;
 }
 
+/** Load increment and rounding mode of a profile (SPEC §5). */
+export type RoundingSettings = {
+  profileId: number;
+  /** Profile-wide increment in kilograms. */
+  incrementKg: number;
+  mode: RoundingMode;
+  /** Per-lift increment overrides; a lift without an entry uses `incrementKg`. */
+  liftIncrementsKg: Partial<Record<Lift, number>>;
+};
+
+export type RoundingSettingsPatch = { incrementKg?: number; mode?: RoundingMode };
+
+export const DEFAULT_ROUNDING: Pick<RoundingSettings, 'incrementKg' | 'mode'> = {
+  incrementKg: DEFAULT_INCREMENT_KG,
+  mode: DEFAULT_ROUNDING_MODE,
+};
+
+export interface RoundingRepository {
+  /** Settings of an existing profile (defaults until changed); throws `ProfileNotFoundError` otherwise. */
+  get(profileId: number): Promise<RoundingSettings>;
+  /**
+   * Applies the given fields. Throws `InvalidIncrementError` for an increment outside SPEC §5
+   * (nothing is stored) and `ProfileNotFoundError` for an unknown profile.
+   */
+  update(profileId: number, patch: RoundingSettingsPatch): Promise<RoundingSettings>;
+  /** Sets (or, with `null`, removes) the increment of one lift. Same errors as `update`. */
+  setLiftIncrement(
+    profileId: number,
+    lift: Lift,
+    incrementKg: number | null,
+  ): Promise<RoundingSettings>;
+}
+
 export type Repositories = {
   profiles: ProfileRepository;
   settings: SettingsRepository;
   referenceOneRms: ReferenceOneRmRepository;
+  rounding: RoundingRepository;
 };
 
 export type Clock = () => Date;
@@ -96,6 +136,20 @@ export class ProfileNotFoundError extends Error {
   constructor(readonly profileId: number) {
     super(`Profile ${profileId} not found`);
     this.name = 'ProfileNotFoundError';
+  }
+}
+
+/** Throws `InvalidIncrementError` unless `incrementKg` is a valid preset or custom increment. */
+export function assertValidIncrement(incrementKg: number): void {
+  const reason = validateIncrement(incrementKg);
+  if (reason) throw new InvalidIncrementError(reason);
+}
+
+export class InvalidIncrementError extends Error {
+  readonly code = 'INVALID_INCREMENT';
+  constructor(readonly reason: NumberValidationError) {
+    super(`Invalid increment: ${reason}`);
+    this.name = 'InvalidIncrementError';
   }
 }
 

@@ -9,11 +9,18 @@ import {
   type Profile,
   type ReferenceOneRm,
   type Repositories,
+  type RoundingSettings,
   type Settings,
   type SettingsPatch,
   type ThemeSetting,
 } from '@/data/repositories';
 import { LIFTS, type Lift } from '@/domain/lifts';
+import {
+  DEFAULT_INCREMENT_KG,
+  DEFAULT_ROUNDING_MODE,
+  effectiveIncrement,
+  type RoundingMode,
+} from '@/domain/rounding';
 import { validateProfileName, validateReferenceOneRm, type ProfileNameError } from '@/domain/validation';
 import type { LanguageSetting } from '@/i18n/locale';
 
@@ -54,6 +61,13 @@ export type AppState = {
   saveReferenceOneRms: (values: OneRmValues, origin: OneRmOrigin) => Promise<number>;
   /** Saves the first-run 1RMs (origin `onboarding`; may be empty) and ends onboarding. */
   completeOnboarding: (values: OneRmValues) => Promise<void>;
+  /** Load increment and rounding mode of the active profile (null until loaded). */
+  rounding: RoundingSettings | null;
+  /** Profile-wide increment (kg). Throws `InvalidIncrementError` for an invalid value. */
+  setIncrementKg: (incrementKg: number) => Promise<void>;
+  setRoundingMode: (mode: RoundingMode) => Promise<void>;
+  /** Sets the increment of one lift, or removes its override with `null`. */
+  setLiftIncrementKg: (lift: Lift, incrementKg: number | null) => Promise<void>;
 };
 
 export type AppStore = StoreApi<AppState>;
@@ -84,12 +98,13 @@ export function createAppStore(repos: Repositories): AppStore {
 
     /** Loads everything belonging to `profile` in one go, so state never mixes profiles. */
     async function loadProfile(profile: Profile) {
-      const [profiles, settings, oneRmHistory] = await Promise.all([
+      const [profiles, settings, oneRmHistory, rounding] = await Promise.all([
         repos.profiles.list(),
         repos.settings.get(profile.id),
         repos.referenceOneRms.listHistory(profile.id),
+        repos.rounding.get(profile.id),
       ]);
-      set({ status: 'ready', profile, profiles, settings, oneRmHistory });
+      set({ status: 'ready', profile, profiles, settings, oneRmHistory, rounding });
     }
 
     async function saveReferenceOneRms(values: OneRmValues, origin: OneRmOrigin) {
@@ -118,6 +133,7 @@ export function createAppStore(repos: Repositories): AppStore {
       profiles: [],
       settings: null,
       oneRmHistory: [],
+      rounding: null,
       async init(defaultProfileName) {
         set({ status: 'loading' });
         try {
@@ -154,6 +170,18 @@ export function createAppStore(repos: Repositories): AppStore {
         await saveReferenceOneRms(values, 'onboarding');
         await updateSettings({ onboardingCompleted: true });
       },
+      async setIncrementKg(incrementKg) {
+        const profile = requireReady();
+        set({ rounding: await repos.rounding.update(profile.id, { incrementKg }) });
+      },
+      async setRoundingMode(mode) {
+        const profile = requireReady();
+        set({ rounding: await repos.rounding.update(profile.id, { mode }) });
+      },
+      async setLiftIncrementKg(lift, incrementKg) {
+        const profile = requireReady();
+        set({ rounding: await repos.rounding.setLiftIncrement(profile.id, lift, incrementKg) });
+      },
     };
   });
 }
@@ -179,3 +207,22 @@ export const selectOneRmHistory =
   (lift: Lift) =>
   (state: AppState): ReferenceOneRm[] =>
     state.oneRmHistory.filter((record) => record.lift === lift);
+
+export const selectRoundingMode = (state: AppState): RoundingMode =>
+  state.rounding?.mode ?? DEFAULT_ROUNDING_MODE;
+
+/** The profile-wide increment in kg (SPEC §5). */
+export const selectDefaultIncrementKg = (state: AppState): number =>
+  state.rounding?.incrementKg ?? DEFAULT_INCREMENT_KG;
+
+/** The lift's own increment override in kg, or undefined when it follows the default. */
+export const selectLiftIncrementOverride =
+  (lift: Lift) =>
+  (state: AppState): number | undefined =>
+    state.rounding?.liftIncrementsKg[lift];
+
+/** The increment that applies to `lift`: its override, else the profile default. */
+export const selectIncrementKg =
+  (lift: Lift) =>
+  (state: AppState): number =>
+    effectiveIncrement(lift, selectDefaultIncrementKg(state), state.rounding?.liftIncrementsKg ?? {});

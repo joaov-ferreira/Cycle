@@ -21,6 +21,7 @@ describe('registered migrations', () => {
       [1, 'init'],
       [2, 'reference_1rm'],
       [3, 'profile_state'],
+      [4, 'rounding'],
     ]);
   });
 
@@ -29,7 +30,7 @@ describe('registered migrations', () => {
     const again = await runMigrations(db, migrations);
     expect(again.applied).toEqual([]);
     const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version', []);
-    expect(version).toEqual({ user_version: 3 });
+    expect(version).toEqual({ user_version: 4 });
   });
 });
 
@@ -152,5 +153,37 @@ describe('003_profile_state', () => {
     expect(await db.getFirstAsync('SELECT active_profile_id FROM app_state', [])).toEqual({
       active_profile_id: null,
     });
+  });
+});
+
+describe('004_rounding', () => {
+  it('creates the rounding and per-lift override tables', async () => {
+    const db = await migratedDb();
+    expect(await columns(db, 'rounding_settings')).toEqual(['profile_id', 'increment_kg', 'rounding_mode']);
+    expect(await columns(db, 'lift_increment_overrides')).toEqual(['profile_id', 'lift', 'increment_kg']);
+  });
+
+  it('rejects unknown rounding modes, lifts and out-of-range increments', async () => {
+    const db = await migratedDb();
+    await db.runAsync('INSERT INTO profiles (name, created_at) VALUES (?, ?)', ['A', 'x']);
+    await expect(
+      db.runAsync('INSERT INTO rounding_settings VALUES (?, ?, ?)', [1, 2.5, 'sideways']),
+    ).rejects.toThrow(/CHECK constraint failed/);
+    await expect(
+      db.runAsync('INSERT INTO lift_increment_overrides VALUES (?, ?, ?)', [1, 'press', 1.25]),
+    ).rejects.toThrow(/CHECK constraint failed/);
+    await expect(
+      db.runAsync('INSERT INTO lift_increment_overrides VALUES (?, ?, ?)', [1, 'bench', 26]),
+    ).rejects.toThrow(/CHECK constraint failed/);
+  });
+
+  it('deletes rounding rows with their profile', async () => {
+    const db = await migratedDb();
+    await db.runAsync('INSERT INTO profiles (name, created_at) VALUES (?, ?)', ['A', 'x']);
+    await db.runAsync('INSERT INTO rounding_settings VALUES (?, ?, ?)', [1, 1.25, 'nearest']);
+    await db.runAsync('INSERT INTO lift_increment_overrides VALUES (?, ?, ?)', [1, 'squat', 5]);
+    await db.runAsync('DELETE FROM profiles WHERE id = ?', [1]);
+    expect(await db.getAllAsync('SELECT * FROM rounding_settings', [])).toEqual([]);
+    expect(await db.getAllAsync('SELECT * FROM lift_increment_overrides', [])).toEqual([]);
   });
 });

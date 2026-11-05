@@ -103,6 +103,27 @@ export const ptBR: Catalog = {
       en: 'English',
       ptBR: 'Português',
     },
+    rounding: {
+      title: 'Incrementos e arredondamento',
+      description: 'As cargas calculadas são arredondadas para o incremento que você consegue carregar.',
+      mode: {
+        label: 'Modo de arredondamento',
+        nearest: 'Mais próximo',
+        down: 'Sempre para baixo',
+        up: 'Sempre para cima',
+        hint: 'Valores no meio arredondam para baixo, então uma carga nunca fica acima do percentual.',
+      },
+      defaultIncrement: 'Incremento padrão',
+      custom: 'Outro',
+      customField: '{{label}} (personalizado)',
+      preview: 'Exemplo: {{exact}} → {{rounded}}',
+      lifts: {
+        source: 'Origem do incremento de {{lift}}',
+        inherit: 'Usar padrão',
+        own: 'Próprio',
+        incrementLabel: 'Incremento de {{lift}}',
+      },
+    },
   },
   profile: {
     defaultName: 'Padrão',
@@ -118,5 +139,6 @@ export const ptBR: Catalog = {
       one: 'Use no máximo {{count}} casa decimal',
       other: 'Use no máximo {{count}} casas decimais',
     },
+    notMultipleOfStep: 'Use múltiplos de {{step}}',
   },
 };

@@ -7,7 +7,8 @@
 - `app-providers.tsx` — boot gate: opens persistence, boots the app store, provides
   locale and theme.
 - `onboarding/` — first-run 1RM gate. `settings/` — Settings screen sections (profiles,
-  1RMs and history, language). `one-rm/` — the three-lift 1RM form.
+  1RMs and history, increments and rounding, language). `one-rm/` — the three-lift 1RM form.
+  `rounding/` — `IncrementPicker` (presets and custom increment).
 - `navigation/` — main tabs and the wide-screen sidebar.
 
 Rules:

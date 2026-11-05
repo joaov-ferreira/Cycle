@@ -1,6 +1,10 @@
+import type { Lift } from '@/domain/lifts';
+import type { RoundingMode } from '@/domain/rounding';
 import { validateReferenceOneRm } from '@/domain/validation';
 
 import {
+  assertValidIncrement,
+  DEFAULT_ROUNDING,
   DEFAULT_SETTINGS,
   InvalidReferenceOneRmError,
   ProfileNotFoundError,
@@ -8,6 +12,7 @@ import {
   type Profile,
   type ReferenceOneRm,
   type Repositories,
+  type RoundingSettings,
   type Settings,
 } from '../repositories';
 
@@ -20,6 +25,8 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
   const profiles = new Map<number, Profile>();
   const settings = new Map<number, Settings>();
   const oneRms: ReferenceOneRm[] = [];
+  const rounding = new Map<number, { incrementKg: number; mode: RoundingMode }>();
+  const liftIncrements = new Map<number, Partial<Record<Lift, number>>>();
   let activeProfileId: number | null = null;
   let nextId = 1;
   let nextOneRmId = 1;
@@ -34,6 +41,14 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
     const found = settings.get(profileId);
     if (!found) throw new ProfileNotFoundError(profileId);
     return found;
+  }
+
+  function roundingSnapshot(profileId: number): RoundingSettings {
+    return {
+      profileId,
+      ...(rounding.get(profileId) ?? DEFAULT_ROUNDING),
+      liftIncrementsKg: { ...liftIncrements.get(profileId) },
+    };
   }
 
   return {
@@ -101,6 +116,34 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
         };
         oneRms.push(record);
         return { ...record };
+      },
+    },
+    rounding: {
+      async get(profileId) {
+        requireSettings(profileId);
+        return roundingSnapshot(profileId);
+      },
+      async update(profileId, patch) {
+        requireSettings(profileId);
+        if (patch.incrementKg !== undefined) assertValidIncrement(patch.incrementKg);
+        const current = rounding.get(profileId) ?? DEFAULT_ROUNDING;
+        rounding.set(profileId, {
+          incrementKg: patch.incrementKg ?? current.incrementKg,
+          mode: patch.mode ?? current.mode,
+        });
+        return roundingSnapshot(profileId);
+      },
+      async setLiftIncrement(profileId, lift, incrementKg) {
+        requireSettings(profileId);
+        const overrides = { ...liftIncrements.get(profileId) };
+        if (incrementKg === null) {
+          delete overrides[lift];
+        } else {
+          assertValidIncrement(incrementKg);
+          overrides[lift] = incrementKg;
+        }
+        liftIncrements.set(profileId, overrides);
+        return roundingSnapshot(profileId);
       },
     },
   };

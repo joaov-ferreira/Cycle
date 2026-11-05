@@ -7,7 +7,8 @@ SQLite (`expo-sqlite`) database, versioned migrations and repositories.
   `PRAGMA user_version`; each migration runs in its own transaction. Append new files and
   register them in `migrations/index.ts`; never edit a released migration.
 - `repositories.ts` — repository **interfaces** and entity types (`profiles` incl. rename and
-  the remembered active profile, `settings`, append-only `referenceOneRms`).
+  the remembered active profile, `settings`, append-only `referenceOneRms`, `rounding`:
+  the load increment, rounding mode and per-lift increment overrides).
 - `memory/` — in-memory implementation (tests).
 - `sqlite/` — SQLite implementation and `openAppDatabase()` / `openSqliteRepositories()`.
 - `repositories.contract.ts` — one behavioral test suite run against **both**

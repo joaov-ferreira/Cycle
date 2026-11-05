@@ -1,8 +1,11 @@
 import type { Lift } from '@/domain/lifts';
+import type { RoundingMode } from '@/domain/rounding';
 import { validateReferenceOneRm } from '@/domain/validation';
 
 import type { SqlDatabase } from '../database';
 import {
+  assertValidIncrement,
+  DEFAULT_ROUNDING,
   InvalidReferenceOneRmError,
   ProfileNotFoundError,
   type Clock,
@@ -10,6 +13,8 @@ import {
   type Profile,
   type ReferenceOneRm,
   type Repositories,
+  type RoundingSettings,
+  type RoundingSettingsPatch,
   type Settings,
   type SettingsPatch,
 } from '../repositories';
@@ -61,6 +66,9 @@ const SETTINGS_COLUMNS: Record<keyof SettingsPatch, string> = {
   onboardingCompleted: 'onboarding_completed',
 };
 
+type RoundingRow = { increment_kg: number; rounding_mode: RoundingMode };
+type OverrideRow = { lift: Lift; increment_kg: number };
+
 const toSqlValue = (value: string | boolean | undefined): string | number =>
   typeof value === 'boolean' ? (value ? 1 : 0) : (value as string);
 
@@ -76,6 +84,31 @@ export function createSqliteRepositories(
     );
     if (!row) throw new ProfileNotFoundError(profileId);
     return toSettings(row);
+  }
+
+  async function requireProfile(profileId: number): Promise<void> {
+    const exists = await db.getFirstAsync('SELECT 1 FROM profiles WHERE id = ?', [profileId]);
+    if (!exists) throw new ProfileNotFoundError(profileId);
+  }
+
+  async function getRounding(profileId: number): Promise<RoundingSettings> {
+    await requireProfile(profileId);
+    const row = await db.getFirstAsync<RoundingRow>(
+      'SELECT increment_kg, rounding_mode FROM rounding_settings WHERE profile_id = ?',
+      [profileId],
+    );
+    const overrides = await db.getAllAsync<OverrideRow>(
+      'SELECT lift, increment_kg FROM lift_increment_overrides WHERE profile_id = ?',
+      [profileId],
+    );
+    return {
+      profileId,
+      incrementKg: row?.increment_kg ?? DEFAULT_ROUNDING.incrementKg,
+      mode: row?.rounding_mode ?? DEFAULT_ROUNDING.mode,
+      liftIncrementsKg: Object.fromEntries(
+        overrides.map((o) => [o.lift, o.increment_kg]),
+      ) as Partial<Record<Lift, number>>,
+    };
   }
 
   return {
@@ -175,8 +208,7 @@ export function createSqliteRepositories(
         return rows.map(toOneRm);
       },
       async record({ profileId, lift, value, origin, effectiveAt }) {
-        const exists = await db.getFirstAsync('SELECT 1 FROM profiles WHERE id = ?', [profileId]);
-        if (!exists) throw new ProfileNotFoundError(profileId);
+        await requireProfile(profileId);
         const invalid = validateReferenceOneRm(value);
         if (invalid) throw new InvalidReferenceOneRmError(invalid);
         const at = effectiveAt ?? clock().toISOString();
@@ -186,6 +218,41 @@ export function createSqliteRepositories(
           [profileId, lift, value, at, origin],
         );
         return { id: result.lastInsertRowId, profileId, lift, value, effectiveAt: at, origin };
+      },
+    },
+    rounding: {
+      get: getRounding,
+      async update(profileId: number, patch: RoundingSettingsPatch) {
+        const current = await getRounding(profileId);
+        if (patch.incrementKg !== undefined) assertValidIncrement(patch.incrementKg);
+        await db.runAsync(
+          `INSERT INTO rounding_settings (profile_id, increment_kg, rounding_mode) VALUES (?, ?, ?)
+           ON CONFLICT (profile_id) DO UPDATE SET
+             increment_kg = excluded.increment_kg, rounding_mode = excluded.rounding_mode`,
+          [
+            profileId,
+            patch.incrementKg ?? current.incrementKg,
+            patch.mode ?? current.mode,
+          ],
+        );
+        return getRounding(profileId);
+      },
+      async setLiftIncrement(profileId: number, lift: Lift, incrementKg: number | null) {
+        await requireProfile(profileId);
+        if (incrementKg === null) {
+          await db.runAsync(
+            'DELETE FROM lift_increment_overrides WHERE profile_id = ? AND lift = ?',
+            [profileId, lift],
+          );
+        } else {
+          assertValidIncrement(incrementKg);
+          await db.runAsync(
+            `INSERT INTO lift_increment_overrides (profile_id, lift, increment_kg) VALUES (?, ?, ?)
+             ON CONFLICT (profile_id, lift) DO UPDATE SET increment_kg = excluded.increment_kg`,
+            [profileId, lift, incrementKg],
+          );
+        }
+        return getRounding(profileId);
       },
     },
   };

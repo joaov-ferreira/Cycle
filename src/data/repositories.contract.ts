@@ -3,6 +3,7 @@
  * in-memory implementation and the SQLite implementation (on node:sqlite) in tests.
  */
 import {
+  InvalidIncrementError,
   InvalidReferenceOneRmError,
   ProfileNotFoundError,
   type Clock,
@@ -246,6 +247,89 @@ export function describeRepositoriesContract(name: string, factory: Repositories
         await expect(
           repos.referenceOneRms.record({ profileId: 3, lift: 'bench', value: 100, origin: 'manual' }),
         ).rejects.toThrow(ProfileNotFoundError);
+      });
+    });
+    describe('rounding settings', () => {
+      const defaults = { incrementKg: 2.5, mode: 'nearest', liftIncrementsKg: {} };
+
+      it('defaults to a 2.5 kg increment, nearest rounding and no lift overrides', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        expect(await repos.rounding.get(p.id)).toEqual({ profileId: p.id, ...defaults });
+      });
+
+      it('updates only the given fields and persists them', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        expect(await repos.rounding.update(p.id, { incrementKg: 1.25 })).toEqual({
+          profileId: p.id,
+          ...defaults,
+          incrementKg: 1.25,
+        });
+        await repos.rounding.update(p.id, { mode: 'up' });
+        expect(await repos.rounding.get(p.id)).toEqual({
+          profileId: p.id,
+          ...defaults,
+          incrementKg: 1.25,
+          mode: 'up',
+        });
+        expect(await repos.rounding.update(p.id, {})).toEqual(await repos.rounding.get(p.id));
+      });
+
+      it('stores custom increments exactly (0.05 kg steps from 0.1 to 25 kg)', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        for (const incrementKg of [0.1, 0.15, 10.05, 25]) {
+          expect((await repos.rounding.update(p.id, { incrementKg })).incrementKg).toBe(incrementKg);
+        }
+      });
+
+      it('rejects invalid increments with an error code and keeps the stored value', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        await expect(repos.rounding.update(p.id, { incrementKg: 0.05 })).rejects.toThrow(InvalidIncrementError);
+        await expect(repos.rounding.update(p.id, { incrementKg: 2.52 })).rejects.toMatchObject({
+          code: 'INVALID_INCREMENT',
+          reason: 'notMultipleOfStep',
+        });
+        await expect(repos.rounding.update(p.id, { incrementKg: 26 })).rejects.toMatchObject({
+          reason: 'aboveMax',
+        });
+        await expect(repos.rounding.setLiftIncrement(p.id, 'bench', 1.333)).rejects.toMatchObject({
+          reason: 'tooManyDecimals',
+        });
+        expect(await repos.rounding.get(p.id)).toEqual({ profileId: p.id, ...defaults });
+      });
+
+      it('sets and clears a per-lift increment without touching the others', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        expect((await repos.rounding.setLiftIncrement(p.id, 'bench', 1.25)).liftIncrementsKg).toEqual({
+          bench: 1.25,
+        });
+        await repos.rounding.setLiftIncrement(p.id, 'squat', 5);
+        await repos.rounding.setLiftIncrement(p.id, 'bench', 1);
+        expect((await repos.rounding.get(p.id)).liftIncrementsKg).toEqual({ bench: 1, squat: 5 });
+        expect((await repos.rounding.setLiftIncrement(p.id, 'bench', null)).liftIncrementsKg).toEqual({
+          squat: 5,
+        });
+        expect((await repos.rounding.get(p.id)).incrementKg).toBe(2.5);
+      });
+
+      it('isolates rounding settings and overrides per profile', async () => {
+        const repos = await factory(fixedClock);
+        const a = await repos.profiles.create({ name: 'Ana' });
+        const b = await repos.profiles.create({ name: 'Bruno' });
+        await repos.rounding.update(a.id, { incrementKg: 1, mode: 'down' });
+        await repos.rounding.setLiftIncrement(a.id, 'deadlift', 1.5);
+        expect(await repos.rounding.get(b.id)).toEqual({ profileId: b.id, ...defaults });
+      });
+
+      it('throws ProfileNotFoundError for an unknown profile', async () => {
+        const repos = await factory(fixedClock);
+        await expect(repos.rounding.get(8)).rejects.toThrow(ProfileNotFoundError);
+        await expect(repos.rounding.update(8, { mode: 'up' })).rejects.toThrow(ProfileNotFoundError);
+        await expect(repos.rounding.setLiftIncrement(8, 'bench', 1)).rejects.toThrow(ProfileNotFoundError);
       });
     });
   });

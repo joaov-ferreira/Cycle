@@ -36,6 +36,8 @@ function errorMessage(t: TFunction, error: NumberValidationError, rules: NumberR
       return t('validation.aboveMax', { max: rules.max ?? 0 });
     case 'tooManyDecimals':
       return t('validation.tooManyDecimals', { count: rules.maxDecimals ?? 0 });
+    case 'notMultipleOfStep':
+      return t('validation.notMultipleOfStep', { step: rules.step ?? 0 });
     default:
       return t(`validation.${error}`);
   }
