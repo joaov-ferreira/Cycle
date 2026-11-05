@@ -24,6 +24,7 @@ describe('registered migrations', () => {
       [4, 'rounding'],
       [5, 'program_params'],
       [6, 'periodization'],
+      [7, 'performance'],
     ]);
   });
 
@@ -32,7 +33,7 @@ describe('registered migrations', () => {
     const again = await runMigrations(db, migrations);
     expect(again.applied).toEqual([]);
     const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version', []);
-    expect(version).toEqual({ user_version: 6 });
+    expect(version).toEqual({ user_version: 7 });
   });
 });
 
@@ -292,5 +293,138 @@ describe('006_periodization', () => {
     expect(await db.getAllAsync('SELECT * FROM session_slots', [])).toEqual([]);
     expect(await db.getAllAsync('SELECT * FROM periodizations', [])).toEqual([]);
     expect(await db.getAllAsync('SELECT * FROM generated_sessions', [])).toEqual([]);
+  });
+});
+
+describe('007_performance', () => {
+  async function withPeriodization() {
+    const db = await migratedDb();
+    await db.runAsync('INSERT INTO profiles (name, created_at) VALUES (?, ?)', ['A', 'x']);
+    await db.runAsync(
+      'INSERT INTO periodizations (profile_id, start_date, created_at, config) VALUES (?, ?, ?, ?)',
+      [1, '2026-11-09', 'x', '{}'],
+    );
+    return db;
+  }
+  const insertSession = (db: NodeSqliteDatabase, overrides: Record<string, string | number | null> = {}) => {
+    const row = {
+      profile_id: 1,
+      periodization_id: 1,
+      session_key: '1-w1',
+      session_number: 1,
+      block_week: 1,
+      lift: 'bench',
+      template_id: 't',
+      template_name: 'T',
+      status: 'in_progress',
+      started_at: 'x',
+      updated_at: 'x',
+      completed_at: null,
+      notes: '',
+      snapshot: null,
+      ...overrides,
+    };
+    return db.runAsync(
+      `INSERT INTO performed_sessions (${Object.keys(row).join(', ')}) VALUES (${Object.keys(row).map(() => '?').join(', ')})`,
+      Object.values(row),
+    );
+  };
+  const insertSet = (db: NodeSqliteDatabase, overrides: Record<string, string | number | null> = {}) => {
+    const row = {
+      performed_session_id: 1,
+      position: 0,
+      prescribed_index: 0,
+      prescribed_weight_kg: 75,
+      prescribed_reps: 5,
+      weight_kg: 80,
+      reps: 5,
+      rir: 1,
+      rpe: 9,
+      notes: '',
+      ...overrides,
+    };
+    return db.runAsync(
+      `INSERT INTO performed_sets (${Object.keys(row).join(', ')}) VALUES (${Object.keys(row).map(() => '?').join(', ')})`,
+      Object.values(row),
+    );
+  };
+
+  it('creates the performed session and set tables', async () => {
+    const db = await migratedDb();
+    expect(await columns(db, 'performed_sessions')).toEqual([
+      'id',
+      'profile_id',
+      'periodization_id',
+      'session_key',
+      'session_number',
+      'block_week',
+      'lift',
+      'template_id',
+      'template_name',
+      'status',
+      'started_at',
+      'updated_at',
+      'completed_at',
+      'notes',
+      'snapshot',
+    ]);
+    expect(await columns(db, 'performed_sets')).toEqual([
+      'id',
+      'performed_session_id',
+      'position',
+      'prescribed_index',
+      'prescribed_weight_kg',
+      'prescribed_reps',
+      'weight_kg',
+      'reps',
+      'rir',
+      'rpe',
+      'notes',
+    ]);
+  });
+
+  it('constrains session values and ties completion to a date and a snapshot', async () => {
+    const db = await withPeriodization();
+    await insertSession(db);
+    await expect(insertSession(db, { session_key: '2-w1', lift: 'curl' })).rejects.toThrow(/CHECK constraint failed/);
+    await expect(insertSession(db, { session_key: '2-w1', status: 'paused' })).rejects.toThrow(/CHECK constraint failed/);
+    await expect(insertSession(db, { session_key: '2-w1', block_week: 4 })).rejects.toThrow(/CHECK constraint failed/);
+    await expect(insertSession(db, { session_key: '2-w1', status: 'completed' })).rejects.toThrow(/CHECK constraint failed/);
+    await expect(
+      insertSession(db, { session_key: '2-w1', completed_at: 'y', snapshot: '{}' }),
+    ).rejects.toThrow(/CHECK constraint failed/);
+    await insertSession(db, { session_key: '2-w1', status: 'completed', completed_at: 'y', snapshot: '{}' });
+  });
+
+  it('allows one record per periodization session and an existing periodization only', async () => {
+    const db = await withPeriodization();
+    await insertSession(db);
+    await expect(insertSession(db)).rejects.toThrow(/UNIQUE constraint failed/);
+    await expect(insertSession(db, { periodization_id: 9 })).rejects.toThrow(/FOREIGN KEY constraint failed/);
+    await expect(insertSession(db, { session_key: '2-w1', profile_id: 9 })).rejects.toThrow(/FOREIGN KEY constraint failed/);
+  });
+
+  it('constrains set values', async () => {
+    const db = await withPeriodization();
+    await insertSession(db);
+    await insertSet(db);
+    await insertSet(db, { position: 1, prescribed_index: null, prescribed_weight_kg: null, prescribed_reps: null });
+    await insertSet(db, { position: 2, weight_kg: null, reps: null, rir: null, rpe: null });
+    await expect(insertSet(db, { position: 0 })).rejects.toThrow(/UNIQUE constraint failed/);
+    await expect(insertSet(db, { position: 3, weight_kg: 0 })).rejects.toThrow(/CHECK constraint failed/);
+    await expect(insertSet(db, { position: 3, reps: -1 })).rejects.toThrow(/CHECK constraint failed/);
+    await expect(insertSet(db, { position: 3, rir: 10.5 })).rejects.toThrow(/CHECK constraint failed/);
+    await expect(insertSet(db, { position: 3, rpe: 0.5 })).rejects.toThrow(/CHECK constraint failed/);
+    await expect(insertSet(db, { position: 3, notes: 'x'.repeat(501) })).rejects.toThrow(/CHECK constraint failed/);
+    await expect(insertSet(db, { position: 3, performed_session_id: 9 })).rejects.toThrow(/FOREIGN KEY constraint failed/);
+  });
+
+  it('deletes sets with their session, and everything with the profile', async () => {
+    const db = await withPeriodization();
+    await insertSession(db);
+    await insertSet(db);
+    await db.runAsync('DELETE FROM profiles WHERE id = 1', []);
+    expect(await db.getAllAsync('SELECT * FROM performed_sessions', [])).toEqual([]);
+    expect(await db.getAllAsync('SELECT * FROM performed_sets', [])).toEqual([]);
   });
 });

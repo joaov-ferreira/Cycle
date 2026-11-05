@@ -9,6 +9,9 @@ the `step` rule), `validation.ts` (reference 1RM and profile name rules), `round
 periodization with exact/rounded loads, volume and warning codes, SPEC §4; `findSession` looks
 a session up by its key; on multi-lift days only the slot lift's items are calculated, the other lifts'
 items go to `otherItems` and a day without work for the slot lift raises `liftNotInDay`) and
+`rpe.ts` (RIR ↔ RPE table and conversions, half points, divergence check, SPEC §7),
+`performance.ts` (the sets to log from a generated session, field validation, prescribed-vs-actual
+comparison, the completion snapshot, snapshot session ids, the queue of pending sessions) and
 `session-slots.ts` (slot editing rules: program filtered by lift, day and start week kept in range;
 `missingProgramDays` for "Add all days of this program").
 

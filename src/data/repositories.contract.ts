@@ -3,9 +3,12 @@
  * in-memory implementation and the SQLite implementation (on node:sqlite) in tests.
  */
 import type { GeneratedSession } from '@/domain/periodization';
+import type { PerformanceSnapshot, SetRecord } from '@/domain/performance';
 
 import {
   InvalidIncrementError,
+  PerformedSessionCompletedError,
+  PerformedSessionNotFoundError,
   SessionSlotNotFoundError,
   InvalidReferenceOneRmError,
   ProfileNotFoundError,
@@ -584,6 +587,241 @@ export function describeRepositoriesContract(name: string, factory: Repositories
         await expect(
           repos.periodizations.create({ profileId: 9, startDate: '2026-11-09', config, sessions: [] }),
         ).rejects.toThrow(ProfileNotFoundError);
+      });
+    });
+
+    describe('performance', () => {
+      const generated: GeneratedSession = {
+        key: '1-w1',
+        slotId: 1,
+        sessionNumber: 1,
+        blockWeek: 1,
+        programWeek: 1,
+        lift: 'bench',
+        templateId: 'cycle-531-custom',
+        templateName: '5/3/1 (custom)',
+        templateVersion: 'v',
+        verification: 'verified',
+        programDay: 1,
+        daysPerWeek: 1,
+        items: [],
+        otherItems: [],
+        volume: { tonnageKg: 0, totalReps: 0 },
+        volumeByLift: {},
+        warnings: [],
+      };
+      const config = {
+        slots: [{ id: 1, lift: 'bench' as const, templateId: 'cycle-531-custom', programDay: 1, startWeek: 1 }],
+        oneRms: { bench: 100 },
+        rounding: { incrementKg: 2.5, mode: 'nearest' as const, liftIncrementsKg: {} },
+        params: {},
+      };
+      const set = (index: number | null, overrides: Partial<SetRecord> = {}): SetRecord => ({
+        prescribedIndex: index,
+        prescribedWeightKg: index === null ? null : 75,
+        prescribedReps: index === null ? null : 5,
+        weightKg: 80,
+        reps: 5,
+        rir: 1,
+        rpe: 9,
+        notes: '',
+        ...overrides,
+      });
+      const snapshot = (periodizationId: number): PerformanceSnapshot => ({
+        periodizationId,
+        startDate: '2026-11-09',
+        oneRmKg: 100,
+        incrementKg: 2.5,
+        roundingMode: 'nearest',
+        session: generated,
+      });
+      const ref = (periodizationId: number, sessionKey = '1-w1') => ({
+        periodizationId,
+        sessionKey,
+        sessionNumber: 1,
+        blockWeek: 1,
+        lift: 'bench' as const,
+        templateId: 'cycle-531-custom',
+        templateName: '5/3/1 (custom)',
+      });
+
+      async function setup(clock: Clock = fixedClock) {
+        const repos = await factory(clock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        const periodization = await repos.periodizations.create({
+          profileId: p.id,
+          startDate: '2026-11-09',
+          config,
+          sessions: [generated],
+        });
+        return { repos, p, periodization };
+      }
+
+      it('starts without records', async () => {
+        const { repos, p, periodization } = await setup();
+        expect(await repos.performances.list(p.id)).toEqual([]);
+        expect(await repos.performances.get(p.id, periodization.id, '1-w1')).toBeNull();
+      });
+
+      it('saves a draft: in progress, sets in order, extra sets without a prescription', async () => {
+        const { repos, p, periodization } = await setup();
+        const sets = [set(0), set(1, { weightKg: null, reps: null, rir: null, rpe: null }), set(null, { notes: 'extra' })];
+        const draft = await repos.performances.saveDraft({
+          profileId: p.id,
+          ...ref(periodization.id),
+          notes: 'felt heavy',
+          sets,
+        });
+        expect(draft).toEqual({
+          id: 1,
+          profileId: p.id,
+          ...ref(periodization.id),
+          status: 'in_progress',
+          startedAt: '2026-11-05T10:00:00.000Z',
+          updatedAt: '2026-11-05T10:00:00.000Z',
+          completedAt: null,
+          notes: 'felt heavy',
+          snapshot: null,
+          sets,
+        });
+        expect(await repos.performances.get(p.id, periodization.id, '1-w1')).toEqual(draft);
+        expect(await repos.performances.list(p.id)).toEqual([draft]);
+      });
+
+      it('overwrites the draft in place, keeping the id and start time', async () => {
+        let now = '2026-11-05T10:00:00.000Z';
+        const { repos, p, periodization } = await setup(() => new Date(now));
+        const first = await repos.performances.saveDraft({ profileId: p.id, ...ref(periodization.id), notes: '', sets: [set(0)] });
+        now = '2026-11-05T10:05:00.000Z';
+        const second = await repos.performances.saveDraft({
+          profileId: p.id,
+          ...ref(periodization.id),
+          notes: 'later',
+          sets: [set(0, { reps: 4 }), set(null)],
+        });
+        expect(second.id).toBe(first.id);
+        expect(second.startedAt).toBe('2026-11-05T10:00:00.000Z');
+        expect(second.updatedAt).toBe('2026-11-05T10:05:00.000Z');
+        expect(second.sets).toHaveLength(2);
+        expect(second.sets[0].reps).toBe(4);
+        expect(await repos.performances.list(p.id)).toEqual([second]);
+      });
+
+      it('completes a draft with a snapshot and refuses later changes', async () => {
+        let now = '2026-11-05T10:00:00.000Z';
+        const { repos, p, periodization } = await setup(() => new Date(now));
+        const draft = await repos.performances.saveDraft({ profileId: p.id, ...ref(periodization.id), notes: '', sets: [set(0)] });
+        now = '2026-11-05T11:00:00.000Z';
+        const done = await repos.performances.complete(p.id, draft.id, snapshot(periodization.id));
+        expect(done).toEqual({
+          ...draft,
+          status: 'completed',
+          updatedAt: '2026-11-05T11:00:00.000Z',
+          completedAt: '2026-11-05T11:00:00.000Z',
+          snapshot: snapshot(periodization.id),
+        });
+        expect(await repos.performances.get(p.id, periodization.id, '1-w1')).toEqual(done);
+        await expect(
+          repos.performances.saveDraft({ profileId: p.id, ...ref(periodization.id), notes: 'x', sets: [set(0)] }),
+        ).rejects.toThrow(PerformedSessionCompletedError);
+        await expect(repos.performances.complete(p.id, draft.id, snapshot(periodization.id))).rejects.toThrow(
+          PerformedSessionCompletedError,
+        );
+        expect(await repos.performances.get(p.id, periodization.id, '1-w1')).toEqual(done);
+      });
+
+      it('does not complete a session whose sets are incomplete or empty', async () => {
+        const { repos, p, periodization } = await setup();
+        const partial = await repos.performances.saveDraft({
+          profileId: p.id,
+          ...ref(periodization.id),
+          notes: '',
+          sets: [set(0), set(1, { weightKg: null })],
+        });
+        await expect(repos.performances.complete(p.id, partial.id, snapshot(periodization.id))).rejects.toThrow(RangeError);
+        const empty = await repos.performances.saveDraft({ profileId: p.id, ...ref(periodization.id, '1-w2'), notes: '', sets: [] });
+        await expect(repos.performances.complete(p.id, empty.id, snapshot(periodization.id))).rejects.toThrow(RangeError);
+        expect((await repos.performances.get(p.id, periodization.id, '1-w1'))?.status).toBe('in_progress');
+      });
+
+      it('throws PerformedSessionNotFoundError when completing an unknown or foreign record', async () => {
+        const { repos, p, periodization } = await setup();
+        const other = await repos.profiles.create({ name: 'Bruno' });
+        const draft = await repos.performances.saveDraft({ profileId: p.id, ...ref(periodization.id), notes: '', sets: [set(0)] });
+        await expect(repos.performances.complete(p.id, 99, snapshot(periodization.id))).rejects.toThrow(
+          PerformedSessionNotFoundError,
+        );
+        await expect(repos.performances.complete(other.id, draft.id, snapshot(periodization.id))).rejects.toThrow(
+          PerformedSessionNotFoundError,
+        );
+      });
+
+      it('rejects invalid sets and notes, storing nothing', async () => {
+        const { repos, p, periodization } = await setup();
+        const save = (sets: SetRecord[], notes = '') =>
+          repos.performances.saveDraft({ profileId: p.id, ...ref(periodization.id), notes, sets });
+        await expect(save([set(0, { weightKg: 0 })])).rejects.toThrow(RangeError);
+        await expect(save([set(0, { reps: -1 })])).rejects.toThrow(RangeError);
+        await expect(save([set(0, { reps: 2.5 })])).rejects.toThrow(RangeError);
+        await expect(save([set(0, { rir: 11 })])).rejects.toThrow(RangeError);
+        await expect(save([set(0, { rpe: 0.5, rir: null })])).rejects.toThrow(RangeError);
+        await expect(save([set(0, { rir: 1, rpe: 8 })])).rejects.toThrow(RangeError);
+        await expect(save([set(0, { notes: 'x'.repeat(501) })])).rejects.toThrow(RangeError);
+        await expect(save([set(0)], 'x'.repeat(501))).rejects.toThrow(RangeError);
+        expect(await repos.performances.list(p.id)).toEqual([]);
+      });
+
+      it('keeps valid boundary values and half-point RIR/RPE', async () => {
+        const { repos, p, periodization } = await setup();
+        const sets = [
+          set(0, { reps: 0, rir: 0, rpe: 10, notes: 'x'.repeat(500) }),
+          set(1, { weightKg: 82.5, rir: 1.5, rpe: 8.5 }),
+          set(2, { rir: 10, rpe: null }),
+        ];
+        const saved = await repos.performances.saveDraft({ profileId: p.id, ...ref(periodization.id), notes: '', sets });
+        expect(saved.sets).toEqual(sets);
+      });
+
+      it('links to a periodization of the same profile only', async () => {
+        const { repos, p, periodization } = await setup();
+        const other = await repos.profiles.create({ name: 'Bruno' });
+        await expect(
+          repos.performances.saveDraft({ profileId: p.id, ...ref(99), notes: '', sets: [] }),
+        ).rejects.toThrow(RangeError);
+        await expect(
+          repos.performances.saveDraft({ profileId: other.id, ...ref(periodization.id), notes: '', sets: [] }),
+        ).rejects.toThrow(RangeError);
+        await expect(
+          repos.performances.saveDraft({ profileId: 99, ...ref(periodization.id), notes: '', sets: [] }),
+        ).rejects.toThrow(ProfileNotFoundError);
+        expect(await repos.performances.list(p.id)).toEqual([]);
+      });
+
+      it('isolates records per profile and lists the most recently updated first', async () => {
+        let now = '2026-11-05T10:00:00.000Z';
+        const { repos, p, periodization } = await setup(() => new Date(now));
+        const other = await repos.profiles.create({ name: 'Bruno' });
+        const a = await repos.performances.saveDraft({ profileId: p.id, ...ref(periodization.id, '1-w1'), notes: '', sets: [set(0)] });
+        now = '2026-11-05T10:10:00.000Z';
+        const b = await repos.performances.saveDraft({ profileId: p.id, ...ref(periodization.id, '1-w2'), notes: '', sets: [set(0)] });
+        expect((await repos.performances.list(p.id)).map((r) => r.id)).toEqual([b.id, a.id]);
+        now = '2026-11-05T10:20:00.000Z';
+        await repos.performances.saveDraft({ profileId: p.id, ...ref(periodization.id, '1-w1'), notes: 'again', sets: [set(0)] });
+        expect((await repos.performances.list(p.id)).map((r) => r.id)).toEqual([a.id, b.id]);
+        expect(await repos.performances.list(other.id)).toEqual([]);
+        expect(await repos.performances.get(other.id, periodization.id, '1-w1')).toBeNull();
+      });
+
+      it('returns copies, so callers cannot change stored data', async () => {
+        const { repos, p, periodization } = await setup();
+        const draft = await repos.performances.saveDraft({ profileId: p.id, ...ref(periodization.id), notes: '', sets: [set(0)] });
+        draft.sets[0].weightKg = 999;
+        const done = await repos.performances.complete(p.id, draft.id, snapshot(periodization.id));
+        done.snapshot!.oneRmKg = 1;
+        done.snapshot!.session.volume.totalReps = 77;
+        const stored = await repos.performances.get(p.id, periodization.id, '1-w1');
+        expect(stored?.sets[0].weightKg).toBe(80);
+        expect(stored?.snapshot).toEqual(snapshot(periodization.id));
       });
     });
   });

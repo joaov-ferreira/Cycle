@@ -64,7 +64,15 @@ groups the routines under "Sheiko". On these multi-lift days only the session's 
 the day's other lifts are shown as information without loads, and a warning appears when the chosen
 day has no work for the session's lift. Variations such as "Deadlift from boxes" use the competition
 lift's 1RM, accessories are listed with sets and reps only, and the #32 max attempts (the sources give
-2–3 singles at 100–105%) are flagged "Unverified data" with no load. Features
+2–3 singles at 100–105%) are flagged "Unverified data" with no load. Stage 10 adds performance
+tracking: from a live session in the calendar, "Log this session" opens the matching session of the
+**activated** periodization (`/session/p<periodizationId>-<slotId>-w<week>`), where each prescribed
+set has weight (pre-filled with the prescribed load), reps, RIR, RPE (kept in sync as RPE = 10 − RIR,
+half points allowed; `5+` is accepted as RIR) and notes, plus extra sets and session notes. Every
+change is saved as a draft at once; "Complete session" records the date and a snapshot of the
+prescription and the 1RM, shows prescribed vs. actual per set (Δ kg, Δ reps) and per session (Δ
+tonnage) and makes the session read-only. The Training tab lists the sessions in progress and the
+next pending session. Features
 are built stage by stage; the current state of each stage is in the status table of
 [`docs/PLAN.md`](docs/PLAN.md).
 
@@ -131,7 +139,12 @@ Warnings are codes that the UI translates. The store exposes it through the memo
 `selectPeriodization` (`src/state/periodization-selectors.ts`). Session slots are stored per
 profile in `session_slots`; activated periodizations in `periodizations` (configuration
 snapshot) and `generated_sessions` (one JSON snapshot per session). The session detail route
-(`/session/<slotId>-w<blockWeek>`) shows a session of the live periodization.
+(`/session/<slotId>-w<blockWeek>`) shows a session of the live periodization;
+`/session/p<periodizationId>-<slotId>-w<blockWeek>` shows a session of an activated snapshot and is
+where performance is logged (SPEC §7). RIR ↔ RPE conversions and the logging rules (field validation,
+prescribed-vs-actual, the completion snapshot) are pure code in `src/domain/rpe.ts` and
+`src/domain/performance.ts`; drafts and completed sessions are stored in `performed_sessions` and
+`performed_sets` (migration 007).
 
 Supporting folders: `src/constants/theme.ts` (design tokens) and `src/test-utils/`
 (test-only helpers). Each layer has a `README.md` describing its contents and dependency

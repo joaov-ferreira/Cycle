@@ -1,11 +1,8 @@
-import { PlaceholderScreen } from '@/components/placeholder-screen';
+import { useRouter } from 'expo-router';
 
-export default function TrainingScreen() {
-  return (
-    <PlaceholderScreen
-      id="training"
-      title="screens.training.title"
-      description="screens.training.placeholder"
-    />
-  );
+import { TrainingScreen } from '@/components/performance/training-screen';
+
+export default function TrainingRoute() {
+  const router = useRouter();
+  return <TrainingScreen onOpenSession={(id) => router.push({ pathname: '/session/[id]', params: { id } })} />;
 }

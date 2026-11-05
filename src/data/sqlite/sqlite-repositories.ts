@@ -3,7 +3,13 @@ import type { RoundingMode } from '@/domain/rounding';
 import { validateReferenceOneRm } from '@/domain/validation';
 
 import type { SqlDatabase } from '../database';
+import type { PerformanceSnapshot, SetRecord } from '@/domain/performance';
 import {
+  assertValidPerformance,
+  PerformedSessionCompletedError,
+  PerformedSessionNotFoundError,
+  type PerformedSession,
+  type PerformedSessionStatus,
   assertPermutation,
   assertValidIncrement,
   assertValidSlotInput,
@@ -105,6 +111,68 @@ const PERIODIZATION_COLUMNS = 'id, profile_id, start_date, created_at, config';
 
 type GeneratedRow = { id: number; periodization_id: number; payload: string };
 
+type PerformedRow = {
+  id: number;
+  profile_id: number;
+  periodization_id: number;
+  session_key: string;
+  session_number: number;
+  block_week: number;
+  lift: Lift;
+  template_id: string;
+  template_name: string;
+  status: PerformedSessionStatus;
+  started_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  notes: string;
+  snapshot: string | null;
+};
+const PERFORMED_COLUMNS = `id, profile_id, periodization_id, session_key, session_number, block_week, lift,
+  template_id, template_name, status, started_at, updated_at, completed_at, notes, snapshot`;
+
+type PerformedSetRow = {
+  performed_session_id: number;
+  prescribed_index: number | null;
+  prescribed_weight_kg: number | null;
+  prescribed_reps: number | null;
+  weight_kg: number | null;
+  reps: number | null;
+  rir: number | null;
+  rpe: number | null;
+  notes: string;
+};
+
+const toSetRecord = (row: PerformedSetRow): SetRecord => ({
+  prescribedIndex: row.prescribed_index,
+  prescribedWeightKg: row.prescribed_weight_kg,
+  prescribedReps: row.prescribed_reps,
+  weightKg: row.weight_kg,
+  reps: row.reps,
+  rir: row.rir,
+  rpe: row.rpe,
+  notes: row.notes,
+});
+
+const toPerformed = (row: PerformedRow, sets: SetRecord[]): PerformedSession => ({
+  id: row.id,
+  profileId: row.profile_id,
+  periodizationId: row.periodization_id,
+  sessionKey: row.session_key,
+  sessionNumber: row.session_number,
+  blockWeek: row.block_week,
+  lift: row.lift,
+  templateId: row.template_id,
+  templateName: row.template_name,
+  status: row.status,
+  startedAt: row.started_at,
+  updatedAt: row.updated_at,
+  completedAt: row.completed_at,
+  notes: row.notes,
+  snapshot: row.snapshot === null ? null : (JSON.parse(row.snapshot) as PerformanceSnapshot),
+  sets,
+});
+
 type RoundingRow = { increment_kg: number; rounding_mode: RoundingMode };
 type ParamRow = { template_id: string; param_id: string; value: number };
 type OverrideRow = { lift: Lift; increment_kg: number };
@@ -185,6 +253,29 @@ export function createSqliteRepositories(
     for (const [position, id] of ids.entries()) {
       await db.runAsync('UPDATE session_slots SET position = ? WHERE id = ?', [position, id]);
     }
+  }
+
+  /** Sessions with their sets, in the order of `rows`. */
+  async function withSets(rows: PerformedRow[]): Promise<PerformedSession[]> {
+    const result: PerformedSession[] = [];
+    for (const row of rows) {
+      const sets = await db.getAllAsync<PerformedSetRow>(
+        `SELECT performed_session_id, prescribed_index, prescribed_weight_kg, prescribed_reps,
+                weight_kg, reps, rir, rpe, notes
+         FROM performed_sets WHERE performed_session_id = ? ORDER BY position`,
+        [row.id],
+      );
+      result.push(toPerformed(row, sets.map(toSetRecord)));
+    }
+    return result;
+  }
+
+  async function getPerformedById(profileId: number, id: number): Promise<PerformedSession | null> {
+    const row = await db.getFirstAsync<PerformedRow>(
+      `SELECT ${PERFORMED_COLUMNS} FROM performed_sessions WHERE id = ? AND profile_id = ?`,
+      [id, profileId],
+    );
+    return row ? (await withSets([row]))[0] : null;
   }
 
   return {
@@ -448,6 +539,106 @@ export function createSqliteRepositories(
           periodizationId: row.periodization_id,
           session: JSON.parse(row.payload),
         }));
+      },
+    },
+    performances: {
+      async saveDraft(input) {
+        const { profileId, notes, sets, ...ref } = input;
+        await requireProfile(profileId);
+        assertValidPerformance({ sets, notes }, { complete: false });
+        const owned = await db.getFirstAsync('SELECT 1 FROM periodizations WHERE id = ? AND profile_id = ?', [
+          ref.periodizationId,
+          profileId,
+        ]);
+        if (!owned) throw new RangeError(`Unknown periodization: ${ref.periodizationId}`);
+        const now = clock().toISOString();
+        const existing = await db.getFirstAsync<{ id: number; status: PerformedSessionStatus }>(
+          'SELECT id, status FROM performed_sessions WHERE periodization_id = ? AND session_key = ?',
+          [ref.periodizationId, ref.sessionKey],
+        );
+        if (existing?.status === 'completed') throw new PerformedSessionCompletedError(existing.id);
+        let id = existing?.id ?? 0;
+        await db.withTransactionAsync(async () => {
+          if (existing) {
+            await db.runAsync(
+              `UPDATE performed_sessions SET session_number = ?, block_week = ?, lift = ?, template_id = ?,
+                 template_name = ?, updated_at = ?, notes = ? WHERE id = ?`,
+              [ref.sessionNumber, ref.blockWeek, ref.lift, ref.templateId, ref.templateName, now, notes, id],
+            );
+            await db.runAsync('DELETE FROM performed_sets WHERE performed_session_id = ?', [id]);
+          } else {
+            const result = await db.runAsync(
+              `INSERT INTO performed_sessions (profile_id, periodization_id, session_key, session_number, block_week,
+                 lift, template_id, template_name, status, started_at, updated_at, completed_at, notes, snapshot)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'in_progress', ?, ?, NULL, ?, NULL)`,
+              [
+                profileId,
+                ref.periodizationId,
+                ref.sessionKey,
+                ref.sessionNumber,
+                ref.blockWeek,
+                ref.lift,
+                ref.templateId,
+                ref.templateName,
+                now,
+                now,
+                notes,
+              ],
+            );
+            id = result.lastInsertRowId;
+          }
+          for (const [position, set] of sets.entries()) {
+            await db.runAsync(
+              `INSERT INTO performed_sets (performed_session_id, position, prescribed_index, prescribed_weight_kg,
+                 prescribed_reps, weight_kg, reps, rir, rpe, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                id,
+                position,
+                set.prescribedIndex,
+                set.prescribedWeightKg,
+                set.prescribedReps,
+                set.weightKg,
+                set.reps,
+                set.rir,
+                set.rpe,
+                set.notes,
+              ],
+            );
+          }
+        });
+        return (await getPerformedById(profileId, id)) as PerformedSession;
+      },
+      async complete(profileId, id, snapshot) {
+        await requireProfile(profileId);
+        const existing = await getPerformedById(profileId, id);
+        if (!existing) throw new PerformedSessionNotFoundError(id);
+        if (existing.status === 'completed') throw new PerformedSessionCompletedError(id);
+        assertValidPerformance(existing, { complete: true });
+        const now = clock().toISOString();
+        await db.runAsync(
+          `UPDATE performed_sessions SET status = 'completed', updated_at = ?, completed_at = ?, snapshot = ?
+           WHERE id = ? AND profile_id = ?`,
+          [now, now, JSON.stringify(snapshot), id, profileId],
+        );
+        return (await getPerformedById(profileId, id)) as PerformedSession;
+      },
+      async get(profileId, periodizationId, sessionKey) {
+        await requireProfile(profileId);
+        const row = await db.getFirstAsync<PerformedRow>(
+          `SELECT ${PERFORMED_COLUMNS} FROM performed_sessions
+           WHERE profile_id = ? AND periodization_id = ? AND session_key = ?`,
+          [profileId, periodizationId, sessionKey],
+        );
+        return row ? (await withSets([row]))[0] : null;
+      },
+      async list(profileId) {
+        await requireProfile(profileId);
+        const rows = await db.getAllAsync<PerformedRow>(
+          `SELECT ${PERFORMED_COLUMNS} FROM performed_sessions WHERE profile_id = ?
+           ORDER BY updated_at DESC, id DESC`,
+          [profileId],
+        );
+        return withSets(rows);
       },
     },
   };

@@ -4,9 +4,11 @@ import { ensureDefaultProfile } from '@/data/bootstrap';
 import {
   DEFAULT_SETTINGS,
   InvalidReferenceOneRmError,
+  PerformedSessionNotFoundError,
   ProfileNotFoundError,
   SessionSlotNotFoundError,
   type OneRmOrigin,
+  type PerformedSession,
   type Profile,
   type ProgramParamValues,
   type ReferenceOneRm,
@@ -20,6 +22,13 @@ import {
 } from '@/data/repositories';
 import { LIFTS, type Lift } from '@/domain/lifts';
 import {
+  buildPerformanceSnapshot,
+  hasErrors,
+  validatePerformedSession,
+  type PerformedSessionErrors,
+  type SetRecord,
+} from '@/domain/performance';
+import {
   DEFAULT_INCREMENT_KG,
   DEFAULT_ROUNDING_MODE,
   effectiveIncrement,
@@ -30,6 +39,7 @@ import {
   generatePeriodization,
   validateSlot,
   type ActivationIssue,
+  type GeneratedSession,
   type RoundingConfig,
   type SlotIssue,
 } from '@/domain/periodization';
@@ -92,6 +102,18 @@ export class InvalidStartDateError extends Error {
     this.name = 'InvalidStartDateError';
   }
 }
+
+/** Thrown when a performed session cannot be completed; `errors` says which fields are missing or invalid. */
+export class PerformedSessionIncompleteError extends Error {
+  readonly code = 'PERFORMED_SESSION_INCOMPLETE';
+  constructor(readonly errors: PerformedSessionErrors) {
+    super(`Performed session is incomplete: ${JSON.stringify(errors)}`);
+    this.name = 'PerformedSessionIncompleteError';
+  }
+}
+
+/** What the logging screen edits: the sets in order and the session notes. */
+export type PerformedDraft = { notes: string; sets: readonly SetRecord[] };
 
 export type AppState = {
   status: AppStatus;
@@ -156,6 +178,31 @@ export type AppState = {
    * `InvalidStartDateError` or `PeriodizationNotReadyError`; earlier activations are kept.
    */
   activatePeriodization: (startDate: string) => Promise<void>;
+  /** The sessions of the active (activated) periodization, in block-week, session order. */
+  activeSessions: GeneratedSession[];
+  /** The profile's performed sessions (drafts and completed), most recently updated first. */
+  performedSessions: PerformedSession[];
+  /**
+   * Stores the logging screen's state at once (SPEC §7 draft), creating the record on the first
+   * save. Calls are applied in order. Throws `RangeError` for invalid values and
+   * `PerformedSessionCompletedError` once the session was completed.
+   */
+  savePerformedDraft: (
+    periodizationId: number,
+    session: GeneratedSession,
+    draft: PerformedDraft,
+  ) => Promise<PerformedSession>;
+  /**
+   * Completes a started session: records the date and a snapshot of the prescription and the 1RM
+   * it was performed against. Throws `PerformedSessionIncompleteError` when a set lacks a weight
+   * or reps (or any value is invalid), `PerformedSessionNotFoundError` when it was never started.
+   */
+  completePerformedSession: (periodizationId: number, sessionKey: string) => Promise<PerformedSession>;
+  /** A session of any activated periodization of the profile (snapshot data), or null. */
+  loadSnapshotSession: (
+    periodizationId: number,
+    sessionKey: string,
+  ) => Promise<{ periodization: StoredPeriodization; session: GeneratedSession } | null>;
 };
 
 export type AppStore = StoreApi<AppState>;
@@ -184,10 +231,47 @@ export function createAppStore(repos: Repositories): AppStore {
       return name.trim();
     }
 
+    /** The snapshot sessions of an activated periodization (none for null). */
+    async function sessionsOf(profileId: number, periodization: StoredPeriodization | null) {
+      if (!periodization) return [];
+      return (await repos.periodizations.listSessions(profileId, periodization.id)).map((row) => row.session);
+    }
+
+    /** Draft saves and completion run one after another, so the last edit always wins. */
+    let performanceQueue: Promise<unknown> = Promise.resolve();
+    function enqueue<T>(task: () => Promise<T>): Promise<T> {
+      const run = performanceQueue.then(task, task);
+      performanceQueue = run.catch(() => undefined);
+      return run;
+    }
+
+    const withPerformed = (record: PerformedSession) => [
+      record,
+      ...get().performedSessions.filter((existing) => existing.id !== record.id),
+    ];
+
+    async function loadSnapshotSession(periodizationId: number, sessionKey: string) {
+      const profile = requireReady();
+      const periodization = (await repos.periodizations.list(profile.id)).find((p) => p.id === periodizationId);
+      if (!periodization) return null;
+      const stored = (await repos.periodizations.listSessions(profile.id, periodizationId)).find(
+        (row) => row.session.key === sessionKey,
+      );
+      return stored ? { periodization, session: stored.session } : null;
+    }
+
     /** Loads everything belonging to `profile` in one go, so state never mixes profiles. */
     async function loadProfile(profile: Profile) {
-      const [profiles, settings, oneRmHistory, rounding, programParams, sessionSlots, activePeriodization] =
-        await Promise.all([
+      const [
+        profiles,
+        settings,
+        oneRmHistory,
+        rounding,
+        programParams,
+        sessionSlots,
+        activePeriodization,
+        performedSessions,
+      ] = await Promise.all([
           repos.profiles.list(),
           repos.settings.get(profile.id),
           repos.referenceOneRms.listHistory(profile.id),
@@ -195,7 +279,9 @@ export function createAppStore(repos: Repositories): AppStore {
           repos.programParams.getAll(profile.id),
           repos.sessionSlots.list(profile.id),
           repos.periodizations.getLatest(profile.id),
+          repos.performances.list(profile.id),
         ]);
+      const activeSessions = await sessionsOf(profile.id, activePeriodization);
       set({
         status: 'ready',
         profile,
@@ -206,6 +292,8 @@ export function createAppStore(repos: Repositories): AppStore {
         programParams,
         sessionSlots,
         activePeriodization,
+        activeSessions,
+        performedSessions,
       });
     }
 
@@ -252,6 +340,8 @@ export function createAppStore(repos: Repositories): AppStore {
       programParams: {},
       sessionSlots: [],
       activePeriodization: null,
+      activeSessions: [],
+      performedSessions: [],
       async init(defaultProfileName) {
         set({ status: 'loading' });
         try {
@@ -383,8 +473,45 @@ export function createAppStore(repos: Repositories): AppStore {
           config,
           sessions: periodization.weeks.flatMap((week) => week.sessions),
         });
-        set({ activePeriodization });
+        set({ activePeriodization, activeSessions: await sessionsOf(profile.id, activePeriodization) });
       },
+      loadSnapshotSession,
+      savePerformedDraft: (periodizationId, session, draft) =>
+        enqueue(async () => {
+          const profile = requireReady();
+          const saved = await repos.performances.saveDraft({
+            profileId: profile.id,
+            periodizationId,
+            sessionKey: session.key,
+            sessionNumber: session.sessionNumber,
+            blockWeek: session.blockWeek,
+            lift: session.lift,
+            templateId: session.templateId,
+            templateName: session.templateName,
+            notes: draft.notes,
+            sets: draft.sets,
+          });
+          set({ performedSessions: withPerformed(saved) });
+          return saved;
+        }),
+      completePerformedSession: (periodizationId, sessionKey) =>
+        enqueue(async () => {
+          const profile = requireReady();
+          const record = await repos.performances.get(profile.id, periodizationId, sessionKey);
+          const snapshotSource = record ? await loadSnapshotSession(periodizationId, sessionKey) : null;
+          if (!record || !snapshotSource) {
+            throw new PerformedSessionNotFoundError(`${periodizationId}/${sessionKey}`);
+          }
+          const errors = validatePerformedSession(record, { complete: true });
+          if (hasErrors(errors)) throw new PerformedSessionIncompleteError(errors);
+          const done = await repos.performances.complete(
+            profile.id,
+            record.id,
+            buildPerformanceSnapshot(snapshotSource.periodization, snapshotSource.session),
+          );
+          set({ performedSessions: withPerformed(done) });
+          return done;
+        }),
     };
   });
 }

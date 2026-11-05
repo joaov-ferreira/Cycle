@@ -13,7 +13,9 @@ SQLite (`expo-sqlite`) database, versioned migrations and repositories.
   ranges are validated by `src/programs/` through the store, not by the repository;
   `sessionSlots`: the ordered session slots of the periodization editor; `periodizations`:
   activated periodizations, immutable snapshots of the configuration and the generated sessions
-  stored as JSON, the latest being the active one).
+  stored as JSON, the latest being the active one), `performances`: performed sessions of an
+  activated periodization (`performed_sessions` / `performed_sets`): a draft is overwritten in
+  place on every save, completing it stores the date and a snapshot and makes it immutable).
 - `memory/` — in-memory implementation (tests).
 - `sqlite/` — SQLite implementation and `openAppDatabase()` / `openSqliteRepositories()`.
 - `repositories.contract.ts` — one behavioral test suite run against **both**

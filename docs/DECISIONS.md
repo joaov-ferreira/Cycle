@@ -550,3 +550,66 @@ the reference shipped with the installed package
   were confirmed as the right handling.
 - Minor wording: the Under-80 #37 tab orders one W1 Monday accessory differently; every
   set agrees.
+
+## 2026-11-05 — Stage 10: performance tracking + RIR/RPE
+
+- **Logging is against the activated snapshot, not the live draft.** A `performed_sessions` row
+  belongs to `(periodization_id, session_key)` (`UNIQUE`), i.e. to a session of an activated
+  periodization (`generated_sessions`), so the prescription it answers can never change when slots,
+  1RMs or increments are edited (SPEC §10). The route `/session/[id]` accepts a second id form,
+  `p<periodizationId>-<slotId>-w<blockWeek>` (anticipated in the Stage 6 notes), that loads the
+  frozen session from persistence and shows the logger above the usual prescription cards. The
+  plain key still means the live periodization (calendar, table). From a live session, "Log this
+  session" jumps to the snapshot form of the active periodization when it contains that key;
+  otherwise the screen says to activate the periodization or that the session is not part of it,
+  and a note warns that the snapshot's loads may differ from the live ones. Alternative considered:
+  logging against the live session and copying its loads, rejected because an edit between two
+  visits would silently change what a draft is compared with. Sessions of older activations stay
+  reachable (the Training tab lists their drafts), but only the latest activation feeds "next
+  session".
+- **Tables.** `performed_sessions` (copies of session number, week, lift and template so a record is
+  readable without the periodization; `status` `in_progress | completed`; a `CHECK` ties completion
+  to `completed_at` and `snapshot`) and `performed_sets` (position, the prescription each set
+  answers — `prescribed_index`, `prescribed_weight_kg`, `prescribed_reps`, all `NULL` for an extra
+  set — and weight, reps, RIR, RPE, notes). `weight_kg`/`reps` may be `NULL` only while a draft;
+  the repository re-validates before completing. Other SPEC §12.2 tables stay for later stages
+  (`e1rm_history` in Stage 11).
+- **Draft = the row itself.** `saveDraft` overwrites the record and its sets in one transaction on
+  every edit (SPEC §7 "immediate local save"); there is no separate draft table or debounce. The
+  store serializes saves (`savePerformedDraft`/`completePerformedSession` share a queue), so rapid
+  typing cannot reorder writes. The record is created on the first edit, not when the screen opens,
+  so merely viewing a session does not make it "in progress". Fields with an invalid value are
+  stored empty in the draft (the typed text stays in the form); completion needs every value valid.
+- **Completion snapshot.** `PerformanceSnapshot` = the activated `GeneratedSession`, the lift's 1RM
+  and the increment/rounding mode in effect at activation (read from the periodization config), the
+  periodization id and start date. Together with the per-set prescribed values it makes a completed
+  session independent of later 1RM changes (tested through the store and the UI). Completed
+  sessions are final in Stage 10 (`saveDraft` throws `PerformedSessionCompletedError`); editing a
+  past session (SPEC §10) belongs to Stage 13. One record per session of a periodization: repeating
+  a session means activating again.
+- **Domain rules (`rpe.ts`, `performance.ts`).** `RPE = 10 − RIR`; RIR 5 stands for "5+" (the table
+  row is "RPE ≤ 5", stored as 5) and `5+` is accepted as input; RIR 10 has no RPE (the scale starts
+  at 1). RIR is validated as 0–10 in half steps because half points arise from RPE conversion
+  (RPE 8.5 → RIR 1.5); the logging form's RIR field accepts whole numbers and `5+`, and also shows
+  (and accepts back) those half points. Editing either field rewrites the other, so the form cannot
+  produce a divergence; the check "differ by more than 0.5 → `rirRpeMismatch`" is domain/repository
+  validation. Limits that SPEC §7 leaves open were fixed: weight > 0 and ≤ 1000 kg with at most 2
+  decimals, reps an integer 0–100, notes ≤ 500 characters (per set and per session). Reps are not
+  pre-filled (only the load is, per SPEC §7); an extra set starts from the previous set's weight.
+- **Prescribed sets.** `prescribedSets(session)` expands `repeat` and lists only the slot lift's
+  main items (variations such as "Deadlift from boxes" included, with their name); accessory and
+  info lines and `otherItems` (multi-lift days) are not logged. Sets without a load (unverified / no
+  1RM) are logged without a prescribed weight and with no weight delta. A prescribed set cannot be
+  removed from the form; a skipped set is entered with 0 reps (failure) so the comparison keeps it.
+  AMRAP sets compare against their minimum reps.
+- **Prescribed vs. actual.** Per set: Δ kg and Δ reps (extra sets have none); per session:
+  prescribed tonnage (Σ prescribed reps × load of the sets with a load) vs. performed tonnage
+  (every set with weight and reps, extra sets included), summed on integer micrograms.
+  Snapshots activated before Stage 9 have no `otherItems`; the logger never reads them.
+- **Training tab.** `selectTrainingQueue`: `inProgress` = all drafts (any activation, newest edit
+  first); `next` = first session of the latest activation, by block week then session number, that
+  has at least one prescribed set and no record. Sessions with nothing to log (rest days, a lift
+  with no work on a multi-lift day) are skipped so they cannot block the queue. It opens
+  `/session/p<id>-<key>`. The placeholder text `screens.training.placeholder` was removed.
+- **Not in this stage.** e1RM display after a set (Stage 11), history list and editing completed
+  sessions (Stage 13). The Dashboard still shows its placeholder.

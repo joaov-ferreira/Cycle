@@ -9,7 +9,7 @@ import { listTemplates } from '@/programs/registry';
 import { currentOneRms, roundingConfig, type AppState } from './app-store';
 
 /** Caches the last result of `compute` for the same input references. */
-function memoizeLast<A extends readonly unknown[], R>(compute: (...args: A) => R): (...args: A) => R {
+export function memoizeLast<A extends readonly unknown[], R>(compute: (...args: A) => R): (...args: A) => R {
   let last: { args: A; result: R } | null = null;
   return (...args: A) => {
     if (last && last.args.length === args.length && last.args.every((arg, i) => Object.is(arg, args[i]))) {

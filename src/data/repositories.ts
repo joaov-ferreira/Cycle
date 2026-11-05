@@ -13,6 +13,12 @@ import type {
   SessionSlotConfig,
   TemplateParams,
 } from '@/domain/periodization';
+import {
+  hasErrors,
+  validatePerformedSession,
+  type PerformanceSnapshot,
+  type SetRecord,
+} from '@/domain/performance';
 import type { SessionSlotInput } from '@/domain/session-slots';
 import { validateIsoDate } from '@/domain/validation';
 import type { LanguageSetting } from '@/i18n/locale';
@@ -206,6 +212,66 @@ export interface PeriodizationRepository {
   listSessions(profileId: number, periodizationId: number): Promise<StoredGeneratedSession[]>;
 }
 
+export type PerformedSessionStatus = 'in_progress' | 'completed';
+
+/** Which session of which activated periodization a record belongs to (copied for readability). */
+export type PerformedSessionRef = {
+  periodizationId: number;
+  /** `<slotId>-w<blockWeek>` of the snapshot session. */
+  sessionKey: string;
+  sessionNumber: number;
+  blockWeek: number;
+  lift: Lift;
+  templateId: string;
+  templateName: string;
+};
+
+export type PerformedSession = PerformedSessionRef & {
+  id: number;
+  profileId: number;
+  status: PerformedSessionStatus;
+  /** ISO 8601 timestamps; `completedAt` is null while the session is a draft. */
+  startedAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+  /** Session notes (≤ 500 characters). */
+  notes: string;
+  /** Set when completed (SPEC §7): the prescription and 1RM the session was performed against. */
+  snapshot: PerformanceSnapshot | null;
+  /** In the order logged. */
+  sets: SetRecord[];
+};
+
+export type SavePerformedDraftInput = PerformedSessionRef & {
+  profileId: number;
+  notes: string;
+  sets: readonly SetRecord[];
+};
+
+/**
+ * Performed sessions (SPEC §7): at most one per session of an activated periodization. Saving a
+ * draft creates or overwrites the record (sets included) so every edit is stored at once;
+ * completing it is final.
+ */
+export interface PerformanceRepository {
+  /**
+   * Creates or overwrites the draft. Throws `RangeError` for invalid values (weight, reps,
+   * RIR/RPE, notes) or a periodization that is not the profile's, `ProfileNotFoundError` for an
+   * unknown profile and `PerformedSessionCompletedError` when the session was completed.
+   */
+  saveDraft(input: SavePerformedDraftInput): Promise<PerformedSession>;
+  /**
+   * Completes a draft with its snapshot and the repository clock as the date. Throws
+   * `RangeError` unless there is at least one set and every set has a weight and reps,
+   * `PerformedSessionNotFoundError` for an unknown id and `PerformedSessionCompletedError`
+   * when already completed.
+   */
+  complete(profileId: number, id: number, snapshot: PerformanceSnapshot): Promise<PerformedSession>;
+  get(profileId: number, periodizationId: number, sessionKey: string): Promise<PerformedSession | null>;
+  /** Most recently updated first. */
+  list(profileId: number): Promise<PerformedSession[]>;
+}
+
 export type Repositories = {
   profiles: ProfileRepository;
   settings: SettingsRepository;
@@ -214,6 +280,7 @@ export type Repositories = {
   programParams: ProgramParamRepository;
   sessionSlots: SessionSlotRepository;
   periodizations: PeriodizationRepository;
+  performances: PerformanceRepository;
 };
 
 export type Clock = () => Date;
@@ -223,6 +290,23 @@ export class ProfileNotFoundError extends Error {
   constructor(readonly profileId: number) {
     super(`Profile ${profileId} not found`);
     this.name = 'ProfileNotFoundError';
+  }
+}
+
+export class PerformedSessionNotFoundError extends Error {
+  readonly code = 'PERFORMED_SESSION_NOT_FOUND';
+  /** The record id, or `<periodizationId>/<sessionKey>` when looked up by session. */
+  constructor(readonly reference: number | string) {
+    super(`Performed session ${reference} not found`);
+    this.name = 'PerformedSessionNotFoundError';
+  }
+}
+
+export class PerformedSessionCompletedError extends Error {
+  readonly code = 'PERFORMED_SESSION_COMPLETED';
+  constructor(readonly performedSessionId: number) {
+    super(`Performed session ${performedSessionId} is already completed`);
+    this.name = 'PerformedSessionCompletedError';
   }
 }
 
@@ -241,6 +325,18 @@ export function assertValidSlotInput(input: SessionSlotInput): void {
   if (input.templateId.trim() === '') throw new RangeError('Template id must not be blank');
   if (!positive(input.programDay)) throw new RangeError(`Invalid program day: ${input.programDay}`);
   if (!positive(input.startWeek)) throw new RangeError(`Invalid start week: ${input.startWeek}`);
+}
+
+/**
+ * Throws `RangeError` unless the sets and notes pass SPEC §7's field rules; `complete: true`
+ * also requires at least one set with a weight and reps.
+ */
+export function assertValidPerformance(
+  input: { sets: readonly SetRecord[]; notes: string },
+  options: { complete: boolean },
+): void {
+  const errors = validatePerformedSession(input, options);
+  if (hasErrors(errors)) throw new RangeError(`Invalid performed session: ${JSON.stringify(errors)}`);
 }
 
 /** Throws `RangeError` unless `ids` is a permutation of `current`. */

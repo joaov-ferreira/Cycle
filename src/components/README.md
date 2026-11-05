@@ -16,6 +16,9 @@
   increment and "Add all days of this program"), warnings, the responsive
   three-week table (weeks side by side at ≥ 900 px, a week toggle on phones), the calendar
   (week × session cards), a Table | Calendar toggle, activation and the session detail screen.
+- `performance/` — the performance logger (per-set weight, reps, RIR/RPE, notes; extra sets;
+  auto-saved draft; completion and the read-only summary with prescribed vs. actual) and the
+  Training screen (sessions in progress and the next pending session).
 - `navigation/` — main tabs and the wide-screen sidebar.
 
 Rules:

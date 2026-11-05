@@ -13,6 +13,11 @@ Connects persistence (`src/data/`) and the math engine (`src/domain/`) to the UI
   `removeSessionSlot`, `moveSessionSlot`, `addMissingProgramDays`; slots are checked against their
   program) and the
   activated periodization (`activatePeriodization(startDate)`, a snapshot in the repository).
+  Also the activated sessions (`activeSessions`) and the performed sessions (`performedSessions`):
+  `savePerformedDraft` (serialized, so the last edit wins), `completePerformedSession` (validates,
+  stores the date and the snapshot) and `loadSnapshotSession`.
+- `performance-selectors.ts` — `selectTrainingQueue` (sessions in progress and the next pending
+  session of the active periodization) and `selectPerformedSession`.
 - `periodization-selectors.ts` — `selectPeriodization` (the live three-week periodization,
   memoized on the slots, 1RM history, rounding settings and program parameters) and
   `selectCurrentOneRms`.

@@ -1,4 +1,4 @@
-import { StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { layout, radius, spacing, typography } from '@/constants/theme';
 
@@ -12,11 +12,13 @@ export type TextFieldProps = {
   onChangeText: (text: string) => void;
   /** Localized error message, shown under the field. */
   error?: string | null;
+  /** Soft-keyboard type, e.g. `decimal` for weights. */
+  inputMode?: TextInputProps['inputMode'];
   testID?: string;
 };
 
 /** Single-line text input with a label and an optional error message. */
-export function TextField({ label, value, onChangeText, error, testID }: TextFieldProps) {
+export function TextField({ label, value, onChangeText, error, inputMode, testID }: TextFieldProps) {
   const { colors } = useTheme();
   return (
     <View style={styles.container}>
@@ -25,6 +27,7 @@ export function TextField({ label, value, onChangeText, error, testID }: TextFie
         accessibilityLabel={label}
         value={value}
         onChangeText={onChangeText}
+        inputMode={inputMode}
         testID={testID}
         placeholderTextColor={colors.textSecondary}
         style={[

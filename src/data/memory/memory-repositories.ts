@@ -3,6 +3,10 @@ import type { RoundingMode } from '@/domain/rounding';
 import { validateReferenceOneRm } from '@/domain/validation';
 
 import {
+  assertValidPerformance,
+  PerformedSessionCompletedError,
+  PerformedSessionNotFoundError,
+  type PerformedSession,
   assertPermutation,
   assertValidIncrement,
   assertValidSlotInput,
@@ -40,6 +44,8 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
   const slots = new Map<number, SessionSlot[]>();
   const periodizations: StoredPeriodization[] = [];
   const generated: StoredGeneratedSession[] = [];
+  const performed: PerformedSession[] = [];
+  let nextPerformedId = 1;
   let nextSlotId = 1;
   let nextPeriodizationId = 1;
   let nextGeneratedId = 1;
@@ -283,6 +289,68 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
               (a, b) =>
                 a.session.blockWeek - b.session.blockWeek || a.session.sessionNumber - b.session.sessionNumber,
             ),
+        );
+      },
+    },
+    performances: {
+      async saveDraft(input) {
+        const { profileId, notes, sets, ...ref } = input;
+        requireProfile(profileId);
+        assertValidPerformance({ sets, notes }, { complete: false });
+        if (!periodizations.some((p) => p.id === ref.periodizationId && p.profileId === profileId)) {
+          throw new RangeError(`Unknown periodization: ${ref.periodizationId}`);
+        }
+        const now = clock().toISOString();
+        const existing = performed.find(
+          (r) => r.periodizationId === ref.periodizationId && r.sessionKey === ref.sessionKey,
+        );
+        if (existing?.status === 'completed') throw new PerformedSessionCompletedError(existing.id);
+        const record: PerformedSession = {
+          ...ref,
+          id: existing?.id ?? nextPerformedId++,
+          profileId,
+          status: 'in_progress',
+          startedAt: existing?.startedAt ?? now,
+          updatedAt: now,
+          completedAt: null,
+          notes,
+          snapshot: null,
+          sets: clone([...sets]),
+        };
+        if (existing) performed[performed.indexOf(existing)] = record;
+        else performed.push(record);
+        return clone(record);
+      },
+      async complete(profileId, id, snapshot) {
+        requireProfile(profileId);
+        const existing = performed.find((r) => r.id === id && r.profileId === profileId);
+        if (!existing) throw new PerformedSessionNotFoundError(id);
+        if (existing.status === 'completed') throw new PerformedSessionCompletedError(id);
+        assertValidPerformance(existing, { complete: true });
+        const now = clock().toISOString();
+        const record: PerformedSession = {
+          ...existing,
+          status: 'completed',
+          updatedAt: now,
+          completedAt: now,
+          snapshot: clone(snapshot),
+        };
+        performed[performed.indexOf(existing)] = record;
+        return clone(record);
+      },
+      async get(profileId, periodizationId, sessionKey) {
+        requireProfile(profileId);
+        const found = performed.find(
+          (r) => r.profileId === profileId && r.periodizationId === periodizationId && r.sessionKey === sessionKey,
+        );
+        return found ? clone(found) : null;
+      },
+      async list(profileId) {
+        requireProfile(profileId);
+        return clone(
+          performed
+            .filter((r) => r.profileId === profileId)
+            .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : b.id - a.id)),
         );
       },
     },

@@ -4,6 +4,7 @@ import type { Repositories } from '@/data/repositories';
 import { generatePeriodization, type RoundingConfig } from '@/domain/periodization';
 import type { ProgramTemplate } from '@/programs/schema';
 import { renderInApp } from '@/test-utils/render-app';
+import { seedActivated } from '@/test-utils/seed-activated';
 
 import { PeriodizationScreen } from './periodization-screen';
 import { SessionDetail, SessionDetailScreen } from './session-detail-screen';
@@ -245,5 +246,46 @@ describe('SessionDetail', () => {
       ),
     ).toBeOnTheScreen();
     expect(within(screen.getByTestId('other-lifts')).getByText('1 × 3 @ 80%')).toBeOnTheScreen();
+  });
+});
+
+describe('SessionDetailScreen: performance logging entry', () => {
+  it('asks to activate the periodization when none is active', async () => {
+    await renderInApp(<SessionDetailScreen sessionId="1-w1" onOpenSession={() => {}} />, { seed });
+    expect(await screen.findByText('Activate your periodization to log this session.')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Log this session' })).toBeNull();
+  });
+
+  it('opens the activated snapshot of the session for logging', async () => {
+    const onOpenSession = jest.fn();
+    await renderInApp(<SessionDetailScreen sessionId="2-w3" onOpenSession={onOpenSession} />, {
+      seed: async (repos, profileId) => {
+        await seedActivated(repos, profileId);
+      },
+    });
+    expect(await screen.findByText(/Performance is logged against the periodization activated on Nov 9, 2026/)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Log this session' }));
+    expect(onOpenSession).toHaveBeenCalledWith('p1-2-w3');
+  });
+
+  it('says so when the live session is not part of the activated periodization', async () => {
+    await renderInApp(<SessionDetailScreen sessionId="3-w1" onOpenSession={() => {}} />, {
+      seed: async (repos, profileId) => {
+        await seedActivated(repos, profileId);
+        await repos.sessionSlots.add(profileId, { lift: 'deadlift', templateId: 'cycle-531-custom', programDay: 1, startWeek: 1 });
+      },
+    });
+    expect(await screen.findByText('This session is not part of the activated periodization.')).toBeOnTheScreen();
+  });
+
+  it('renders the logging entry in Portuguese', async () => {
+    await renderInApp(<SessionDetailScreen sessionId="1-w1" onOpenSession={() => {}} />, {
+      language: 'pt-BR',
+      seed: async (repos, profileId) => {
+        await seedActivated(repos, profileId);
+      },
+    });
+    expect(await screen.findByRole('button', { name: 'Registrar esta sessão' })).toBeOnTheScreen();
+    expect(screen.getByText(/ativada em 9 de nov\. de 2026/)).toBeOnTheScreen();
   });
 });
