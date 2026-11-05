@@ -53,6 +53,7 @@ describe('app store: session e1RM (SPEC §8.3–8.4, §13 step 5)', () => {
       profileId: 1,
       lift: 'bench',
       performedSessionId: done.id,
+      revision: 1,
       setPosition: 2,
       recordedAt: '2026-11-09T18:00:00.000Z',
       valueKg: 95.6,
@@ -131,6 +132,18 @@ describe('app store: session e1RM (SPEC §8.3–8.4, §13 step 5)', () => {
     // without a record (a draft), the previous one is the latest of the lift
     expect(selectPreviousE1rm('bench', null)(store.getState())).toBe(history[0]);
     expect(selectPreviousE1rm('deadlift', null)(store.getState())).toBeNull();
+  });
+
+  it('finds the previous e1RM before a date for a session that has no estimate yet (editing)', async () => {
+    const { store } = await activatedStore();
+    await logAndComplete(store, '1-w1', step4, '2026-11-11T18:00:00.000Z'); // bench 95.6
+    await logAndComplete(store, '1-w2', [set(0, 85, 3, 1)], '2026-11-18T18:00:00.000Z'); // bench 95.3
+    const [later, earlier] = store.getState().e1rmHistory;
+    const state = store.getState();
+    expect(selectPreviousE1rm('bench', null, '2026-11-15T00:00:00.000Z')(state)).toBe(earlier);
+    expect(selectPreviousE1rm('bench', null, '2026-11-18T18:00:00.000Z')(state)).toBe(later);
+    expect(selectPreviousE1rm('bench', null, '2026-11-01T00:00:00.000Z')(state)).toBeNull();
+    expect(selectPreviousE1rm('squat', null, '2026-12-01T00:00:00.000Z')(state)).toBeNull();
   });
 
   it('loads the e1RM history with the profile and keeps profiles apart', async () => {

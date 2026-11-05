@@ -256,7 +256,8 @@ export type SavePerformedDraftInput = PerformedSessionRef & {
 /**
  * Performed sessions (SPEC §7): at most one per session of an activated periodization. Saving a
  * draft creates or overwrites the record (sets included) so every edit is stored at once;
- * completing it is final.
+ * completing it freezes the date and the snapshot; the sets and notes of a completed session can
+ * still be amended (SPEC §10).
  */
 export interface PerformanceRepository {
   /**
@@ -272,6 +273,17 @@ export interface PerformanceRepository {
    * when already completed.
    */
   complete(profileId: number, id: number, snapshot: PerformanceSnapshot): Promise<PerformedSession>;
+  /**
+   * Edits a completed session (SPEC §10): replaces its sets and notes, keeping the completion date
+   * and the snapshot; `updatedAt` becomes the repository clock. Same validation as `complete`
+   * (`RangeError`), `PerformedSessionNotFoundError` for an unknown id and
+   * `PerformedSessionNotCompletedError` for a draft.
+   */
+  amend(
+    profileId: number,
+    id: number,
+    changes: { notes: string; sets: readonly SetRecord[] },
+  ): Promise<PerformedSession>;
   get(profileId: number, periodizationId: number, sessionKey: string): Promise<PerformedSession | null>;
   /** Most recently updated first. */
   list(profileId: number): Promise<PerformedSession[]>;
@@ -283,9 +295,11 @@ export type E1rmRecord = {
   profileId: number;
   lift: Lift;
   performedSessionId: number;
+  /** 1 for the estimate stored on completion; each edit of the session appends the next number. */
+  revision: number;
   /** 0-based position of the source set in the performed session. */
   setPosition: number;
-  /** ISO 8601 timestamp: when the session was completed. */
+  /** ISO 8601 timestamp: when the session was completed (kept by every revision). */
   recordedAt: string;
   valueKg: number;
   formula: E1rmFormula;
@@ -294,18 +308,52 @@ export type E1rmRecord = {
   rir: number;
 };
 
-export type RecordE1rmInput = Omit<E1rmRecord, 'id'>;
+export type RecordE1rmInput = Omit<E1rmRecord, 'id' | 'revision'>;
 
-/** Append-only e1RM history: at most one estimate per lift and performed session, never rewritten. */
+/**
+ * One stored row of a session's estimate history. A revision with no estimate (`valueKg` null) is
+ * the tombstone left when an edit made the session's sets invalid for an e1RM; it keeps the
+ * formula and date of the revision it replaced.
+ */
+export type E1rmRevision =
+  | E1rmRecord
+  | (Omit<E1rmRecord, 'setPosition' | 'valueKg' | 'weightKg' | 'reps' | 'rir'> & {
+      setPosition: null;
+      valueKg: null;
+      weightKg: null;
+      reps: null;
+      rir: null;
+    });
+
+/**
+ * Append-only e1RM history: rows are never updated or deleted. A session has at most one current
+ * estimate per lift; editing the session appends a newer revision that replaces it in reads
+ * (`list`), so other sessions' rows and the older revisions stay untouched (SPEC §10).
+ */
 export interface E1rmHistoryRepository {
   /**
-   * Appends an estimate. Throws `RangeError` for invalid values, `ProfileNotFoundError` for an
-   * unknown profile, `PerformedSessionNotFoundError` for a performed session that is not the
-   * profile's and `E1rmAlreadyRecordedError` when the session already has one for that lift.
+   * Appends the first estimate of a session and lift. Throws `RangeError` for invalid values,
+   * `ProfileNotFoundError` for an unknown profile, `PerformedSessionNotFoundError` for a performed
+   * session that is not the profile's and `E1rmAlreadyRecordedError` when the session already has
+   * any revision for that lift (use `supersede`).
    */
   record(input: RecordE1rmInput): Promise<E1rmRecord>;
-  /** Newest first (date, then insertion); all lifts when `lift` is omitted. */
+  /** Appends the next revision (the first one when there is none). Same validation as `record`. */
+  supersede(input: RecordE1rmInput): Promise<E1rmRecord>;
+  /**
+   * Appends a tombstone revision when the lift's current estimate of the session exists and
+   * returns true; returns false (nothing is stored) otherwise. Throws `ProfileNotFoundError` and
+   * `PerformedSessionNotFoundError` like `record`.
+   */
+  clear(profileId: number, performedSessionId: number, lift: Lift): Promise<boolean>;
+  /**
+   * The current estimates: the latest revision of every session and lift, without tombstones.
+   * Newest first by date, then by the insertion of the session's first revision; all lifts when
+   * `lift` is omitted.
+   */
   list(profileId: number, lift?: Lift): Promise<E1rmRecord[]>;
+  /** Every revision of a session, oldest first, tombstones included (audit trail). */
+  revisions(profileId: number, performedSessionId: number): Promise<E1rmRevision[]>;
 }
 
 export type Repositories = {
@@ -344,6 +392,14 @@ export class PerformedSessionCompletedError extends Error {
   constructor(readonly performedSessionId: number) {
     super(`Performed session ${performedSessionId} is already completed`);
     this.name = 'PerformedSessionCompletedError';
+  }
+}
+
+export class PerformedSessionNotCompletedError extends Error {
+  readonly code = 'PERFORMED_SESSION_NOT_COMPLETED';
+  constructor(readonly performedSessionId: number) {
+    super(`Performed session ${performedSessionId} is not completed`);
+    this.name = 'PerformedSessionNotCompletedError';
   }
 }
 

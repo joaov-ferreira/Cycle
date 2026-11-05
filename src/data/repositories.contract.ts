@@ -9,6 +9,7 @@ import {
   E1rmAlreadyRecordedError,
   InvalidIncrementError,
   PerformedSessionCompletedError,
+  PerformedSessionNotCompletedError,
   PerformedSessionNotFoundError,
   SessionSlotNotFoundError,
   InvalidReferenceOneRmError,
@@ -747,6 +748,56 @@ export function describeRepositoriesContract(name: string, factory: Repositories
         expect(await repos.performances.get(p.id, periodization.id, '1-w1')).toEqual(done);
       });
 
+      it('amends a completed session: new sets and notes, same date and snapshot', async () => {
+        let now = '2026-11-05T10:00:00.000Z';
+        const { repos, p, periodization } = await setup(() => new Date(now));
+        const draft = await repos.performances.saveDraft({ profileId: p.id, ...ref(periodization.id), notes: 'a', sets: [set(0)] });
+        now = '2026-11-05T11:00:00.000Z';
+        const done = await repos.performances.complete(p.id, draft.id, snapshot(periodization.id));
+        now = '2026-11-07T08:30:00.000Z';
+        const sets = [set(0, { reps: 4, weightKg: 82.5 }), set(null, { notes: 'extra' })];
+        const amended = await repos.performances.amend(p.id, done.id, { notes: 'fixed', sets });
+        expect(amended).toEqual({
+          ...done,
+          notes: 'fixed',
+          sets,
+          updatedAt: '2026-11-07T08:30:00.000Z',
+        });
+        expect(amended.status).toBe('completed');
+        expect(amended.completedAt).toBe('2026-11-05T11:00:00.000Z');
+        expect(await repos.performances.get(p.id, periodization.id, '1-w1')).toEqual(amended);
+        expect(await repos.performances.list(p.id)).toEqual([amended]);
+        // still final for drafts-style saves
+        await expect(
+          repos.performances.saveDraft({ profileId: p.id, ...ref(periodization.id), notes: 'x', sets: [set(0)] }),
+        ).rejects.toThrow(PerformedSessionCompletedError);
+      });
+
+      it('refuses to amend drafts, unknown sessions, other profiles and invalid or incomplete sets', async () => {
+        const { repos, p, periodization } = await setup();
+        const other = await repos.profiles.create({ name: 'Bruno' });
+        const draft = await repos.performances.saveDraft({ profileId: p.id, ...ref(periodization.id), notes: '', sets: [set(0)] });
+        await expect(repos.performances.amend(p.id, draft.id, { notes: '', sets: [set(0)] })).rejects.toThrow(
+          PerformedSessionNotCompletedError,
+        );
+        const done = await repos.performances.complete(p.id, draft.id, snapshot(periodization.id));
+        await expect(repos.performances.amend(p.id, 99, { notes: '', sets: [set(0)] })).rejects.toThrow(
+          PerformedSessionNotFoundError,
+        );
+        await expect(repos.performances.amend(other.id, done.id, { notes: '', sets: [set(0)] })).rejects.toThrow(
+          PerformedSessionNotFoundError,
+        );
+        await expect(repos.performances.amend(99, done.id, { notes: '', sets: [set(0)] })).rejects.toThrow(ProfileNotFoundError);
+        await expect(repos.performances.amend(p.id, done.id, { notes: '', sets: [] })).rejects.toThrow(RangeError);
+        await expect(
+          repos.performances.amend(p.id, done.id, { notes: '', sets: [set(0, { reps: null })] }),
+        ).rejects.toThrow(RangeError);
+        await expect(
+          repos.performances.amend(p.id, done.id, { notes: 'x'.repeat(501), sets: [set(0)] }),
+        ).rejects.toThrow(RangeError);
+        expect(await repos.performances.get(p.id, periodization.id, '1-w1')).toEqual(done);
+      });
+
       it('does not complete a session whose sets are incomplete or empty', async () => {
         const { repos, p, periodization } = await setup();
         const partial = await repos.performances.saveDraft({
@@ -927,7 +978,7 @@ export function describeRepositoriesContract(name: string, factory: Repositories
         const { repos, p, performed } = await setup();
         const session = await performed('1-w1');
         const saved = await repos.e1rmHistory.record(estimate(p.id, session.id));
-        expect(saved).toEqual({ id: 1, ...estimate(p.id, session.id) });
+        expect(saved).toEqual({ id: 1, revision: 1, ...estimate(p.id, session.id) });
         expect(await repos.e1rmHistory.list(p.id)).toEqual([saved]);
         expect(await repos.e1rmHistory.list(p.id, 'bench')).toEqual([saved]);
         expect(await repos.e1rmHistory.list(p.id, 'squat')).toEqual([]);
@@ -986,6 +1037,99 @@ export function describeRepositoriesContract(name: string, factory: Repositories
         await expect(repos.e1rmHistory.list(99)).rejects.toThrow(ProfileNotFoundError);
         expect(await repos.e1rmHistory.list(p.id)).toEqual([]);
         expect(await repos.e1rmHistory.list(other.id)).toEqual([]);
+      });
+
+      describe('revisions (editing a past session)', () => {
+        it('supersedes one session estimate with a new revision and keeps the old row', async () => {
+          const { repos, p, performed } = await setup();
+          const first = await performed('1-w1');
+          const second = await performed('1-w2');
+          const original = await repos.e1rmHistory.record(estimate(p.id, first.id, { recordedAt: '2026-11-09T18:00:00.000Z' }));
+          const other = await repos.e1rmHistory.record(
+            estimate(p.id, second.id, { recordedAt: '2026-11-16T18:00:00.000Z', valueKg: 100.4 }),
+          );
+          const revised = await repos.e1rmHistory.supersede(
+            estimate(p.id, first.id, { recordedAt: '2026-11-09T18:00:00.000Z', valueKg: 99.2, formula: 'epley-rir', setPosition: 0 }),
+          );
+          expect(revised).toEqual({
+            id: 3,
+            revision: 2,
+            ...estimate(p.id, first.id, { valueKg: 99.2, formula: 'epley-rir', setPosition: 0 }),
+          });
+          // reads show the revision instead of the original, in the same place of the history
+          expect(await repos.e1rmHistory.list(p.id)).toEqual([other, revised]);
+          expect(await repos.e1rmHistory.list(p.id, 'bench')).toEqual([other, revised]);
+          // the original row is still stored, and the other session is untouched
+          expect(await repos.e1rmHistory.revisions(p.id, first.id)).toEqual([original, revised]);
+          expect(await repos.e1rmHistory.revisions(p.id, second.id)).toEqual([other]);
+        });
+
+        it('keeps the history order of a session when it is revised (equal dates: first insertion)', async () => {
+          const { repos, p, performed } = await setup();
+          const first = await performed('1-w1');
+          const second = await performed('1-w2');
+          await repos.e1rmHistory.record(estimate(p.id, first.id));
+          const later = await repos.e1rmHistory.record(estimate(p.id, second.id));
+          const revised = await repos.e1rmHistory.supersede(estimate(p.id, first.id, { valueKg: 90 }));
+          expect((await repos.e1rmHistory.list(p.id)).map((r) => r.id)).toEqual([later.id, revised.id]);
+        });
+
+        it('clears a session estimate with a tombstone revision, once', async () => {
+          const { repos, p, performed } = await setup();
+          const session = await performed('1-w1');
+          const original = await repos.e1rmHistory.record(estimate(p.id, session.id));
+          expect(await repos.e1rmHistory.clear(p.id, session.id, 'bench')).toBe(true);
+          expect(await repos.e1rmHistory.list(p.id)).toEqual([]);
+          expect(await repos.e1rmHistory.revisions(p.id, session.id)).toEqual([
+            original,
+            {
+              id: 2,
+              revision: 2,
+              profileId: p.id,
+              lift: 'bench',
+              performedSessionId: session.id,
+              recordedAt: original.recordedAt,
+              formula: 'rts',
+              setPosition: null,
+              valueKg: null,
+              weightKg: null,
+              reps: null,
+              rir: null,
+            },
+          ]);
+          // nothing left to clear, and another lift has nothing to clear either
+          expect(await repos.e1rmHistory.clear(p.id, session.id, 'bench')).toBe(false);
+          expect(await repos.e1rmHistory.clear(p.id, session.id, 'squat')).toBe(false);
+          expect(await repos.e1rmHistory.revisions(p.id, session.id)).toHaveLength(2);
+          // a first record is refused (the session has history); a revision brings the estimate back
+          await expect(repos.e1rmHistory.record(estimate(p.id, session.id))).rejects.toThrow(E1rmAlreadyRecordedError);
+          const back = await repos.e1rmHistory.supersede(estimate(p.id, session.id, { valueKg: 97 }));
+          expect(back.revision).toBe(3);
+          expect(await repos.e1rmHistory.list(p.id)).toEqual([back]);
+        });
+
+        it('supersedes a session that has no estimate yet as its first revision', async () => {
+          const { repos, p, performed } = await setup();
+          const session = await performed('1-w1');
+          const saved = await repos.e1rmHistory.supersede(estimate(p.id, session.id));
+          expect(saved).toEqual({ id: 1, revision: 1, ...estimate(p.id, session.id) });
+          expect(await repos.e1rmHistory.list(p.id)).toEqual([saved]);
+        });
+
+        it('validates a revision like a record and stores nothing otherwise', async () => {
+          const { repos, p, performed } = await setup();
+          const other = await repos.profiles.create({ name: 'Bruno' });
+          const session = await performed('1-w1');
+          const original = await repos.e1rmHistory.record(estimate(p.id, session.id));
+          await expect(repos.e1rmHistory.supersede(estimate(p.id, session.id, { valueKg: 0 }))).rejects.toThrow(RangeError);
+          await expect(repos.e1rmHistory.supersede(estimate(p.id, 99))).rejects.toThrow(PerformedSessionNotFoundError);
+          await expect(repos.e1rmHistory.supersede(estimate(other.id, session.id))).rejects.toThrow(PerformedSessionNotFoundError);
+          await expect(repos.e1rmHistory.supersede(estimate(99, session.id))).rejects.toThrow(ProfileNotFoundError);
+          await expect(repos.e1rmHistory.clear(99, session.id, 'bench')).rejects.toThrow(ProfileNotFoundError);
+          await expect(repos.e1rmHistory.clear(other.id, session.id, 'bench')).rejects.toThrow(PerformedSessionNotFoundError);
+          await expect(repos.e1rmHistory.revisions(other.id, session.id)).rejects.toThrow(PerformedSessionNotFoundError);
+          expect(await repos.e1rmHistory.list(p.id)).toEqual([original]);
+        });
       });
 
       it('returns copies', async () => {

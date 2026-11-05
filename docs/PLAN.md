@@ -54,7 +54,7 @@ When done, open the PR to main and update the stage status in PLAN.md within the
 | 10 | Performance tracking + RIR/RPE | sonnet | `feat/10-performance` | ✅ |
 | 11 | e1RM engine + session estimate | opus | `feat/11-e1rm` | ✅ |
 | 12 | Strength progression dashboard + charts | sonnet | `feat/12-progress` | ✅ |
-| 13 | Training history | sonnet | `feat/13-history` | ⬜ |
+| 13 | Training history | sonnet | `feat/13-history` | ✅ |
 | 14 | Home dashboard + desktop responsiveness + i18n audit | sonnet | `feat/14-dashboard` | ⬜ |
 | 15 | Final review and E2E | opus | `chore/15-final-review` | ⬜ |
 | 16 | CI pipeline + Android APK build (GitHub Actions + Docker) | sonnet | `ci/16-ci-apk` | ⬜ |

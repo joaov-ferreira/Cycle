@@ -16,7 +16,7 @@ export type RenderInAppOptions = {
   onboarded?: boolean;
   repos?: Repositories;
   /** Runs against the repositories (default profile id given) before the app boots. */
-  seed?: (repos: Repositories, profileId: number) => Promise<void>;
+  seed?: (repos: Repositories, profileId: number) => Promise<unknown>;
 };
 
 export async function renderInApp(ui: ReactElement, options: RenderInAppOptions = {}) {

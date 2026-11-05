@@ -19,7 +19,8 @@ Planned features (see [`docs/SPEC.md`](docs/SPEC.md) for the full specification)
 - Session logging with RIR/RPE, prescribed vs. actual comparison.
 - Estimated 1RM (e1RM) per session, with the RTS chart as default formula.
 - Strength progression dashboard with e1RM / reference 1RM charts and a period filter.
-- Training history (planned).
+- Training history: completed sessions with filters, prescribed vs. actual, comparison with equivalent
+  previous sessions, and correction of what was logged.
 - Bilingual interface: English and Brazilian Portuguese.
 
 **Status:** under development. The foundation is in place (Stage 1): test infrastructure,
@@ -87,7 +88,16 @@ the improvement (Δ kg and Δ %) of the latest e1RM over the baseline, which is 
 effect at the start of the selected period (the first record for "All"), plus a chart of the e1RM line
 and the reference 1RM as steps. A period filter (4 weeks, 3 months, 6 months, 1 year, All) limits the
 chart and sets the baseline; tapping or hovering a point shows its date, value and originating
-session. Lifts without an e1RM show an empty state. Features
+session. Lifts without an e1RM show an empty state. Stage 13 adds the training history (SPEC §10),
+opened from the More tab: the completed sessions newest first, filterable by lift, program and period
+(same periods as Progress). Each item shows the date, lift, program and version, session, the prescribed
+sets (`3×5 @ 75.0 kg`), the performed sets with RIR/RPE, the tonnage and the e1RM. The detail shows
+every set against its prescription, the stored e1RM with its comparison, and the *equivalent previous
+sessions*: earlier sessions of the same lift, program and program day (the 3 most recent), with the
+change in tonnage and e1RM. A history entry reads only the completion snapshot, so changing programs,
+1RMs or settings never alters it. "Edit session" corrects the sets and notes of a completed session;
+only that session's e1RM is recomputed, as a new revision that replaces the old one in reads (the old
+rows are kept). Features
 are built stage by stage; the current state of each stage is in the status table of
 [`docs/PLAN.md`](docs/PLAN.md).
 
@@ -168,7 +178,10 @@ comparison with the previous one). Session estimates are stored in `e1rm_history
 and the formula for new estimates is a per-profile setting. The progression statistics (SPEC §9) are
 pure code in `src/domain/stats.ts` (periods, current / latest / previous / highest, Δ kg and Δ % against
 the baseline of the period) and the chart's scales, ticks and coordinates in `src/domain/chart-scale.ts`;
-`src/components/progress/` only draws them.
+`src/components/progress/` only draws them. The history rules (ordering, filters, equivalent sessions,
+set summaries) are pure code in `src/domain/history.ts`. `e1rm_history` is an append-only log of revisions
+since migration 009: the current estimate of a session is its highest revision, and editing a completed
+session (`PerformanceRepository.amend`) appends a newer revision instead of rewriting rows.
 
 Supporting folders: `src/constants/theme.ts` (design tokens) and `src/test-utils/`
 (test-only helpers). Each layer has a `README.md` describing its contents and dependency

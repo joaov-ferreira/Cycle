@@ -19,13 +19,19 @@ export const selectSessionE1rms =
 
 /**
  * The estimate of `lift` stored just before `record` (history is newest first), or the latest one
- * when `record` is null (a session not completed yet); null when there is none.
+ * when `record` is null (a session not completed yet); null when there is none. For a completed
+ * session without an estimate (being edited), `atOrBefore` limits the latest one to those recorded
+ * at or before that ISO date.
  */
 export const selectPreviousE1rm =
-  (lift: Lift, record: E1rmRecord | null) =>
+  (lift: Lift, record: E1rmRecord | null, atOrBefore?: string) =>
   (state: AppState): E1rmRecord | null => {
     const ofLift = state.e1rmHistory.filter((entry) => entry.lift === lift);
-    if (!record) return ofLift[0] ?? null;
+    if (!record) {
+      if (atOrBefore === undefined) return ofLift[0] ?? null;
+      const limit = Date.parse(atOrBefore);
+      return ofLift.find((entry) => Date.parse(entry.recordedAt) <= limit) ?? null;
+    }
     const index = ofLift.findIndex((entry) => entry.id === record.id);
     return index < 0 ? null : (ofLift[index + 1] ?? null);
   };

@@ -67,16 +67,46 @@ function EstimateLines({
   );
 }
 
-function DraftEstimate({ lift, valueKg, setNumber }: { lift: Lift; valueKg: number; setNumber: number }) {
-  const previous = useAppStore(selectPreviousE1rm(lift, null));
+function DraftEstimate({
+  lift,
+  valueKg,
+  setNumber,
+  editing,
+}: {
+  lift: Lift;
+  valueKg: number;
+  setNumber: number;
+  editing: PerformedSession | null;
+}) {
+  // while editing a completed session the comparison is with the estimate before that session
+  const own = useAppStore((s) =>
+    editing ? (selectSessionE1rms(editing.id)(s).find((record) => record.lift === lift) ?? null) : null,
+  );
+  const previous = useAppStore(
+    selectPreviousE1rm(lift, own, editing && !own ? (editing.completedAt ?? undefined) : undefined),
+  );
   return <EstimateLines lift={lift} valueKg={valueKg} setNumber={setNumber} previous={previous} />;
 }
 
-/** Live session estimate while logging: the representative set of each lift (SPEC §8.3). */
-export function DraftSessionE1rm({ session, sets }: { session: GeneratedSession; sets: readonly SetRecord[] }) {
+/**
+ * Live session estimate while logging (or editing, with `editing` the completed session): the
+ * representative set of each lift (SPEC §8.3).
+ */
+export function DraftSessionE1rm({
+  session,
+  sets,
+  editing = null,
+}: {
+  session: GeneratedSession;
+  sets: readonly SetRecord[];
+  editing?: PerformedSession | null;
+}) {
   const { t } = useI18n();
   const text = useE1rmText();
-  const formula = useAppStore(selectE1rmFormula);
+  const currentFormula = useAppStore(selectE1rmFormula);
+  // an edit keeps the formula of the session's stored estimate (see amendPerformedSession)
+  const storedFormula = useAppStore((s) => (editing ? selectSessionE1rms(editing.id)(s)[0]?.formula : undefined));
+  const formula = storedFormula ?? currentFormula;
   const estimates = sessionEstimates(sessionE1rmCandidates(session, sets), formula);
   return (
     <Card testID="session-e1rm">
@@ -88,6 +118,7 @@ export function DraftSessionE1rm({ session, sets }: { session: GeneratedSession;
           lift={estimate.lift}
           valueKg={estimate.e1rmKg}
           setNumber={estimate.position + 1}
+          editing={editing}
         />
       ))}
       <Text variant="caption" tone="secondary">

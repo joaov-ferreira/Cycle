@@ -4,6 +4,7 @@ import { ensureDefaultProfile } from '@/data/bootstrap';
 import {
   DEFAULT_SETTINGS,
   InvalidReferenceOneRmError,
+  PerformedSessionNotCompletedError,
   PerformedSessionNotFoundError,
   ProfileNotFoundError,
   SessionSlotNotFoundError,
@@ -201,6 +202,15 @@ export type AppState = {
    * or reps (or any value is invalid), `PerformedSessionNotFoundError` when it was never started.
    */
   completePerformedSession: (periodizationId: number, sessionKey: string) => Promise<PerformedSession>;
+  /**
+   * Edits a completed session (SPEC §10): replaces its sets and notes, keeps the completion date
+   * and the snapshot, and recomputes only that session's e1RM — a new revision (or a tombstone when
+   * no set is valid any more) that replaces the old one in reads; unchanged estimates are not
+   * rewritten. The formula of the session's existing estimate is kept (else the one in effect).
+   * Throws `PerformedSessionNotFoundError`, `PerformedSessionNotCompletedError` for a draft and
+   * `PerformedSessionIncompleteError` when a set lacks a weight or reps (or a value is invalid).
+   */
+  amendPerformedSession: (performedSessionId: number, draft: PerformedDraft) => Promise<PerformedSession>;
   /** A session of any activated periodization of the profile (snapshot data), or null. */
   loadSnapshotSession: (
     periodizationId: number,
@@ -550,6 +560,58 @@ export function createAppStore(repos: Repositories): AppStore {
             ...(estimates.length > 0 ? { e1rmHistory: await repos.e1rmHistory.list(profile.id) } : {}),
           });
           return done;
+        }),
+      amendPerformedSession: (performedSessionId, draft) =>
+        enqueue(async () => {
+          const profile = requireReady();
+          const record = (await repos.performances.list(profile.id)).find((r) => r.id === performedSessionId);
+          if (!record) throw new PerformedSessionNotFoundError(performedSessionId);
+          if (record.status !== 'completed' || !record.snapshot) {
+            throw new PerformedSessionNotCompletedError(performedSessionId);
+          }
+          const errors = validatePerformedSession(draft, { complete: true });
+          if (hasErrors(errors)) throw new PerformedSessionIncompleteError(errors);
+          const amended = await repos.performances.amend(profile.id, record.id, draft);
+
+          const current = (await repos.e1rmHistory.list(profile.id)).filter((r) => r.performedSessionId === record.id);
+          const formula = current[0]?.formula ?? get().settings?.e1rmFormula ?? DEFAULT_SETTINGS.e1rmFormula;
+          const estimates = sessionEstimates(sessionE1rmCandidates(record.snapshot.session, amended.sets), formula);
+          for (const estimate of estimates) {
+            const before = current.find((r) => r.lift === estimate.lift);
+            if (
+              before &&
+              before.valueKg === estimate.e1rmKg &&
+              before.formula === estimate.formula &&
+              before.setPosition === estimate.position &&
+              before.weightKg === estimate.weightKg &&
+              before.reps === estimate.reps &&
+              before.rir === estimate.rir
+            ) {
+              continue;
+            }
+            await repos.e1rmHistory.supersede({
+              profileId: profile.id,
+              lift: estimate.lift,
+              performedSessionId: record.id,
+              setPosition: estimate.position,
+              recordedAt: record.completedAt as string,
+              valueKg: estimate.e1rmKg,
+              formula: estimate.formula,
+              weightKg: estimate.weightKg,
+              reps: estimate.reps,
+              rir: estimate.rir,
+            });
+          }
+          for (const before of current) {
+            if (!estimates.some((estimate) => estimate.lift === before.lift)) {
+              await repos.e1rmHistory.clear(profile.id, record.id, before.lift);
+            }
+          }
+          set({
+            performedSessions: withPerformed(amended),
+            e1rmHistory: await repos.e1rmHistory.list(profile.id),
+          });
+          return amended;
         }),
       setE1rmFormula: (e1rmFormula) => updateSettings({ e1rmFormula }),
       async adoptE1rmAsReference(e1rmId) {

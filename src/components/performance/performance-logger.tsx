@@ -44,7 +44,7 @@ export type PerformanceLoggerProps = {
 };
 
 /** Signed numbers for deltas: `+5.0 kg`, `0.0 kg`, `-2.5 kg`. */
-function useDeltaFormat() {
+export function useDeltaFormat() {
   const { formatKg, formatNumber } = useI18n();
   const dash = '—';
   return {
@@ -76,7 +76,7 @@ function useErrorText(): (error: SetEntryError) => string {
   };
 }
 
-function SetComparisonLine({
+export function SetComparisonLine({
   prescribedWeightKg,
   prescribedReps,
   record,
@@ -102,7 +102,7 @@ function SetComparisonLine({
   );
 }
 
-function TonnageLine({ sets }: { sets: readonly SetRecord[] }) {
+export function TonnageLine({ sets }: { sets: readonly SetRecord[] }) {
   const { t, formatKg } = useI18n();
   const delta = useDeltaFormat();
   const totals = compareSession(sets);
@@ -118,7 +118,7 @@ function TonnageLine({ sets }: { sets: readonly SetRecord[] }) {
 }
 
 /** `Set 2`, `Set 4 (extra)` plus the variation name when the set is not the competition lift. */
-function SetHeading({ number, extra, prescribed }: { number: number; extra: boolean; prescribed?: PrescribedSet }) {
+export function SetHeading({ number, extra, prescribed }: { number: number; extra: boolean; prescribed?: PrescribedSet }) {
   const { t, locale } = useI18n();
   return (
     <>
@@ -141,14 +141,23 @@ function PrescriptionLine({ prescribed }: { prescribed: PrescribedSet }) {
   );
 }
 
-function LoggerForm({
-  periodizationId,
-  session,
-  record,
-}: PerformanceLoggerProps & { record: PerformedSession | null }) {
+export type LoggerFormProps = PerformanceLoggerProps & {
+  record: PerformedSession | null;
+  /**
+   * `edit` corrects a completed session (History, SPEC §10): nothing is saved until "Save changes",
+   * which recomputes only this session's e1RM. `record` is then the completed session.
+   */
+  mode?: 'log' | 'edit';
+  onSaved?: () => void;
+  onCancel?: () => void;
+};
+
+export function LoggerForm({ periodizationId, session, record, mode = 'log', onSaved, onCancel }: LoggerFormProps) {
   const { t, locale } = useI18n();
+  const editing = mode === 'edit' && record ? record : null;
   const saveDraft = useAppStore((s) => s.savePerformedDraft);
   const completeSession = useAppStore((s) => s.completePerformedSession);
+  const amendSession = useAppStore((s) => s.amendPerformedSession);
   const errorText = useErrorText();
   const prescribed = useMemo(() => prescribedSets(session), [session]);
   const [rows, setRows] = useState<SetRow[]>(() =>
@@ -175,6 +184,7 @@ function LoggerForm({
     setRows(nextRows);
     setNotes(nextNotes);
     setFormError(null);
+    if (editing) return;
     const sets = nextRows.map((row) => sanitize(parseRow(row, locale, { complete: false })));
     void saveDraft(periodizationId, session, { notes: nextNotes.slice(0, MAX_NOTES_LENGTH), sets }).catch(() => {
       // The form keeps what was typed; the next change saves again.
@@ -213,6 +223,11 @@ function LoggerForm({
       return;
     }
     try {
+      if (editing) {
+        await amendSession(editing.id, { notes, sets: strict.map(sanitize) });
+        onSaved?.();
+        return;
+      }
       await saveDraft(periodizationId, session, { notes, sets: strict.map(sanitize) });
       await completeSession(periodizationId, session.key);
     } catch (error) {
@@ -227,8 +242,8 @@ function LoggerForm({
   return (
     <>
       <Card testID="performance-logger">
-        <Text variant="heading">{t('performance.title')}</Text>
-        <Text tone="secondary">{t('performance.autosave')}</Text>
+        <Text variant="heading">{t(editing ? 'performance.editTitle' : 'performance.title')}</Text>
+        <Text tone="secondary">{t(editing ? 'performance.editNote' : 'performance.autosave')}</Text>
         <Text variant="caption" tone="secondary">
           {t('performance.rirHint')}
         </Text>
@@ -320,13 +335,16 @@ function LoggerForm({
           <TonnageLine sets={records} />
         </Card>
       ) : null}
-      <DraftSessionE1rm session={session} sets={validSets} />
+      <DraftSessionE1rm session={session} sets={validSets} editing={editing} />
       {formError ? (
         <Text tone="danger" accessibilityLiveRegion="polite">
           {formError}
         </Text>
       ) : null}
-      <Button label={t('performance.complete')} onPress={() => void complete()} />
+      <Button label={t(editing ? 'performance.saveChanges' : 'performance.complete')} onPress={() => void complete()} />
+      {editing && onCancel ? (
+        <Button variant="secondary" label={t('performance.cancelEdit')} onPress={onCancel} />
+      ) : null}
     </>
   );
 }

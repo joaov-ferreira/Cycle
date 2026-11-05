@@ -757,3 +757,58 @@ the reference shipped with the installed package
 - **Data source.** The screen reads `oneRmHistory`, `e1rmHistory` and `performedSessions` from the store
   (no new repository methods or migrations); it is reactive to new records. The clock is injectable
   (`now` prop) and refreshed when the period changes.
+
+## Stage 13 — Training history
+
+- **Routes.** History is a stack route opened from the More tab (as Programs and Settings): `/history` (list) and
+  `/history/[id]` (detail), where `id` is the performed session id. SPEC §10/§11 do not make it a tab. The "Coming
+  soon" card of More was replaced by the link. The sidebar keeps its five sections (the Stage 14 audit decides
+  whether wide screens get a History entry).
+- **What an entry reads.** `HistoryEntry` (pure, `src/domain/history.ts`) is built from the completed performed session
+  (its copied identifiers, sets and notes), the completion snapshot (`templateVersion`, `programDay`, start date and the
+  reference 1RM at activation) and the session's current e1RM estimates. It never reads the live periodization, the
+  current 1RMs, rounding or program parameters, so changing any of them cannot alter the history (tested at the store and
+  UI level: bench 1RM 100 → 105 plus a new activation leave the list and the detail unchanged). Drafts are not history.
+- **Order and filters.** Newest completion first (`completedAt` as an instant; equal instants: the latest record first).
+  Filters: lift, program (template id) and the same periods as Progress (`stats.periodStart`: 4 weeks = 28 days, then
+  calendar months in UTC; the start instant is included; default All). The program chips list only programs present in
+  the history and are hidden while there is a single one. Filters combine with AND.
+- **"Equivalent previous sessions" (SPEC §10 "same lift/program/day").** Completed sessions with the same lift, the same
+  program (template id) and the same program day (`snapshot.session.programDay`), recorded strictly before the session
+  in history order (completion instant, then record id). The block week, the program version and the periodization are
+  *not* part of the definition: week 1 of the previous cycle and week 2 of the same cycle both count, because the
+  comparison is about the same workout of the same program. A session with no known program day has none. The 3 most
+  recent are shown, newest first, each with the tonnage and the Δ of the open session against it (open − earlier) and the
+  e1RM with Δ kg / Δ % (`compareE1rm`), or "not available" unless both sessions have an e1RM. Alternatives rejected:
+  requiring the same block week (a 3-week block would rarely repeat) or the same template version (a transcription fix
+  would cut the history in two).
+- **Editing a past session (SPEC §10).** `PerformanceRepository.amend` replaces the sets and notes of a *completed*
+  session with the same validation as completion; the completion date and the snapshot are untouched and `updatedAt`
+  becomes the edit time (an entry is "edited" when `updatedAt > completedAt`). The UI reuses the logger form in an edit
+  mode: nothing is stored until "Save changes" (no autosave, a draft cannot be confused with a completed session) and
+  "Cancel" discards. Only the sets, notes and the session's own e1RM change; the prescription (`prescribed_*` of each set)
+  is kept as logged. Edits go through the same serialized queue as draft saves.
+- **How an edit supersedes the e1RM while `e1rm_history` stays append-only (migration 009).** The table becomes a log of
+  revisions: `revision` column, `UNIQUE (performed_session_id, lift, revision)` instead of one row per session and lift
+  (the table is rebuilt because SQLite cannot relax a UNIQUE; existing rows become revision 1 keeping their ids). The
+  current estimate of a session and lift is its highest revision, and `list` returns exactly those, so Progress, the
+  completed summary and "previous e1RM" see the corrected value with no change on their side. A revision keeps the
+  session's original `recorded_at` (completion time), so the point does not move on the chart or in the order; it keeps
+  its own formula, source set, weight, reps and RIR. When an edit leaves no valid set, a *tombstone* revision (all
+  estimate columns `NULL`, enforced all-or-none by a `CHECK`, formula and date copied) hides the old estimate; a later edit
+  appends the next revision. New repository methods: `supersede` (next revision, the first when none), `clear` (tombstone
+  or `false` when there is nothing to clear) and `revisions` (every row of a session, the audit trail); `record` still
+  refuses a session that has any revision, so the completion write cannot overwrite history. Other sessions' rows are never
+  touched, and the store skips the write when the recomputed estimate equals the current one (a notes-only edit adds no
+  revision). Ordering ties on equal dates use the id of the session's *first* revision, so a revision does not reorder
+  sessions. `adoptE1rmAsReference` keeps working on the current record (ids change with a revision).
+- **Which formula an edit uses.** The formula of the session's existing estimate, so correcting a typo does not silently
+  change the basis of an old estimate when the setting changed since; a session with no estimate uses the formula in
+  effect (this also fills the missing estimate after a completion that failed between its two writes, Stage 11). The
+  edit form's live estimate follows the same rule, and its "previous e1RM" is the estimate before the session's date.
+- **Detail view.** Per set: the prescription as logged (`Prescribed: 3 reps @ 85.0 kg`), the performed values with
+  RIR/RPE, Δ kg / Δ reps, the set's e1RM; then the tonnage against the prescription, the stored session e1RM with the
+  previous-e1RM comparison and "Use as new reference 1RM" (the existing component), a note when the estimate is a revision,
+  and the snapshot note (activation date and reference 1RM at that time). List items summarize consecutive equal sets
+  (`2 × 75.0 kg × 5; 80.0 kg × 5 · RIR 1 · RPE 9`, `3×5 @ 75.0 kg`).
+- **Not in this stage.** Deleting a session, editing the prescription, a History entry in the wide-screen sidebar.

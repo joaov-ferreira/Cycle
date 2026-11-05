@@ -20,6 +20,8 @@ export default function RootLayout() {
           <Stack.Screen name="settings" />
           <Stack.Screen name="programs/index" />
           <Stack.Screen name="programs/[id]" />
+          <Stack.Screen name="history/index" />
+          <Stack.Screen name="history/[id]" />
           <Stack.Screen name="session/[id]" />
         </Stack>
       </OnboardingGate>

@@ -16,9 +16,12 @@ Connects persistence (`src/data/`) and the math engine (`src/domain/`) to the UI
   Also the activated sessions (`activeSessions`) and the performed sessions (`performedSessions`):
   `savePerformedDraft` (serialized, so the last edit wins), `completePerformedSession` (validates,
   stores the date and the snapshot, then the session e1RM of each lift with the formula in effect)
-  and `loadSnapshotSession`. The e1RM history (`e1rmHistory`), `setE1rmFormula` and
+  and `loadSnapshotSession`; `amendPerformedSession` edits a completed session and recomputes only its
+  e1RM (a new revision, a tombstone, or nothing when the estimate is unchanged). The e1RM history (`e1rmHistory`), `setE1rmFormula` and
   `adoptE1rmAsReference` ("Use as new reference 1RM", origin `from_e1rm`).
 - `e1rm-selectors.ts` — `selectE1rmFormula`, `selectSessionE1rms` and `selectPreviousE1rm`.
+- `history-selectors.ts` — `selectHistoryEntries` / `selectHistoryEntry`: the completed sessions as pure
+  `HistoryEntry` values (record, snapshot data and current e1RMs), newest first.
 - `performance-selectors.ts` — `selectTrainingQueue` (sessions in progress and the next pending
   session of the active periodization) and `selectPerformedSession`.
 - `periodization-selectors.ts` — `selectPeriodization` (the live three-week periodization,

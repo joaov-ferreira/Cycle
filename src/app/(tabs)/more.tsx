@@ -2,26 +2,22 @@ import { useRouter } from 'expo-router';
 import { Pressable } from 'react-native';
 
 import { Card, Screen, Text } from '@/components/ui';
-import { useT, type MessageKey } from '@/i18n';
-
-const COMING_SOON: readonly { title: MessageKey; description: MessageKey }[] = [
-  { title: 'screens.more.history', description: 'screens.more.historyDescription' },
-];
+import { useT } from '@/i18n';
 
 export default function MoreScreen() {
   const t = useT();
   const router = useRouter();
   return (
     <Screen title={t('screens.more.title')} testID="screen-more">
-      {COMING_SOON.map((section) => (
-        <Card key={section.title}>
-          <Text variant="heading">{t(section.title)}</Text>
-          <Text tone="secondary">{t(section.description)}</Text>
-          <Text variant="caption" tone="secondary">
-            {t('common.comingSoon')}
-          </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('screens.more.history')}
+        onPress={() => router.push('/history')}>
+        <Card>
+          <Text variant="heading">{t('screens.more.history')}</Text>
+          <Text tone="secondary">{t('screens.more.historyDescription')}</Text>
         </Card>
-      ))}
+      </Pressable>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('screens.more.programs')}

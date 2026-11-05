@@ -9,8 +9,11 @@ import {
   assertValidE1rmRecord,
   E1rmAlreadyRecordedError,
   type E1rmRecord,
+  type E1rmRevision,
+  type RecordE1rmInput,
   assertValidPerformance,
   PerformedSessionCompletedError,
+  PerformedSessionNotCompletedError,
   PerformedSessionNotFoundError,
   type PerformedSession,
   type PerformedSessionStatus,
@@ -93,29 +96,32 @@ type E1rmRow = {
   profile_id: number;
   lift: Lift;
   performed_session_id: number;
-  set_position: number;
+  revision: number;
+  set_position: number | null;
   recorded_at: string;
-  value_kg: number;
+  value_kg: number | null;
   formula: E1rmRecord['formula'];
-  weight_kg: number;
-  reps: number;
-  rir: number;
+  weight_kg: number | null;
+  reps: number | null;
+  rir: number | null;
 };
 const E1RM_COLUMNS =
-  'id, profile_id, lift, performed_session_id, set_position, recorded_at, value_kg, formula, weight_kg, reps, rir';
-const toE1rm = (row: E1rmRow): E1rmRecord => ({
-  id: row.id,
-  profileId: row.profile_id,
-  lift: row.lift,
-  performedSessionId: row.performed_session_id,
-  setPosition: row.set_position,
-  recordedAt: row.recorded_at,
-  valueKg: row.value_kg,
-  formula: row.formula,
-  weightKg: row.weight_kg,
-  reps: row.reps,
-  rir: row.rir,
-});
+  'id, profile_id, lift, performed_session_id, revision, set_position, recorded_at, value_kg, formula, weight_kg, reps, rir';
+const toE1rm = (row: E1rmRow): E1rmRevision =>
+  ({
+    id: row.id,
+    profileId: row.profile_id,
+    lift: row.lift,
+    performedSessionId: row.performed_session_id,
+    revision: row.revision,
+    setPosition: row.set_position,
+    recordedAt: row.recorded_at,
+    valueKg: row.value_kg,
+    formula: row.formula,
+    weightKg: row.weight_kg,
+    reps: row.reps,
+    rir: row.rir,
+  }) as E1rmRevision;
 
 type SlotRow = {
   id: number;
@@ -233,6 +239,68 @@ export function createSqliteRepositories(
   async function requireProfile(profileId: number): Promise<void> {
     const exists = await db.getFirstAsync('SELECT 1 FROM profiles WHERE id = ?', [profileId]);
     if (!exists) throw new ProfileNotFoundError(profileId);
+  }
+
+  async function requirePerformed(profileId: number, performedSessionId: number): Promise<void> {
+    const owned = await db.getFirstAsync('SELECT 1 FROM performed_sessions WHERE id = ? AND profile_id = ?', [
+      performedSessionId,
+      profileId,
+    ]);
+    if (!owned) throw new PerformedSessionNotFoundError(performedSessionId);
+  }
+
+  async function requireE1rmSession(input: RecordE1rmInput): Promise<void> {
+    await requireProfile(input.profileId);
+    assertValidE1rmRecord(input);
+    await requirePerformed(input.profileId, input.performedSessionId);
+  }
+
+  /** Appends the next revision of the session's lift estimate (revision 1 when there is none). */
+  async function appendE1rm(input: RecordE1rmInput): Promise<E1rmRecord> {
+    const latest = await db.getFirstAsync<{ revision: number }>(
+      'SELECT MAX(revision) AS revision FROM e1rm_history WHERE performed_session_id = ? AND lift = ?',
+      [input.performedSessionId, input.lift],
+    );
+    const revision = (latest?.revision ?? 0) + 1;
+    const result = await db.runAsync(
+      `INSERT INTO e1rm_history (profile_id, lift, performed_session_id, revision, set_position, recorded_at,
+         value_kg, formula, weight_kg, reps, rir) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        input.profileId,
+        input.lift,
+        input.performedSessionId,
+        revision,
+        input.setPosition,
+        input.recordedAt,
+        input.valueKg,
+        input.formula,
+        input.weightKg,
+        input.reps,
+        input.rir,
+      ],
+    );
+    return { id: result.lastInsertRowId, revision, ...input };
+  }
+
+  async function insertSets(performedSessionId: number, sets: readonly SetRecord[]): Promise<void> {
+    for (const [position, set] of sets.entries()) {
+      await db.runAsync(
+        `INSERT INTO performed_sets (performed_session_id, position, prescribed_index, prescribed_weight_kg,
+           prescribed_reps, weight_kg, reps, rir, rpe, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          performedSessionId,
+          position,
+          set.prescribedIndex,
+          set.prescribedWeightKg,
+          set.prescribedReps,
+          set.weightKg,
+          set.reps,
+          set.rir,
+          set.rpe,
+          set.notes,
+        ],
+      );
+    }
   }
 
   async function getRounding(profileId: number): Promise<RoundingSettings> {
@@ -624,24 +692,7 @@ export function createSqliteRepositories(
             );
             id = result.lastInsertRowId;
           }
-          for (const [position, set] of sets.entries()) {
-            await db.runAsync(
-              `INSERT INTO performed_sets (performed_session_id, position, prescribed_index, prescribed_weight_kg,
-                 prescribed_reps, weight_kg, reps, rir, rpe, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                id,
-                position,
-                set.prescribedIndex,
-                set.prescribedWeightKg,
-                set.prescribedReps,
-                set.weightKg,
-                set.reps,
-                set.rir,
-                set.rpe,
-                set.notes,
-              ],
-            );
-          }
+          await insertSets(id, sets);
         });
         return (await getPerformedById(profileId, id)) as PerformedSession;
       },
@@ -657,6 +708,24 @@ export function createSqliteRepositories(
            WHERE id = ? AND profile_id = ?`,
           [now, now, JSON.stringify(snapshot), id, profileId],
         );
+        return (await getPerformedById(profileId, id)) as PerformedSession;
+      },
+      async amend(profileId, id, changes) {
+        await requireProfile(profileId);
+        const existing = await getPerformedById(profileId, id);
+        if (!existing) throw new PerformedSessionNotFoundError(id);
+        if (existing.status !== 'completed') throw new PerformedSessionNotCompletedError(id);
+        assertValidPerformance(changes, { complete: true });
+        await db.withTransactionAsync(async () => {
+          await db.runAsync('UPDATE performed_sessions SET updated_at = ?, notes = ? WHERE id = ? AND profile_id = ?', [
+            clock().toISOString(),
+            changes.notes,
+            id,
+            profileId,
+          ]);
+          await db.runAsync('DELETE FROM performed_sets WHERE performed_session_id = ?', [id]);
+          await insertSets(id, changes.sets);
+        });
         return (await getPerformedById(profileId, id)) as PerformedSession;
       },
       async get(profileId, periodizationId, sessionKey) {
@@ -680,49 +749,58 @@ export function createSqliteRepositories(
     },
     e1rmHistory: {
       async record(input) {
-        await requireProfile(input.profileId);
-        assertValidE1rmRecord(input);
-        const owned = await db.getFirstAsync('SELECT 1 FROM performed_sessions WHERE id = ? AND profile_id = ?', [
-          input.performedSessionId,
-          input.profileId,
-        ]);
-        if (!owned) throw new PerformedSessionNotFoundError(input.performedSessionId);
-        const duplicate = await db.getFirstAsync(
+        await requireE1rmSession(input);
+        const existing = await db.getFirstAsync(
           'SELECT 1 FROM e1rm_history WHERE performed_session_id = ? AND lift = ?',
           [input.performedSessionId, input.lift],
         );
-        if (duplicate) throw new E1rmAlreadyRecordedError(input.performedSessionId, input.lift);
-        const result = await db.runAsync(
-          `INSERT INTO e1rm_history (profile_id, lift, performed_session_id, set_position, recorded_at, value_kg,
-             formula, weight_kg, reps, rir) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            input.profileId,
-            input.lift,
-            input.performedSessionId,
-            input.setPosition,
-            input.recordedAt,
-            input.valueKg,
-            input.formula,
-            input.weightKg,
-            input.reps,
-            input.rir,
-          ],
+        if (existing) throw new E1rmAlreadyRecordedError(input.performedSessionId, input.lift);
+        return appendE1rm(input);
+      },
+      async supersede(input) {
+        await requireE1rmSession(input);
+        return appendE1rm(input);
+      },
+      async clear(profileId, performedSessionId, lift) {
+        await requireProfile(profileId);
+        await requirePerformed(profileId, performedSessionId);
+        const current = await db.getFirstAsync<E1rmRow>(
+          `SELECT ${E1RM_COLUMNS} FROM e1rm_history WHERE performed_session_id = ? AND lift = ?
+           ORDER BY revision DESC LIMIT 1`,
+          [performedSessionId, lift],
         );
-        return { id: result.lastInsertRowId, ...input };
+        if (!current || current.value_kg === null) return false;
+        await db.runAsync(
+          `INSERT INTO e1rm_history (profile_id, lift, performed_session_id, revision, recorded_at, formula)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [profileId, lift, performedSessionId, current.revision + 1, current.recorded_at, current.formula],
+        );
+        return true;
       },
       async list(profileId, lift) {
         await requireProfile(profileId);
-        const rows =
-          lift === undefined
-            ? await db.getAllAsync<E1rmRow>(
-                `SELECT ${E1RM_COLUMNS} FROM e1rm_history WHERE profile_id = ? ORDER BY recorded_at DESC, id DESC`,
-                [profileId],
-              )
-            : await db.getAllAsync<E1rmRow>(
-                `SELECT ${E1RM_COLUMNS} FROM e1rm_history WHERE profile_id = ? AND lift = ?
-                 ORDER BY recorded_at DESC, id DESC`,
-                [profileId, lift],
-              );
+        const columns = E1RM_COLUMNS.split(', ')
+          .map((column) => `h.${column}`)
+          .join(', ');
+        const rows = await db.getAllAsync<E1rmRow>(
+          `SELECT ${columns} FROM e1rm_history h
+           WHERE h.profile_id = ? AND (? IS NULL OR h.lift = ?) AND h.value_kg IS NOT NULL
+             AND h.revision = (SELECT MAX(r.revision) FROM e1rm_history r
+                               WHERE r.performed_session_id = h.performed_session_id AND r.lift = h.lift)
+           ORDER BY h.recorded_at DESC,
+             (SELECT MIN(f.id) FROM e1rm_history f
+              WHERE f.performed_session_id = h.performed_session_id AND f.lift = h.lift) DESC`,
+          [profileId, lift ?? null, lift ?? null],
+        );
+        return rows.map((row) => toE1rm(row) as E1rmRecord);
+      },
+      async revisions(profileId, performedSessionId) {
+        await requireProfile(profileId);
+        await requirePerformed(profileId, performedSessionId);
+        const rows = await db.getAllAsync<E1rmRow>(
+          `SELECT ${E1RM_COLUMNS} FROM e1rm_history WHERE performed_session_id = ? ORDER BY id`,
+          [performedSessionId],
+        );
         return rows.map(toE1rm);
       },
     },

@@ -15,7 +15,14 @@ export async function seedActivated(
     oneRms = { bench: 100, squat: 140, deadlift: 180 },
     lifts = ['bench', 'squat'],
     startDate = '2026-11-09',
-  }: { oneRms?: Partial<Record<Lift, number>>; lifts?: Lift[]; startDate?: string } = {},
+    templates = {},
+  }: {
+    oneRms?: Partial<Record<Lift, number>>;
+    lifts?: Lift[];
+    startDate?: string;
+    /** Program of each lift's slot (default `cycle-531-custom`). */
+    templates?: Partial<Record<Lift, string>>;
+  } = {},
 ): Promise<StoredPeriodization> {
   for (const [lift, value] of Object.entries(oneRms)) {
     await repos.referenceOneRms.record({ profileId, lift: lift as Lift, value, origin: 'onboarding' });
@@ -24,7 +31,7 @@ export async function seedActivated(
   for (const lift of lifts) {
     slots = await repos.sessionSlots.add(profileId, {
       lift,
-      templateId: 'cycle-531-custom',
+      templateId: templates[lift] ?? 'cycle-531-custom',
       programDay: 1,
       startWeek: 1,
     });

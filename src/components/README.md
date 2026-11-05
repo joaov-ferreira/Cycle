@@ -26,6 +26,8 @@
 - `progress/` — Progress screen (SPEC §9: per-lift cards, period filter) and `LineChart`, the in-house
   `react-native-svg` chart (e1RM line, reference-1RM steps, localized axes, tap/hover tooltip, per-point
   accessible buttons) that draws the pure `buildChartModel`.
+- `history/` — History screen (SPEC §10: lift / program / period filters, list items) and the session
+  detail (prescribed vs. performed, e1RM, equivalent previous sessions, edit mode built on the logger form).
 - `navigation/` — main tabs and the wide-screen sidebar.
 
 Rules:

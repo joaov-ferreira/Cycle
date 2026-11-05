@@ -8,6 +8,8 @@ and layouts here: components, hooks and utilities live in the other `src/` layer
 - `(tabs)/_layout.tsx` — main navigation (`src/components/navigation/app-tabs.tsx`).
 - `settings.tsx` — Settings route (opened from More); wraps `SettingsScreen`.
 - `programs/index.tsx`, `programs/[id].tsx` — Programs list and program detail (opened from More); wrap `ProgramsScreen` and `ProgramDetailScreen`.
+- `history/index.tsx`, `history/[id].tsx` — History list and session detail (opened from More); wrap `HistoryScreen` and
+  `HistoryDetailScreen`; the `id` is a performed session id.
 - `session/[id].tsx` — session detail (opened from the calendar); wraps `SessionDetailScreen`. The `id` is a
   session key `<slotId>-w<blockWeek>` of the live periodization, or `p<periodizationId>-<key>` for a
   session of an activated periodization (where performance is logged).

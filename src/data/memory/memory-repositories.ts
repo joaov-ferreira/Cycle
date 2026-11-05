@@ -7,8 +7,11 @@ import {
   assertValidE1rmRecord,
   E1rmAlreadyRecordedError,
   type E1rmRecord,
+  type E1rmRevision,
+  type RecordE1rmInput,
   assertValidPerformance,
   PerformedSessionCompletedError,
+  PerformedSessionNotCompletedError,
   PerformedSessionNotFoundError,
   type PerformedSession,
   assertPermutation,
@@ -49,7 +52,7 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
   const periodizations: StoredPeriodization[] = [];
   const generated: StoredGeneratedSession[] = [];
   const performed: PerformedSession[] = [];
-  const e1rms: E1rmRecord[] = [];
+  const e1rms: E1rmRevision[] = [];
   let nextE1rmId = 1;
   let nextPerformedId = 1;
   let nextSlotId = 1;
@@ -63,6 +66,32 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
     const found = profiles.get(id);
     if (!found) throw new ProfileNotFoundError(id);
     return found;
+  }
+
+  function requirePerformed(profileId: number, performedSessionId: number): void {
+    if (!performed.some((r) => r.id === performedSessionId && r.profileId === profileId)) {
+      throw new PerformedSessionNotFoundError(performedSessionId);
+    }
+  }
+
+  function requireE1rmSession(input: RecordE1rmInput): void {
+    requireProfile(input.profileId);
+    assertValidE1rmRecord(input);
+    requirePerformed(input.profileId, input.performedSessionId);
+  }
+
+  /** Every revision of one session and lift, oldest first. */
+  function e1rmRows(performedSessionId: number, lift: Lift): E1rmRevision[] {
+    return e1rms.filter((r) => r.performedSessionId === performedSessionId && r.lift === lift);
+  }
+
+  const firstE1rmId = (row: E1rmRevision) => (e1rmRows(row.performedSessionId, row.lift)[0] as E1rmRevision).id;
+
+  function appendE1rm(input: RecordE1rmInput): E1rmRecord {
+    const previous = e1rmRows(input.performedSessionId, input.lift).at(-1);
+    const record: E1rmRecord = { id: nextE1rmId++, revision: (previous?.revision ?? 0) + 1, ...input };
+    e1rms.push(record);
+    return { ...record };
   }
 
   function requireSettings(profileId: number): Settings {
@@ -346,6 +375,21 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
         performed[performed.indexOf(existing)] = record;
         return clone(record);
       },
+      async amend(profileId, id, changes) {
+        requireProfile(profileId);
+        const existing = performed.find((r) => r.id === id && r.profileId === profileId);
+        if (!existing) throw new PerformedSessionNotFoundError(id);
+        if (existing.status !== 'completed') throw new PerformedSessionNotCompletedError(id);
+        assertValidPerformance(changes, { complete: true });
+        const record: PerformedSession = {
+          ...existing,
+          updatedAt: clock().toISOString(),
+          notes: changes.notes,
+          sets: clone([...changes.sets]),
+        };
+        performed[performed.indexOf(existing)] = record;
+        return clone(record);
+      },
       async get(profileId, periodizationId, sessionKey) {
         requireProfile(profileId);
         const found = performed.find(
@@ -364,23 +408,55 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
     },
     e1rmHistory: {
       async record(input) {
-        requireProfile(input.profileId);
-        assertValidE1rmRecord(input);
-        if (!performed.some((r) => r.id === input.performedSessionId && r.profileId === input.profileId)) {
-          throw new PerformedSessionNotFoundError(input.performedSessionId);
-        }
-        if (e1rms.some((r) => r.performedSessionId === input.performedSessionId && r.lift === input.lift)) {
+        requireE1rmSession(input);
+        if (e1rmRows(input.performedSessionId, input.lift).length > 0) {
           throw new E1rmAlreadyRecordedError(input.performedSessionId, input.lift);
         }
-        const record: E1rmRecord = { id: nextE1rmId++, ...input };
-        e1rms.push(record);
-        return { ...record };
+        return appendE1rm(input);
+      },
+      async supersede(input) {
+        requireE1rmSession(input);
+        return appendE1rm(input);
+      },
+      async clear(profileId, performedSessionId, lift) {
+        requireProfile(profileId);
+        requirePerformed(profileId, performedSessionId);
+        const current = e1rmRows(performedSessionId, lift).at(-1);
+        if (!current || current.valueKg === null) return false;
+        e1rms.push({
+          id: nextE1rmId++,
+          revision: current.revision + 1,
+          profileId,
+          lift,
+          performedSessionId,
+          recordedAt: current.recordedAt,
+          formula: current.formula,
+          setPosition: null,
+          valueKg: null,
+          weightKg: null,
+          reps: null,
+          rir: null,
+        });
+        return true;
       },
       async list(profileId, lift) {
         requireProfile(profileId);
         return e1rms
-          .filter((r) => r.profileId === profileId && (lift === undefined || r.lift === lift))
-          .sort((a, b) => (a.recordedAt < b.recordedAt ? 1 : a.recordedAt > b.recordedAt ? -1 : b.id - a.id))
+          .filter((r): r is E1rmRecord => r.profileId === profileId && (lift === undefined || r.lift === lift))
+          .filter((r) => r.valueKg !== null && r === e1rmRows(r.performedSessionId, r.lift).at(-1))
+          .sort(
+            (a, b) =>
+              (a.recordedAt < b.recordedAt ? 1 : a.recordedAt > b.recordedAt ? -1 : 0) ||
+              firstE1rmId(b) - firstE1rmId(a),
+          )
+          .map((r) => ({ ...r }));
+      },
+      async revisions(profileId, performedSessionId) {
+        requireProfile(profileId);
+        requirePerformed(profileId, performedSessionId);
+        return e1rms
+          .filter((r) => r.performedSessionId === performedSessionId)
+          .sort((a, b) => a.id - b.id)
           .map((r) => ({ ...r }));
       },
     },

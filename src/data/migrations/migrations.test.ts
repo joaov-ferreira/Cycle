@@ -26,6 +26,7 @@ describe('registered migrations', () => {
       [6, 'periodization'],
       [7, 'performance'],
       [8, 'e1rm'],
+      [9, 'e1rm_revisions'],
     ]);
   });
 
@@ -34,7 +35,7 @@ describe('registered migrations', () => {
     const again = await runMigrations(db, migrations);
     expect(again.applied).toEqual([]);
     const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version', []);
-    expect(version).toEqual({ user_version: 8 });
+    expect(version).toEqual({ user_version: 9 });
   });
 });
 
@@ -453,6 +454,7 @@ describe('008_e1rm', () => {
       profile_id: 1,
       lift: 'bench',
       performed_session_id: 1,
+      revision: 1,
       set_position: 2,
       recorded_at: '2026-11-09T18:00:00.000Z',
       value_kg: 95.6,
@@ -476,24 +478,7 @@ describe('008_e1rm', () => {
     await expect(db.runAsync("UPDATE settings SET e1rm_formula = 'epley'", [])).rejects.toThrow(/CHECK constraint failed/);
   });
 
-  it('creates e1rm_history with the formula and the source set', async () => {
-    const db = await migratedDb();
-    expect(await columns(db, 'e1rm_history')).toEqual([
-      'id',
-      'profile_id',
-      'lift',
-      'performed_session_id',
-      'set_position',
-      'recorded_at',
-      'value_kg',
-      'formula',
-      'weight_kg',
-      'reps',
-      'rir',
-    ]);
-  });
-
-  it('allows a single estimate per lift and performed session', async () => {
+  it('allows a single estimate per lift, performed session and revision', async () => {
     const db = await withPerformedSession();
     await insertEstimate(db);
     await expect(insertEstimate(db, { set_position: 0 })).rejects.toThrow(/UNIQUE constraint failed/);
@@ -528,5 +513,154 @@ describe('008_e1rm', () => {
     await insertEstimate(again);
     await again.runAsync('DELETE FROM profiles WHERE id = 1', []);
     expect(await again.getAllAsync('SELECT * FROM e1rm_history', [])).toEqual([]);
+  });
+});
+
+describe('009_e1rm_revisions', () => {
+  const ESTIMATE = {
+    profile_id: 1,
+    lift: 'bench',
+    performed_session_id: 1,
+    revision: 1,
+    set_position: 2,
+    recorded_at: '2026-11-09T18:00:00.000Z',
+    value_kg: 95.6,
+    formula: 'rts',
+    weight_kg: 80,
+    reps: 5,
+    rir: 1,
+  };
+  const TOMBSTONE = { set_position: null, value_kg: null, weight_kg: null, reps: null, rir: null };
+
+  async function seeded() {
+    const db = await migratedDb();
+    await db.runAsync('INSERT INTO profiles (name, created_at) VALUES (?, ?)', ['A', 'x']);
+    await db.runAsync('INSERT INTO settings (profile_id) VALUES (?)', [1]);
+    await db.runAsync(
+      'INSERT INTO periodizations (profile_id, start_date, created_at, config) VALUES (?, ?, ?, ?)',
+      [1, '2026-11-09', 'x', '{}'],
+    );
+    await db.runAsync(
+      `INSERT INTO performed_sessions (profile_id, periodization_id, session_key, session_number, block_week, lift,
+         template_id, template_name, status, started_at, updated_at, completed_at, notes, snapshot)
+       VALUES (1, 1, '1-w1', 1, 1, 'bench', 't', 'T', 'completed', 'x', 'x', 'y', '', '{}')`,
+      [],
+    );
+    return db;
+  }
+  const insert = (db: NodeSqliteDatabase, overrides: Record<string, string | number | null> = {}) => {
+    const row = { ...ESTIMATE, ...overrides };
+    return db.runAsync(
+      `INSERT INTO e1rm_history (${Object.keys(row).join(', ')}) VALUES (${Object.keys(row).map(() => '?').join(', ')})`,
+      Object.values(row),
+    );
+  };
+
+  it('adds the revision column to e1rm_history', async () => {
+    const db = await migratedDb();
+    expect(await columns(db, 'e1rm_history')).toEqual([
+      'id',
+      'profile_id',
+      'lift',
+      'performed_session_id',
+      'revision',
+      'set_position',
+      'recorded_at',
+      'value_kg',
+      'formula',
+      'weight_kg',
+      'reps',
+      'rir',
+    ]);
+  });
+
+  it('keeps existing estimates as revision 1 with their ids', async () => {
+    const db = new NodeSqliteDatabase();
+    await db.execAsync('PRAGMA foreign_keys = ON');
+    await runMigrations(db, migrations.slice(0, 8));
+    await db.runAsync('INSERT INTO profiles (name, created_at) VALUES (?, ?)', ['A', 'x']);
+    await db.runAsync('INSERT INTO settings (profile_id) VALUES (?)', [1]);
+    await db.runAsync(
+      'INSERT INTO periodizations (profile_id, start_date, created_at, config) VALUES (?, ?, ?, ?)',
+      [1, '2026-11-09', 'x', '{}'],
+    );
+    for (const key of ['1-w1', '1-w2']) {
+      await db.runAsync(
+        `INSERT INTO performed_sessions (profile_id, periodization_id, session_key, session_number, block_week, lift,
+           template_id, template_name, status, started_at, updated_at, completed_at, notes, snapshot)
+         VALUES (1, 1, ?, 1, 1, 'bench', 't', 'T', 'completed', 'x', 'x', 'y', '', '{}')`,
+        [key],
+      );
+    }
+    await db.runAsync(
+      `INSERT INTO e1rm_history (profile_id, lift, performed_session_id, set_position, recorded_at, value_kg, formula,
+         weight_kg, reps, rir) VALUES (1, 'bench', 1, 2, '2026-11-09T18:00:00.000Z', 95.6, 'rts', 80, 5, 1),
+         (1, 'bench', 2, 0, '2026-11-16T18:00:00.000Z', 100.4, 'epley-rir', 82.5, 5, 1)`,
+      [],
+    );
+    const result = await runMigrations(db, migrations);
+    expect(result.applied).toEqual([9]);
+    expect(await db.getAllAsync('SELECT id, performed_session_id, revision, value_kg, formula FROM e1rm_history ORDER BY id', [])).toEqual([
+      { id: 1, performed_session_id: 1, revision: 1, value_kg: 95.6, formula: 'rts' },
+      { id: 2, performed_session_id: 2, revision: 1, value_kg: 100.4, formula: 'epley-rir' },
+    ]);
+    // ids keep growing after the rebuild
+    await db.runAsync(
+      `INSERT INTO e1rm_history (profile_id, lift, performed_session_id, revision, recorded_at, formula)
+       VALUES (1, 'bench', 1, 2, 'x', 'rts')`,
+      [],
+    );
+    expect(await db.getFirstAsync('SELECT MAX(id) AS id FROM e1rm_history', [])).toEqual({ id: 3 });
+  });
+
+  it('allows one row per lift, session and revision', async () => {
+    const db = await seeded();
+    await insert(db);
+    await expect(insert(db, { set_position: 0 })).rejects.toThrow(/UNIQUE constraint failed/);
+    await insert(db, { revision: 2, value_kg: 99.2 });
+    await insert(db, { lift: 'squat' });
+    await expect(insert(db, { revision: 0 })).rejects.toThrow(/CHECK constraint failed/);
+  });
+
+  it('accepts a tombstone revision only when every estimate column is empty', async () => {
+    const db = await seeded();
+    await insert(db);
+    await insert(db, { revision: 2, ...TOMBSTONE });
+    const partials: Record<string, null>[] = [
+      { value_kg: null },
+      { set_position: null },
+      { weight_kg: null },
+      { reps: null },
+      { rir: null },
+    ];
+    for (const partial of partials) {
+      await expect(insert(db, { revision: 3, ...partial })).rejects.toThrow(/CHECK constraint failed/);
+    }
+  });
+
+  it('still constrains the estimate values', async () => {
+    const db = await seeded();
+    const bad: Record<string, string | number | null>[] = [
+      { lift: 'curl' },
+      { formula: 'epley' },
+      { value_kg: 0 },
+      { weight_kg: 0 },
+      { reps: 0 },
+      { rir: 4.5 },
+      { rir: -1 },
+      { set_position: -1 },
+    ];
+    for (const overrides of bad) {
+      await expect(insert(db, overrides)).rejects.toThrow(/CHECK constraint failed/);
+    }
+    await expect(insert(db, { performed_session_id: 9 })).rejects.toThrow(/FOREIGN KEY constraint failed/);
+  });
+
+  it('deletes every revision with the session', async () => {
+    const db = await seeded();
+    await insert(db);
+    await insert(db, { revision: 2 });
+    await db.runAsync('DELETE FROM performed_sessions WHERE id = 1', []);
+    expect(await db.getAllAsync('SELECT * FROM e1rm_history', [])).toEqual([]);
   });
 });
