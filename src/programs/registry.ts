@@ -1,11 +1,12 @@
 import type { Lift } from '@/domain/lifts';
 
 import { cycle531Custom } from './data/cycle-531-custom';
+import { smolov } from './data/smolov';
 import { smolovJr } from './data/smolov-jr';
 import type { ProgramTemplate } from './schema';
 
 /** Every template of the program database, in display order. Later stages append theirs. */
-const TEMPLATES: readonly ProgramTemplate[] = [cycle531Custom, smolovJr];
+const TEMPLATES: readonly ProgramTemplate[] = [cycle531Custom, smolovJr, smolov];
 
 export function listTemplates(): ProgramTemplate[] {
   return [...TEMPLATES];

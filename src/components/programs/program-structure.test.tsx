@@ -38,7 +38,19 @@ const template: ProgramTemplate = {
             { kind: 'accessory', name: { en: 'Rows', 'pt-BR': 'Remadas' }, text: { en: '3 x 10', 'pt-BR': '3 x 10' } },
           ],
         },
-        { day: 2, items: [{ kind: 'main', lift: 'bench', sets: [{ reps: 5, percent: 0.5 }] }] },
+        {
+          day: 2,
+          items: [
+            { kind: 'main', lift: 'bench', sets: [{ reps: 5, percent: 0.5 }] },
+            { kind: 'info', text: { en: 'Work up to a new 1RM', 'pt-BR': 'Suba até um novo 1RM' } },
+            {
+              kind: 'info',
+              text: { en: 'Speed work', 'pt-BR': 'Trabalho de velocidade' },
+              unverified: true,
+              note: { en: 'Not confirmed', 'pt-BR': 'Não confirmado' },
+            },
+          ],
+        },
       ],
     },
   ],
@@ -62,8 +74,27 @@ describe('ProgramStructure (en)', () => {
   it('flags a set without a confirmed percentage: dash, note and badge, no load', async () => {
     await renderInApp(<ProgramStructure template={template} />);
     expect(await screen.findByText('1 × 4 @ —')).toBeOnTheScreen();
-    expect(screen.getByText('Unverified data')).toBeOnTheScreen();
+    expect(screen.getAllByText('Unverified data')).toHaveLength(2);
     expect(screen.getByText('Percentage illegible')).toBeOnTheScreen();
+  });
+});
+
+describe('ProgramStructure informational items', () => {
+  it('shows their text, note and the unverified badge (en)', async () => {
+    await renderInApp(<ProgramStructure template={template} />);
+    expect(await screen.findByText('Work up to a new 1RM')).toBeOnTheScreen();
+    expect(screen.getByText('Speed work')).toBeOnTheScreen();
+    expect(screen.getByText('Not confirmed')).toBeOnTheScreen();
+    // one badge for the unverified set, one for the unverified informational item
+    expect(screen.getAllByText('Unverified data')).toHaveLength(2);
+  });
+
+  it('shows their text, note and the unverified badge (pt-BR)', async () => {
+    await renderInApp(<ProgramStructure template={template} />, { language: 'pt-BR' });
+    expect(await screen.findByText('Suba até um novo 1RM')).toBeOnTheScreen();
+    expect(screen.getByText('Trabalho de velocidade')).toBeOnTheScreen();
+    expect(screen.getByText('Não confirmado')).toBeOnTheScreen();
+    expect(screen.getAllByText('Dados não verificados')).toHaveLength(2);
   });
 });
 
@@ -75,7 +106,7 @@ describe('ProgramStructure (pt-BR)', () => {
     expect(screen.getByText('1 × 3 @ 85,5% — o máximo de repetições na última série')).toBeOnTheScreen();
     expect(screen.getByText('Acessório: Remadas — 3 x 10')).toBeOnTheScreen();
     expect(screen.getByText('Percentual ilegível')).toBeOnTheScreen();
-    expect(screen.getByText('Dados não verificados')).toBeOnTheScreen();
+    expect(screen.getAllByText('Dados não verificados')).toHaveLength(2);
   });
 });
 

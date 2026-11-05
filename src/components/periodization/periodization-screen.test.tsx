@@ -282,3 +282,111 @@ describe('PeriodizationScreen — Smolov Jr. (Stage 7)', () => {
     expect(screen.getByText(kg('72,5 kg → 72,5 kg'))).toBeOnTheScreen();
   });
 });
+
+describe('PeriodizationScreen — Smolov (Stage 8)', () => {
+  async function smolovSquatSession(language: 'en' | 'pt-BR' = 'en') {
+    await renderInApp(<PeriodizationScreen onOpenProgram={() => {}} onOpenSession={() => {}} />, {
+      seed: seedOneRms(SPEC_1RMS),
+      language,
+    });
+    const en = language === 'en';
+    await fireEvent.press(await screen.findByRole('button', { name: en ? 'Add session' : 'Adicionar sessão' }));
+    const lifts = await screen.findByLabelText(en ? 'Lift for session 1' : 'Exercício da sessão 1');
+    await fireEvent.press(within(lifts).getByRole('button', { name: en ? 'Squat' : 'Agachamento' }));
+    const programs = await screen.findByLabelText(en ? 'Program for session 1' : 'Programa da sessão 1');
+    await fireEvent.press(within(programs).getByRole('button', { name: 'Smolov' }));
+  }
+
+  const later = () => screen.getByRole('button', { name: 'Start session 1 one week later' });
+
+  it('offers Smolov for the squat only', async () => {
+    await renderInApp(<PeriodizationScreen onOpenProgram={() => {}} onOpenSession={() => {}} />, {
+      seed: seedOneRms(SPEC_1RMS),
+    });
+    await addSession();
+    const programs = await screen.findByLabelText('Program for session 1');
+    expect(within(programs).queryByRole('button', { name: 'Smolov' })).toBeNull();
+    await chooseLift(1, 'Squat');
+    expect(within(screen.getByLabelText('Program for session 1')).getByRole('button', { name: 'Smolov' })).toBeOnTheScreen();
+    await chooseLift(1, 'Deadlift');
+    expect(within(screen.getByLabelText('Program for session 1')).queryByRole('button', { name: 'Smolov' })).toBeNull();
+  });
+
+  it('starts at program week 1 (introductory microcycle) with the loads of squat 140', async () => {
+    await smolovSquatSession();
+    expect(await screen.findByText('Block starts at program week 1 of 13')).toBeOnTheScreen();
+    expect(screen.getByText('Program week 1 · Introductory microcycle · Day 1')).toBeOnTheScreen();
+    // 140 × 0.65 = 91 → 90 (91 − 90 = 1 < 1.25)
+    expect(screen.getByText('3 × 8 @ 65%')).toBeOnTheScreen();
+    expect(screen.getByText(kg('91.0 kg → 90.0 kg'))).toBeOnTheScreen();
+    // 140 × 0.8 = 112 → 112.5 (112 − 110 = 2 > 1.25)
+    expect(screen.getByText('1 × 1 @ 80%')).toBeOnTheScreen();
+    expect(screen.getByText(kg('112.0 kg → 112.5 kg'))).toBeOnTheScreen();
+  });
+
+  it('browses the base mesocycle: fixed +10 kg and +15 kg increments', async () => {
+    await smolovSquatSession();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Start session 1 one week later' }));
+    await fireEvent.press(later());
+    expect(await screen.findByText('Block starts at program week 3 of 13')).toBeOnTheScreen();
+    expect(screen.getByText('Program week 3 · Base mesocycle · Day 1 — Monday')).toBeOnTheScreen();
+    // 140 × 0.7 = 98 → 97.5
+    expect(screen.getByText('4 × 9 @ 70%')).toBeOnTheScreen();
+    expect(screen.getByText(kg('98.0 kg → 97.5 kg'))).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Week 2' }));
+    // 98 + 10 = 108 → 107.5
+    expect(screen.getByText(kg('4 × 9 @ 70% + 10.0 kg'))).toBeOnTheScreen();
+    expect(screen.getByText(kg('108.0 kg → 107.5 kg'))).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Week 3' }));
+    // 98 + 15 = 113 → 112.5
+    expect(screen.getByText(kg('4 × 9 @ 70% + 15.0 kg'))).toBeOnTheScreen();
+    expect(screen.getByText(kg('113.0 kg → 112.5 kg'))).toBeOnTheScreen();
+  });
+
+  it('reaches the last block (weeks 11–13) and stops there', async () => {
+    await smolovSquatSession();
+    await screen.findByText('Block starts at program week 1 of 13');
+    for (let i = 0; i < 10; i += 1) await fireEvent.press(later());
+    expect(await screen.findByText('Block starts at program week 11 of 13')).toBeOnTheScreen();
+    expect(later()).toBeDisabled();
+    expect(screen.getByText('Program week 11 · Intense mesocycle · Day 1')).toBeOnTheScreen();
+    // 140 × 0.9 = 126 → 125 (126 − 125 = 1 < 1.25)
+    expect(screen.getByText('5 × 5 @ 90%')).toBeOnTheScreen();
+    expect(screen.getByText(kg('126.0 kg → 125.0 kg'))).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Week 3' }));
+    expect(screen.getByText('Program week 13 · Taper and test · Day 1')).toBeOnTheScreen();
+    // 140 × 0.95 = 133 → 132.5
+    expect(screen.getByText(kg('133.0 kg → 132.5 kg'))).toBeOnTheScreen();
+  });
+
+  it('shows the switching phase as unverified, without a load', async () => {
+    await smolovSquatSession();
+    await screen.findByText('Block starts at program week 1 of 13');
+    for (let i = 0; i < 6; i += 1) await fireEvent.press(later());
+    expect(await screen.findByText('Program week 7 · Switching phase · Day 1')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Switching phase: light, explosive squat work (speed squats, box squats, negatives).'),
+    ).toBeOnTheScreen();
+    expect(screen.getByText('Unverified data')).toBeOnTheScreen();
+    expect(screen.queryByText(/ kg → /)).toBeNull();
+  });
+
+  it('is localized (pt-BR): phase labels, rest day and decimal comma', async () => {
+    await smolovSquatSession('pt-BR');
+    expect(await screen.findByText('O bloco começa na semana 1 de 13 do programa')).toBeOnTheScreen();
+    expect(screen.getByText('Semana 1 do programa · Microciclo introdutório · Dia 1')).toBeOnTheScreen();
+    expect(screen.getByText(kg('91,0 kg → 90,0 kg'))).toBeOnTheScreen();
+    const days = screen.getByLabelText('Dia do programa da sessão 1');
+    await fireEvent.press(within(days).getByRole('button', { name: 'Dia 4' }));
+    expect(
+      await screen.findAllByText('Dia de descanso: o programa original não tem sessão de agachamento neste dia.'),
+    ).not.toHaveLength(0);
+    await fireEvent.press(screen.getByRole('button', { name: 'Começar a sessão 1 uma semana depois' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Começar a sessão 1 uma semana depois' }));
+    expect(await screen.findByText('Semana 3 do programa · Mesociclo de base · Dia 4 — Sábado')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Semana 2' }));
+    // 140 × 0.85 = 119, + 10 = 129 → 130 (129 − 127.5 = 1.5 > 1.25)
+    expect(screen.getByText(kg('10 × 3 @ 85% + 10,0 kg'))).toBeOnTheScreen();
+    expect(screen.getByText(kg('129,0 kg → 130,0 kg'))).toBeOnTheScreen();
+  });
+});

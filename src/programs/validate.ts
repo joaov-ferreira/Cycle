@@ -5,7 +5,7 @@
  */
 import { LIFTS } from '@/domain/lifts';
 
-import type { ConfigurableParam, ProgramTemplate, SetPrescription, Verification } from './schema';
+import type { ConfigurableParam, LocalizedText, ProgramTemplate, SetPrescription, Verification } from './schema';
 
 export type TemplateIssueCode =
   | 'missingId'
@@ -38,6 +38,7 @@ export type TemplateIssueCode =
   | 'unknownParam'
   | 'paramUnitMismatch'
   | 'invalidParamMultiplier'
+  | 'invalidFixedKg'
   | 'percentDefaultMismatch';
 
 export type TemplateIssue = { code: TemplateIssueCode; path: string };
@@ -125,6 +126,11 @@ export function validateTemplate(template: ProgramTemplate): TemplateIssue[] {
   });
   const paramById = new Map(params.map((p) => [p.id, p]));
 
+  function checkUnverified(note: LocalizedText | undefined, path: string) {
+    if (!note || blank(note.en)) add('unverifiedWithoutNote', path);
+    if (template.verification === 'verified') add('verifiedWithUnverifiedData', path);
+  }
+
   function checkSet(set: SetPrescription, path: string) {
     if (!Number.isInteger(set.reps) || set.reps < 1) add('invalidReps', path);
     if (set.repeat !== undefined && (!Number.isInteger(set.repeat) || set.repeat < 1)) {
@@ -134,15 +140,15 @@ export function validateTemplate(template: ProgramTemplate): TemplateIssue[] {
       add('invalidPercent', path);
     }
     if (set.percent === undefined && !set.unverified) add('missingPercent', path);
-    if (set.unverified) {
-      if (!set.note || blank(set.note.en)) add('unverifiedWithoutNote', path);
-      if (template.verification === 'verified') add('verifiedWithUnverifiedData', path);
-    }
-    const times = set.addKg?.times;
+    if (set.unverified) checkUnverified(set.note, path);
+    const fixed = set.addKg && 'kg' in set.addKg ? set.addKg : undefined;
+    const paramAdd = set.addKg && 'param' in set.addKg ? set.addKg : undefined;
+    if (fixed && !(Number.isFinite(fixed.kg) && fixed.kg > 0)) add('invalidFixedKg', path);
+    const times = paramAdd?.times;
     if (times !== undefined && !(Number.isInteger(times) && times >= 1)) add('invalidParamMultiplier', path);
     for (const [ref, unit] of [
       [set.percentParam, 'fraction'],
-      [set.addKg?.param, 'kg'],
+      [paramAdd?.param, 'kg'],
     ] as const) {
       if (ref === undefined) continue;
       const param = paramById.get(ref);
@@ -172,6 +178,9 @@ export function validateTemplate(template: ProgramTemplate): TemplateIssue[] {
           item.sets.forEach((set, s) => checkSet(set, `${itemPath}.sets[${s}]`));
         } else if (item.kind === 'accessory') {
           if (blank(item.name.en) || blank(item.text.en)) add('missingText', itemPath);
+        } else if (item.kind === 'info') {
+          if (blank(item.text.en)) add('missingText', itemPath);
+          if (item.unverified) checkUnverified(item.note, itemPath);
         } else {
           add('invalidItemKind', itemPath);
         }

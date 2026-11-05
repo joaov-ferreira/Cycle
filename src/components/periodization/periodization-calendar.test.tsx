@@ -2,6 +2,7 @@ import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { generatePeriodization, type OneRmMap, type RoundingConfig } from '@/domain/periodization';
 import { cycle531Custom } from '@/programs/data/cycle-531-custom';
+import type { ProgramTemplate } from '@/programs/schema';
 import { renderInApp } from '@/test-utils/render-app';
 
 import { PeriodizationCalendar } from './periodization-calendar';
@@ -50,6 +51,27 @@ describe('PeriodizationCalendar (en)', () => {
     await renderInApp(<PeriodizationCalendar periodization={build({ bench: 100 })} onOpenSession={() => {}} />);
     const squat1 = await screen.findByTestId('calendar-card-9-w1');
     expect(within(squat1).getByText('3 × 5 @ 75% → —')).toBeOnTheScreen();
+  });
+
+  it('shows the text of informational items (rest days, tests) on the card', async () => {
+    const info: ProgramTemplate = {
+      ...cycle531Custom,
+      id: 'info',
+      verification: 'partial',
+      weeks: cycle531Custom.weeks.map((w) => ({
+        ...w,
+        days: [{ day: 1, items: [{ kind: 'info', text: { en: 'Rest day', 'pt-BR': 'Dia de descanso' } }] }],
+      })),
+    };
+    const periodization = generatePeriodization(
+      [{ id: 3, lift: 'bench', templateId: 'info', programDay: 1, startWeek: 1 }],
+      [info],
+      { bench: 100 },
+      ROUND,
+      {},
+    );
+    await renderInApp(<PeriodizationCalendar periodization={periodization} onOpenSession={() => {}} />);
+    expect(within(await screen.findByTestId('calendar-card-3-w1')).getByText('Rest day')).toBeOnTheScreen();
   });
 
   it('asks for a session when there is none', async () => {

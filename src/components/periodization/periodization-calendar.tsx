@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { layout, spacing } from '@/constants/theme';
 import type { GeneratedSession, Periodization } from '@/domain/periodization';
 import { useI18n } from '@/i18n';
+import { pickLocalized } from '@/programs/localized';
 
 import { useTheme } from '../theme-provider';
 import { Text } from '../ui';
@@ -15,7 +16,7 @@ export type PeriodizationCalendarProps = {
 };
 
 function SessionCard({ session, onOpen }: { session: GeneratedSession; onOpen: () => void }) {
-  const { t, formatKg } = useI18n();
+  const { t, locale, formatKg } = useI18n();
   const { colors } = useTheme();
   const setLine = useSetLine();
   const lift = t(`lifts.${session.lift}`);
@@ -45,7 +46,13 @@ function SessionCard({ session, onOpen }: { session: GeneratedSession; onOpen: (
                 })}
               </Text>
             ))
-          : [],
+          : item.kind === 'info'
+            ? [
+                <Text key={`${itemIndex}-info`} tone="secondary">
+                  {pickLocalized(item.text, locale)}
+                </Text>,
+              ]
+            : [],
       )}
     </Pressable>
   );

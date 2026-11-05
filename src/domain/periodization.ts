@@ -7,9 +7,10 @@
  * micrograms, so `1RM × percent (+ addKg)` has no binary floating-point error.
  */
 import { BLOCK_WEEKS, getBlock } from '@/programs/blocks';
-import { resolveParamValues, resolveTemplate, type ParamValues } from '@/programs/params';
+import { addKgValue, resolveParamValues, resolveTemplate, type ParamValues } from '@/programs/params';
 import type {
   AccessoryItem,
+  InfoItem,
   LocalizedText,
   MainItem,
   ProgramTemplate,
@@ -63,7 +64,7 @@ export type GeneratedSet = {
 
 export type GeneratedMainItem = { kind: 'main'; lift: Lift; sets: GeneratedSet[]; note?: LocalizedText };
 
-export type GeneratedItem = GeneratedMainItem | AccessoryItem;
+export type GeneratedItem = GeneratedMainItem | AccessoryItem | InfoItem;
 
 export type Volume = { tonnageKg: number; totalReps: number };
 
@@ -165,9 +166,7 @@ function slotIssue(slot: Omit<SessionSlotConfig, 'id'>, template: ProgramTemplat
 type Context = { oneRms: OneRmMap; rounding: RoundingConfig; values: ParamValues };
 
 function generateSet(set: SetPrescription, lift: Lift, ctx: Context): GeneratedSet {
-  const value = set.addKg ? ctx.values[set.addKg.param] : undefined;
-  // `times` multiplies on integer micrograms, so 2 × 2.5 is exactly 5.
-  const addKg = set.addKg && value !== undefined ? (toMicro(value) * (set.addKg.times ?? 1)) / MICRO : null;
+  const addKg = set.addKg ? addKgValue(set.addKg, ctx.values) : null;
   const base = {
     sets: set.repeat ?? 1,
     reps: set.reps,
@@ -266,6 +265,7 @@ export function generatePeriodization(
       const sessionWarnings: SessionWarning[] = [];
       let unverified = false;
       for (const item of items) {
+        if (item.kind === 'info' && item.unverified) unverified = true;
         if (item.kind !== 'main') continue;
         const liftAcc = (byLift[item.lift] ??= emptyAcc());
         for (const set of item.sets) {

@@ -225,6 +225,28 @@ describe('validateTemplate', () => {
     ).toEqual([]);
   });
 
+  it('accepts informational items with text, and flags unverified ones like unverified sets', () => {
+    const t = valid();
+    const withItems = (items: never[], verification: ProgramTemplate['verification'] = 'partial'): ProgramTemplate => ({
+      ...t,
+      verification,
+      weeks: [{ week: 1, days: [{ day: 1, items }, t.weeks[0].days[1]] }, t.weeks[1]],
+    });
+    expect(validateTemplate(withItems([{ kind: 'info', text: { en: 'Rest day' } }] as never))).toEqual([]);
+    expect(
+      validateTemplate(
+        withItems([{ kind: 'info', text: { en: 'Speed work' }, unverified: true, note: { en: 'Not confirmed' } }] as never),
+      ),
+    ).toEqual([]);
+    expect(codes(withItems([{ kind: 'info', text: { en: ' ' } }] as never))).toEqual(['missingText']);
+    expect(validateTemplate(withItems([{ kind: 'info', text: { en: 'Speed work' }, unverified: true }] as never))).toEqual([
+      { code: 'unverifiedWithoutNote', path: 'weeks[0].days[0].items[0]' },
+    ]);
+    expect(
+      codes(withItems([{ kind: 'info', text: { en: 'Speed work' }, unverified: true, note: { en: 'n' } }] as never, 'verified')),
+    ).toEqual(['verifiedWithUnverifiedData']);
+  });
+
   describe('configurable parameters', () => {
     const param = { id: 'p', label: { en: 'P' }, unit: 'fraction' as const, min: 0.3, max: 1.05, step: 0.005, default: 0.7, source: 's' };
     const withParam = (p: object, set: object = { reps: 5, percent: 0.7, percentParam: 'p' }): ProgramTemplate => {
@@ -287,6 +309,16 @@ describe('validateTemplate', () => {
       for (const times of [0, -1, 1.5, Number.NaN]) {
         expect(validateTemplate(withParam(kg, { reps: 5, percent: 0.7, addKg: { param: 'p', times } }))).toEqual([
           { code: 'invalidParamMultiplier', path },
+        ]);
+      }
+    });
+
+    it('accepts a fixed absolute increment and rejects one that is not a positive finite kg value', () => {
+      const path = 'weeks[0].days[0].items[0].sets[0]';
+      expect(validateTemplate(withParam(param, { reps: 5, percent: 0.7, addKg: { kg: 10 } }))).toEqual([]);
+      for (const kg of [0, -5, Number.NaN, Number.POSITIVE_INFINITY]) {
+        expect(validateTemplate(withParam(param, { reps: 5, percent: 0.7, addKg: { kg } }))).toEqual([
+          { code: 'invalidFixedKg', path },
         ]);
       }
     });

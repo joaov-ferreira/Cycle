@@ -3,6 +3,7 @@ import {
   resolveParamValues,
   resolveTemplate,
   totalSets,
+  addKgValue,
   validateParamValue,
 } from './params';
 import type { ConfigurableParam } from './schema';
@@ -106,5 +107,23 @@ describe('resolveTemplate', () => {
 describe('totalSets', () => {
   it('sums repeats, counting a set without repeat once', () => {
     expect(totalSets([{ reps: 5 }, { reps: 3, repeat: 6 }, { reps: 1, repeat: 2 }])).toBe(9);
+  });
+});
+
+describe('addKgValue', () => {
+  it('reads a fixed increment from the template itself', () => {
+    expect(addKgValue({ kg: 10 }, {})).toBe(10);
+    expect(addKgValue({ kg: 15 }, { inc: 2.5 })).toBe(15);
+  });
+
+  it('reads a parameter increment and multiplies it by `times` without float noise', () => {
+    expect(addKgValue({ param: 'inc' }, { inc: 2.5 })).toBe(2.5);
+    expect(addKgValue({ param: 'inc', times: 2 }, { inc: 2.5 })).toBe(5);
+    // 3 × 0.1 is 0.30000000000000004 in binary floating point; the helper returns exactly 0.3
+    expect(addKgValue({ param: 'inc', times: 3 }, { inc: 0.1 })).toBe(0.3);
+  });
+
+  it('returns null when the parameter has no value', () => {
+    expect(addKgValue({ param: 'missing' }, { inc: 2.5 })).toBeNull();
   });
 });

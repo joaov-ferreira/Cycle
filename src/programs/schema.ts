@@ -42,14 +42,17 @@ export type ConfigurableParam = {
  */
 export type ParamRef = { param: string; times?: number };
 
+/** An absolute increment the original fixes itself (e.g. Smolov base mesocycle: +10 kg). */
+export type FixedKg = { kg: number };
+
 export type SetPrescription = {
   reps: number;
   /** Fraction of 1RM (0.75). Absent means no load can be calculated. */
   percent?: number;
   /** When set, `percent` is the default of this `fraction` parameter and the athlete may change it. */
   percentParam?: string;
-  /** Absolute increment defined by the original (Smolov / Smolov Jr.). */
-  addKg?: ParamRef;
+  /** Absolute increment defined by the original: a configurable parameter (Smolov Jr.) or a fixed value (Smolov). */
+  addKg?: ParamRef | FixedKg;
   amrap?: boolean;
   /** Number of identical sets (6x6 => `repeat: 6`); absent means one. */
   repeat?: number;
@@ -71,7 +74,18 @@ export type AccessoryItem = {
   note?: LocalizedText;
 };
 
-export type PrescriptionItem = MainItem | AccessoryItem;
+/**
+ * Informational line of a program day that has no sets to calculate: a rest day, a max test
+ * without a percentage, or a phase the sources describe only loosely (`unverified`, with a note).
+ */
+export type InfoItem = {
+  kind: 'info';
+  text: LocalizedText;
+  unverified?: boolean;
+  note?: LocalizedText;
+};
+
+export type PrescriptionItem = MainItem | AccessoryItem | InfoItem;
 
 export type ProgramDay = { day: number; label?: LocalizedText; items: PrescriptionItem[] };
 

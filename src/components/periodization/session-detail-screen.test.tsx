@@ -130,6 +130,12 @@ const fake: ProgramTemplate = {
             text: { en: '3 x 10', 'pt-BR': '3 x 10' },
             note: { en: 'Light', 'pt-BR': 'Leve' },
           },
+          {
+            kind: 'info' as const,
+            text: { en: 'Speed work', 'pt-BR': 'Trabalho de velocidade' },
+            unverified: true,
+            note: { en: 'Not confirmed', 'pt-BR': 'Não confirmado' },
+          },
         ],
       },
     ],
@@ -168,6 +174,10 @@ describe('SessionDetail', () => {
     // accessory with note
     expect(screen.getByText('Accessory: Rows — 3 x 10')).toBeOnTheScreen();
     expect(screen.getByText('Light')).toBeOnTheScreen();
+    // unverified informational item: text, note and the badge
+    expect(screen.getByText('Speed work')).toBeOnTheScreen();
+    expect(screen.getByText('Not confirmed')).toBeOnTheScreen();
+    expect(screen.getByText('Unverified data')).toBeOnTheScreen();
     // bench: 2 × 5 × 70 = 700 (+ 4 unverified reps); squat: 2 × 6 × 70 = 840; total 1,540, 26 reps
     expect(screen.getByText(kg('Volume: 1,540.0 kg · 26 reps'))).toBeOnTheScreen();
     expect(screen.getByText(kg('Bench Press: 700.0 kg · 14 reps'))).toBeOnTheScreen();
@@ -181,6 +191,9 @@ describe('SessionDetail', () => {
     expect(await screen.findByText('Semana 1 do programa · Dia 1 — Dia pesado')).toBeOnTheScreen();
     expect(screen.getByText('Acessório: Remadas — 3 x 10')).toBeOnTheScreen();
     expect(screen.getByText('Leve')).toBeOnTheScreen();
+    expect(screen.getByText('Trabalho de velocidade')).toBeOnTheScreen();
+    expect(screen.getByText('Não confirmado')).toBeOnTheScreen();
+    expect(screen.getByText('Dados não verificados')).toBeOnTheScreen();
     expect(screen.getByText('Parcialmente verificado')).toBeOnTheScreen();
   });
 });

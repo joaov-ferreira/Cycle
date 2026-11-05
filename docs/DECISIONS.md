@@ -374,3 +374,81 @@ the reference shipped with the installed package
 - Known modelling limitation: week 3 is fixed at 2 × the weekly increment, while sources
   let the athlete pick the week-3 jump based on week 2 (and keep the weight after failed
   sets). Candidate future improvement; not a transcription error.
+
+## 2026-11-05 — Stage 8: Smolov (full program)
+
+- **Sources consulted (all accessed 2026-11-05).** No primary text by S. Y. Smolov was retrieved.
+  The English introduction (P. Tsatsouline, "Another Russian Super Cycle", *Powerlifting USA*) could
+  not be read: dragondoor.com returned HTTP 402 / did not resolve, and the ontariostrongman.ca
+  reprint (and its web.archive.org copy) returned HTTP 503 / was unreachable. Russian-language
+  searches found no original table. The transcription rests on secondary sources:
+  - **Adopted reference:** smolovjr.com, "Smolov Squat Routine" (HeavyDuty.com),
+    https://www.smolovjr.com/smolov-squat-routine.
+  - Cross-checks: Hunt Fitness, K. Hunt, 2024 (https://kylehuntfitness.com/?p=7378); My Training
+    Guide, 2015 (https://mytrainingguide.blogspot.com/2015/05/smolov-squat-routine-power-lifting.html);
+    Gigas Nutrition (https://gigasnutrition.com/en/blogs/training/der-vollstandige-ratgeber-zum-smolov-kniebeugen-und-smolov-jr-bankdruckprogramm,
+    same text as My Training Guide); Liftosaur (https://www.liftosaur.com/programs/smolov-squat; it
+    attributes the intense mesocycle to I. M. Feduleyev); J. Tadlock, 2011 (intro:
+    https://justintadlock.com/archives/2011/11/21/smolov-squat-routine-introduction, base:
+    https://justintadlock.com/archives/2011/12/05/smolov-base-mesocycle); Lift Vault
+    (https://liftvault.com/programs/powerlifting/smolov/, partial tables only); Legion Athletics
+    (https://legionathletics.com/smolov-squat-program, tables are images; text only); Wikipedia
+    (structure only). Muscle & Strength, PowerliftingTechnique and PowerliftingToWin returned 403 or
+    empty pages; Scribd documents did not render.
+- **Transcription (sets × reps @ % of 1RM).** Week 1: days 1–2 3×8@65, 1×5@70, 2×2@75, 1×1@80;
+  day 3 4×5@70, 1×3@75, 2×2@80, 1×1@90. Week 2: 1×5@80 / 1×5@82.5 / 1×5@85 (smolovjr.com, Hunt,
+  My Training Guide, Gigas, Liftosaur, Tadlock agree; Lift Vault's garbled "2×2/1×3/1×5 @85%" was not
+  adopted). Weeks 3–5 (Mon/Wed/Fri/Sat): 4×9@70, 5×7@75, 7×5@80, 10×3@85; week 4 = week 3 + 10 kg,
+  week 5 = week 3 + 15 kg (+20 lb / +30 lb; the kg values are those of Tadlock and Gigas). Week 6:
+  Monday and Wednesday rest, 1RM test on Friday or Saturday. Weeks 9–12 and 13: the tables of
+  smolovjr.com, which every cross-check repeats except for the two sets below. Week 13: day 1
+  1×3@70, 1×3@80, 2×5@90, 3×4@95; day 2 1×4@75, 4×4@85; day 3 final 1RM test (smolovjr.com, Hunt,
+  and the "experienced lifter" taper of My Training Guide; its lighter recommended taper is quoted in
+  a note).
+- **Unverified (no load).** (1) The switching phase, weeks 7–8: most sources give no fixed
+  prescription (speed work at ≤ 50–60 %, up to 70 % per Legion; box squats, negatives, power cleans),
+  while Hunt (3×5@75 … 1×5@82.5) and Liftosaur (6×2@50 … 4×2@60) publish mutually inconsistent
+  tables; even the frequency is not confirmed, so all four day slots are an unverified informational
+  item with the sources' description in the note. (2) Week 9 day 1 last set 1×5: 85 % (smolovjr.com,
+  Hunt) vs 90 % (Liftosaur, My Training Guide, Gigas). (3) Week 12 day 3 last set 3×4: 95 %
+  (smolovjr.com, Hunt) vs 80 % (Liftosaur, My Training Guide, Gigas). Sets and reps of (2) and (3) are
+  kept; the percentage is left out with a note naming both readings. Verification: `partial`.
+- **Schema extension — fixed increments.** `addKg` is now `ParamRef | { kg: number }`. The base
+  mesocycle increments are fixed by the original, not chosen by the athlete (SPEC §3.4), so they are
+  not configurable parameters; the sources' advice to skip an increment after missed sets is a note.
+  `addKgValue(ref, values)` (params.ts) resolves both forms on integer micrograms; the validator adds
+  `invalidFixedKg` (must be a positive finite number).
+- **Schema extension — informational items.** `PrescriptionItem` gains `{ kind: 'info'; text; note?;
+  unverified? }` for day content that has no sets: rest days, 1RM tests ("work up to a new max": the
+  original gives no percentage, so a main set would have to be flagged unverified, which it is not)
+  and the switching phase. Info items carry no load or volume; an unverified one requires a note,
+  is forbidden in a `verified` template and raises the session's `unverifiedData` warning. They are
+  rendered as plain text (not "Accessory: …") in the program structure, table, detail and calendar.
+- **Variable frequency.** The schema keeps a constant `daysPerWeek`; Smolov uses 4 day slots in every
+  week (its maximum). Weeks with three sessions (1–2, 9–13) have a rest-day info item in day 4, and
+  week 6 has rest in days 1–2 and the test in days 3–4 (one test, on either day). Alternative
+  considered: variable day counts per week, rejected because slots, the "add all days" shortcut and
+  the frequency warning all key on a fixed day number. The frequency warning therefore counts 4
+  days. Day labels (Monday / Wednesday / Friday / Saturday) are set only for the base mesocycle;
+  the sources disagree on weekdays elsewhere (intro Mon/Tue/Wed vs Mon/Wed/Fri; intense Mon/Wed/Sat
+  vs Mon/Wed/Fri).
+- **1RM basis.** The intense mesocycle and taper use the new 1RM tested in week 6; a note on those
+  items asks the athlete to update the reference 1RM (CYCLE always uses the current one). Some
+  sources suggest training off 90 % of the 1RM; not modelled (no training-max concept in the SPEC).
+- **Block selection.** The existing start-week stepper covers weeks 1–11 (`maxBlockStartWeek` =
+  13 − 2), so every three-week block can be browsed; `getBlock` also returns the partial blocks at
+  weeks 12 (two weeks) and 13 (one week), which are tested. Lift fixed: `allowedLifts: ['squat']`,
+  `liftSelectable: false`. Not included: the lunges and Olympic lifts some sources mention for the
+  introductory and switching phases (no quantified prescription).
+
+### Stage 8 — independent audit notes (orchestrator)
+
+- An independent reviewer re-checked every week/day of the Smolov transcription against
+  smolovjr.com, Hunt Fitness, My Training Guide, Gigas Nutrition, Liftosaur, Justin
+  Tadlock and Wikipedia (accessed 2026-11-05): verdict ACCEPT, nothing invented; the
+  +10/+15 kg base increments are the sources' own kg equivalents; the unverified items
+  (switching phase, week 9 day 1 and week 12 day 3 last sets) are exactly the disputed
+  or missing ones.
+- Non-blocking follow-ups: weekday labels for weeks 1–2 (week 1 Mon/Tue/Wed, week 2
+  Mon/Wed/Fri per Tadlock/Hunt); disclose that non-squat intro work (lunges) is not
+  transcribed.

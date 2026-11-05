@@ -327,6 +327,33 @@ describe('generatePeriodization — generic multi-day, multi-week templates', ()
     expect(mainItems(sessionsOf(result, 1)[0])[0].sets[1]).toMatchObject({ addKg: 15, exactKg: 129, roundedKg: 130 });
   });
 
+  it('adds a fixed increment of the original (+10 kg: 114 + 10 = 124 → 125)', () => {
+    const fixed: ProgramTemplate = {
+      ...fake,
+      id: 'fixed',
+      configurable: undefined,
+      weeks: fake.weeks.map((week) => ({
+        ...week,
+        days: week.days.map((day) => ({
+          ...day,
+          items: day.items.map((item) =>
+            item.kind === 'main' && item.lift === 'selected'
+              ? { ...item, sets: item.sets.map((set) => (set.addKg ? { ...set, addKg: { kg: 10 } } : set)) }
+              : item,
+          ),
+        })),
+      })),
+    };
+    const result = generatePeriodization([slot({ lift: 'squat', templateId: 'fixed' })], [fixed], oneRms, ROUND_2_5, {});
+    // 142.5 × 0.8 = 114; 114 + 10 = 124; 124 − 122.5 = 1.5 > 1.25 → 125
+    expect(mainItems(sessionsOf(result, 1)[0])[0].sets[1]).toMatchObject({
+      addKg: 10,
+      exactKg: 124,
+      roundedKg: 125,
+      load: 'calculated',
+    });
+  });
+
   it('walks the program weeks of the block (start week 2 → program weeks 2, 3, 4)', () => {
     const result = generatePeriodization(
       [slot({ lift: 'squat', templateId: 'fake-multi', startWeek: 2 })],
@@ -381,6 +408,34 @@ describe('generatePeriodization — generic multi-day, multi-week templates', ()
       squat: { tonnageKg: 255, totalReps: 6 },
       bench: { tonnageKg: 900, totalReps: 18 },
     });
+  });
+
+  it('passes informational items through without load or volume, warning only when one is unverified', () => {
+    const template: ProgramTemplate = {
+      ...cycle531Custom,
+      id: 'info-days',
+      verification: 'partial',
+      weeks: cycle531Custom.weeks.map((w) => ({
+        ...w,
+        days: [
+          {
+            day: 1,
+            items:
+              w.week === 1
+                ? [{ kind: 'info', text: { en: 'Rest day' } }]
+                : [{ kind: 'info', text: { en: 'Speed work' }, unverified: true, note: { en: 'Not confirmed' } }],
+          },
+        ],
+      })),
+    };
+    const result = generatePeriodization([slot({ templateId: 'info-days' })], [template], { bench: 100 }, ROUND_2_5, {});
+    const [rest] = sessionsOf(result, 1);
+    expect(rest.items).toEqual([{ kind: 'info', text: { en: 'Rest day' } }]);
+    expect(rest.volume).toEqual({ tonnageKg: 0, totalReps: 0 });
+    expect(rest.warnings).toEqual([]);
+    const [speed] = sessionsOf(result, 2);
+    expect(speed.items).toEqual([{ kind: 'info', text: { en: 'Speed work' }, unverified: true, note: { en: 'Not confirmed' } }]);
+    expect(speed.warnings).toEqual([{ code: 'unverifiedData' }]);
   });
 
   it('calculates no load for a set marked unverified even if it carries a percentage', () => {

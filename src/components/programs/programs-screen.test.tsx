@@ -28,6 +28,16 @@ describe('ProgramsScreen (en)', () => {
     expect(card.getByText('Partially verified')).toBeOnTheScreen();
   });
 
+  it('lists Smolov with its source, 13 weeks, 4 day slots per week and a partial-verification badge', async () => {
+    await renderInApp(<ProgramsScreen onOpen={() => {}} />);
+    const card = within(await screen.findByRole('button', { name: 'Open Smolov' }));
+    expect(card.getByRole('header', { name: 'Smolov' })).toBeOnTheScreen();
+    expect(card.getByText('Reference: smolovjr.com, “Smolov Squat Routine” (HeavyDuty.com)')).toBeOnTheScreen();
+    expect(card.getByText('13 weeks')).toBeOnTheScreen();
+    expect(card.getByText('4 sessions per week')).toBeOnTheScreen();
+    expect(card.getByText('Partially verified')).toBeOnTheScreen();
+  });
+
   it('opens a program and goes back', async () => {
     const onOpen = jest.fn();
     const onBack = jest.fn();
@@ -51,6 +61,9 @@ describe('ProgramsScreen (pt-BR)', () => {
     const smolov = within(screen.getByRole('button', { name: 'Abrir Smolov Jr.' }));
     expect(smolov.getByText('4 sessões por semana')).toBeOnTheScreen();
     expect(smolov.getByText('Parcialmente verificado')).toBeOnTheScreen();
+    const full = within(screen.getByRole('button', { name: 'Abrir Smolov' }));
+    expect(full.getByText('13 semanas')).toBeOnTheScreen();
+    expect(full.getByText('Parcialmente verificado')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Voltar' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Abrir 5/3/1 (custom)' })).toBeOnTheScreen();
   });

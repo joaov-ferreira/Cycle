@@ -3,8 +3,8 @@ import { findTemplate, listTemplates, templatesForLift } from './registry';
 import { validateTemplate } from './validate';
 
 describe('registry', () => {
-  it('registers the custom 5/3/1 and Smolov Jr., in display order', () => {
-    expect(listTemplates().map((t) => t.id)).toEqual(['cycle-531-custom', 'smolov-jr']);
+  it('registers the custom 5/3/1, Smolov Jr. and Smolov, in display order', () => {
+    expect(listTemplates().map((t) => t.id)).toEqual(['cycle-531-custom', 'smolov-jr', 'smolov']);
   });
 
   it('has unique ids', () => {
@@ -17,8 +17,12 @@ describe('registry', () => {
     expect(findTemplate('nope')).toBeUndefined();
   });
 
-  it.each(['bench', 'squat'] as const)('offers 5/3/1 and Smolov Jr. for %s', (lift) => {
-    expect(templatesForLift(lift).map((t) => t.id)).toEqual(['cycle-531-custom', 'smolov-jr']);
+  it('offers 5/3/1 and Smolov Jr. for the bench press (Smolov is a squat program)', () => {
+    expect(templatesForLift('bench').map((t) => t.id)).toEqual(['cycle-531-custom', 'smolov-jr']);
+  });
+
+  it('offers 5/3/1, Smolov Jr. and Smolov for the squat', () => {
+    expect(templatesForLift('squat').map((t) => t.id)).toEqual(['cycle-531-custom', 'smolov-jr', 'smolov']);
   });
 
   it('offers only 5/3/1 for the deadlift (Smolov Jr. is a bench or squat program)', () => {
@@ -27,7 +31,7 @@ describe('registry', () => {
 
   it('returns a fresh array each call, so callers cannot reorder the registry', () => {
     listTemplates().pop();
-    expect(listTemplates()).toHaveLength(2);
+    expect(listTemplates()).toHaveLength(3);
   });
 });
 

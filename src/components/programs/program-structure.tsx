@@ -3,9 +3,10 @@ import { View } from 'react-native';
 import { spacing } from '@/constants/theme';
 import { useI18n } from '@/i18n';
 import { pickLocalized } from '@/programs/localized';
-import type { ParamValues } from '@/programs/params';
+import { addKgValue, type ParamValues } from '@/programs/params';
 import type { MainItem, ProgramTemplate, SetPrescription } from '@/programs/schema';
 
+import { InfoItemView } from '../periodization/session-prescription';
 import { Card, Text } from '../ui';
 
 const NO_PERCENT = '—';
@@ -17,12 +18,9 @@ function SetLine({ set, values }: { set: SetPrescription; values: ParamValues })
     reps: set.reps,
     percent: set.percent === undefined ? NO_PERCENT : formatPercent(set.percent),
   };
-  const added = set.addKg ? values[set.addKg.param] : undefined;
+  const added = set.addKg ? addKgValue(set.addKg, values) : null;
   const base = set.addKg
-    ? t('programs.setWithAdd', {
-        ...params,
-        add: added === undefined ? NO_PERCENT : formatKg((Math.round(added * 1e6) * (set.addKg.times ?? 1)) / 1e6),
-      })
+    ? t('programs.setWithAdd', { ...params, add: added === null ? NO_PERCENT : formatKg(added) })
     : t('programs.set', params);
   return (
     <View style={{ gap: spacing.xs }}>
@@ -52,7 +50,7 @@ function MainBlock({ item, values }: { item: MainItem; values: ParamValues }) {
 
 /**
  * The original structure of a template, week by week (SPEC §3.5): sets, reps and percentages,
- * accessories as text. No loads are calculated. Percent-linked sets must already carry the
+ * accessories and informational lines as text. No loads are calculated. Percent-linked sets must already carry the
  * values to show (see `resolveTemplate`); absolute increments (`addKg`) are read from `values`.
  */
 export function ProgramStructure({ template, values = {} }: { template: ProgramTemplate; values?: ParamValues }) {
@@ -72,6 +70,8 @@ export function ProgramStructure({ template, values = {} }: { template: ProgramT
                   {day.items.map((item, index) =>
                     item.kind === 'main' ? (
                       <MainBlock key={index} item={item} values={values} />
+                    ) : item.kind === 'info' ? (
+                      <InfoItemView key={index} item={item} />
                     ) : (
                       <View key={index} style={{ gap: spacing.xs }}>
                         <Text>

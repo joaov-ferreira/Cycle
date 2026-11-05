@@ -51,7 +51,12 @@ bench press or the squat: four days a week for three weeks (6 × 6 @ 70 %, 7 × 
 per profile inside the range of the sources (2.5–5 kg, default 2.5 kg) from the session editor or the
 program detail; other values are rejected. "Add all days of this program" creates the missing
 program days at once, and a warning shows while a configuration covers fewer days than the program
-prescribes. Features
+prescribes. Stage 8 adds the full Smolov squat program (13 weeks: introductory microcycle, base
+mesocycle with fixed +10 kg / +15 kg increments and a 1RM test, switching phase, intense mesocycle,
+taper and test). The session editor's block start week browses any three-week block (weeks 1–11);
+weeks with three sessions show a rest day in the fourth day slot, 1RM tests are shown as text, and
+the switching phase and two sets on which the sources disagree are flagged "Unverified data" with no
+load. Features
 are built stage by stage; the current state of each stage is in the status table of
 [`docs/PLAN.md`](docs/PLAN.md).
 
@@ -100,8 +105,11 @@ one omits its source or version), the `registry.ts` (list, find by id, filter by
 fewer at the end of the program) and `params.ts` (configurable parameters such as the 5/3/1
 percentages, with their allowed range). Parameter values chosen by the athlete are stored
 per profile in `program_params`; the template defaults apply until one is saved. Templates so far:
-the custom 5/3/1 (`data/cycle-531-custom.ts`) and Smolov Jr. (`data/smolov-jr.ts`, transcribed from
-the sources listed in `docs/DECISIONS.md`, verification `partial`).
+the custom 5/3/1 (`data/cycle-531-custom.ts`), Smolov Jr. (`data/smolov-jr.ts`) and Smolov
+(`data/smolov.ts`), the last two transcribed from the sources listed in `docs/DECISIONS.md`
+(verification `partial`). Besides sets, a program day can hold informational items
+(`kind: 'info'`: rest days, max tests, loosely described phases), and an absolute increment can be a
+parameter (`addKg: { param, times }`) or fixed by the original (`addKg: { kg }`).
 
 The periodization generator (SPEC §4) is `generatePeriodization(slots, templates, 1RMs,
 rounding, params)` in `src/domain/periodization.ts`: pure and synchronous (a test checks that 10 sessions take

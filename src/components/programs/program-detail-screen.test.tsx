@@ -165,3 +165,44 @@ describe('ProgramDetailScreen — Smolov Jr.', () => {
     expect(screen.getByRole('button', { name: 'Restaurar incremento padrão' })).toBeOnTheScreen();
   });
 });
+
+describe('ProgramDetailScreen — Smolov', () => {
+  const NBSP = '\u00a0';
+  const kg = (text: string) => text.replace(/ kg/g, `${NBSP}kg`);
+
+  it('shows all 13 weeks with phases, fixed increments, rest days and unverified data (en)', async () => {
+    await renderInApp(<ProgramDetailScreen templateId="smolov" onBack={() => {}} />);
+    expect(await screen.findByRole('header', { name: 'Smolov' })).toBeOnTheScreen();
+    expect(screen.getByText('Partially verified')).toBeOnTheScreen();
+    expect(screen.getByText('Link: https://www.smolovjr.com/smolov-squat-routine')).toBeOnTheScreen();
+    expect(screen.getByText('Lifts: Squat')).toBeOnTheScreen();
+    for (const [week, phase] of [
+      [1, 'Introductory microcycle'],
+      [3, 'Base mesocycle'],
+      [7, 'Switching phase'],
+      [9, 'Intense mesocycle'],
+      [13, 'Taper and test'],
+    ] as const) {
+      expect(screen.getByRole('header', { name: `Week ${week} — ${phase}` })).toBeOnTheScreen();
+    }
+    expect(screen.getByTestId('week-13')).toBeOnTheScreen();
+    expect(screen.getByText('4 × 9 @ 70%')).toBeOnTheScreen();
+    expect(screen.getByText(kg('4 × 9 @ 70% + 10.0 kg'))).toBeOnTheScreen();
+    expect(screen.getByText(kg('10 × 3 @ 85% + 15.0 kg'))).toBeOnTheScreen();
+    expect(screen.getAllByText('Rest day: the original program has no squat session on this day.').length).toBeGreaterThan(0);
+    // 8 switching-phase days + 2 disputed sets
+    expect(screen.getAllByText('Unverified data')).toHaveLength(10);
+    expect(screen.getByText('1 × 5 @ —')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Weekly increment')).toBeNull();
+  });
+
+  it('is localized (pt-BR)', async () => {
+    await renderInApp(<ProgramDetailScreen templateId="smolov" onBack={() => {}} />, { language: 'pt-BR' });
+    expect(await screen.findByRole('header', { name: 'Semana 1 — Microciclo introdutório' })).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Semana 7 — Fase de transição' })).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Semana 13 — Polimento e teste' })).toBeOnTheScreen();
+    expect(screen.getByText('1 × 5 @ 82,5%')).toBeOnTheScreen();
+    expect(screen.getByText(kg('4 × 9 @ 70% + 10,0 kg'))).toBeOnTheScreen();
+    expect(screen.getAllByText('Dados não verificados')).toHaveLength(10);
+  });
+});

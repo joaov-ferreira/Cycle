@@ -4,6 +4,7 @@ import { spacing } from '@/constants/theme';
 import type { GeneratedMainItem, GeneratedSession, GeneratedSet } from '@/domain/periodization';
 import { useI18n } from '@/i18n';
 import { pickLocalized } from '@/programs/localized';
+import type { InfoItem } from '@/programs/schema';
 
 import { Text } from '../ui';
 
@@ -82,7 +83,27 @@ export function MainItemView({ item, sessionLift }: { item: GeneratedMainItem; s
   );
 }
 
-/** Main lifts (sets with exact → rounded loads) and accessory lines of a session. */
+/** An informational line (rest day, max test, loosely described phase): text, badge and note. */
+export function InfoItemView({ item }: { item: InfoItem }) {
+  const { t, locale } = useI18n();
+  return (
+    <View style={styles.set}>
+      <Text>{pickLocalized(item.text, locale)}</Text>
+      {item.unverified ? (
+        <Text variant="caption" tone="danger">
+          {t('programs.unverifiedSet')}
+        </Text>
+      ) : null}
+      {item.note ? (
+        <Text variant="caption" tone="secondary">
+          {pickLocalized(item.note, locale)}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** Main lifts (sets with exact → rounded loads), accessory and informational lines of a session. */
 export function SessionItems({ session }: { session: GeneratedSession }) {
   const { t, locale } = useI18n();
   return (
@@ -90,6 +111,8 @@ export function SessionItems({ session }: { session: GeneratedSession }) {
       {session.items.map((item, index) =>
         item.kind === 'main' ? (
           <MainItemView key={index} item={item} sessionLift={session.lift} />
+        ) : item.kind === 'info' ? (
+          <InfoItemView key={index} item={item} />
         ) : (
           <View key={index} style={styles.set}>
             <Text>
