@@ -895,3 +895,57 @@ the reference shipped with the installed package
   Limitations section (partial / unverified program data and why, Smolov Jr. single range and
   week 3 = 2 × increment, Smolov switching phase and disputed sets, Sheiko #32 max attempts and
   shipped routines, RTS 12 @ RPE 6, e1RM validity, no session deletion, local-only data).
+
+## Stage 16 — CI pipeline + Android APK build
+
+- **CI** (`.github/workflows/ci.yml`, pull requests and pushes to `main`): Node from `.nvmrc` (`22`;
+  the suite needs `node:sqlite`, Node ≥ 22.13), `npm ci`, `npx expo lint`, `npx tsc --noEmit`,
+  `npm test -- --coverage`; a second job runs `shellcheck scripts/*.sh` and `actionlint` (Docker image
+  `rhysd/actionlint:1.7.7`). `permissions: contents: read`, concurrency cancels superseded runs.
+  Third-party actions are pinned to major tags (`actions/checkout@v4`, `setup-node@v4`, `cache@v4`,
+  `upload-artifact@v4`, `download-artifact@v4`, `docker/setup-buildx-action@v3`,
+  `docker/build-push-action@v6`).
+- **Toolchain (Expo SDK 58 / React Native 0.88.1).** Taken from the installed packages and the SDK 58
+  docs (`https://docs.expo.dev/versions/v58.0.0/sdk/build-properties/`, `llms.txt`):
+  `react-native/gradle/libs.versions.toml` (`compileSdk` 37, `targetSdk` 36, `minSdk` 24,
+  `buildTools` 37.0.0, `ndkVersion` 27.1.12297006, AGP 9.2.1, Kotlin 2.2.0), the SDK template's
+  Gradle wrapper (Gradle 9.4.1, needs JDK 17+; React Native compiles with `jvmToolchain(17)`),
+  `ReactAndroid/build.gradle.kts` (CMake 3.30.5) and the `engines` of `expo` / `react-native`
+  (Node `^22.13`). The image pins: JDK Temurin 17.0.19_10 (`eclipse-temurin:17.0.19_10-jdk-jammy`),
+  Node 22.23.4 (tarball, SHA-256 verified), Android command-line tools 16111833 (SHA-1 verified),
+  `platforms;android-37.0`, `build-tools;37.0.0`, `ndk;27.1.12297006`, `cmake;3.30.5`, `platform-tools`.
+  Package names were checked against the live `repository2-3.xml` of the Android SDK. Gradle itself is
+  downloaded by the wrapper at build time (cached).
+- **Docker image** (`docker/android/Dockerfile`): non-root user `builder` (uid 1000); the SDK and home
+  directory are world-writable so `--user "$(id -u):$(id -g)"` works with a bind-mounted workspace.
+  No secrets in the image. The entry point runs `scripts/build-apk.sh` from the mounted workspace, so
+  the image holds only the toolchain and never goes stale; its build context is `docker/android/` only.
+- **`scripts/build-apk.sh`**: `npm ci`, `expo prebuild --platform android --clean --no-install`,
+  `./gradlew assembleRelease --no-daemon` for `arm64-v8a,armeabi-v7a` (override with `CYCLE_ABIS`; the
+  default of four ABIs makes the build slower and the APK larger), then `dist/cycle-<version>-<sha7>.apk`.
+  `expo prebuild` rewrites the `android` / `ios` scripts of `package.json`; the script restores the file
+  on exit.
+- **Signing.** Config plugin `plugins/with-release-signing.js` (tested in
+  `src/plugins/with-release-signing.test.ts`, also run against the real SDK 58 template with
+  `expo prebuild`) adds a `release` signing config to the generated `app/build.gradle`, read from the
+  Gradle properties `CYCLE_KEYSTORE_FILE`, `CYCLE_KEYSTORE_PASSWORD`, `CYCLE_KEY_ALIAS`,
+  `CYCLE_KEY_PASSWORD`, and signs the release build with it only when `CYCLE_KEYSTORE_FILE` is set;
+  otherwise the template's debug keystore stays. The script decodes `ANDROID_KEYSTORE_BASE64` to a
+  temporary file outside the workspace, removed on exit, and passes the values as
+  `ORG_GRADLE_PROJECT_*` environment variables (not on a command line). With all four secrets the file is
+  `cycle-<version>-<sha7>.apk`, otherwise `cycle-<version>-<sha7>-unsigned-debugkey.apk`. The plugin
+  fails prebuild if the template no longer has the anchors it patches, instead of silently shipping a
+  debug-signed release.
+- **APK workflow** (`android-apk.yml`): `push` to `main`, `workflow_dispatch`, and `pull_request` with
+  the `build-apk` label (build and artifact only). Buildx with the GitHub Actions layer cache, Gradle and
+  npm caches via `actions/cache` (host directories mounted into the container), artifact `cycle-apk`
+  with 30-day retention. A separate `release` job (the only one with `contents: write`, never on pull
+  requests) deletes and recreates the `latest-main` pre-release with `gh`, targeting the built commit, so
+  the tag always points at the APK's commit. Because the file name contains the sha, the download URL of
+  the asset changes with each build; the release page URL is stable.
+- **Verification record.** Locally: the image builds (9.3 GB on disk) and `scripts/build-apk.sh` ran in it
+  through `npm ci` and `expo prebuild` into the Gradle build; the full Gradle build did not finish because
+  Maven Central answered HTTP 429 to the sandbox's shared egress address. `shellcheck` 0.10.0 and
+  `actionlint` 1.7.7 (Docker images) report nothing; the signing plugin was also run through a real
+  `expo prebuild` and produced the expected `app/build.gradle`. The Actions runs on `main` are the
+  end-to-end check, and the APK was not installed on an emulator or device in this stage.

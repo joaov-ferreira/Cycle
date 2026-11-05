@@ -1,0 +1,107 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  # Add the `build-apk` label to a PR to build (not publish) an APK for it.
+  pull_request:
+    types: [labeled, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: cycle-android:ci
+
+jobs:
+  build:
+    name: Build APK in Docker
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'build-apk')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the toolchain image
+        uses: docker/build-push-action@v6
+        with:
+          context: docker/android
+          load: true
+          push: false
+          tags: ${{ env.IMAGE }}
+          cache-from: type=gha,scope=android-image
+          cache-to: type=gha,mode=max,scope=android-image
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/cycle/gradle
+          key: gradle-${{ runner.os }}-${{ hashFiles('package-lock.json', 'app.json') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/cycle/npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: npm-${{ runner.os }}-
+
+      - name: Build the APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          mkdir -p ~/.cache/cycle/gradle ~/.cache/cycle/npm dist
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            -e ANDROID_KEYSTORE_BASE64 -e ANDROID_KEYSTORE_PASSWORD \
+            -e ANDROID_KEY_ALIAS -e ANDROID_KEY_PASSWORD -e GIT_SHA \
+            -v "$PWD":/app \
+            -v "$HOME/.cache/cycle/gradle":/home/builder/.gradle \
+            -v "$HOME/.cache/cycle/npm":/home/builder/.npm \
+            "$IMAGE"
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cycle-apk
+          path: dist/*.apk
+          retention-days: 30
+          if-no-files-found: error
+
+  release:
+    name: Publish latest-main pre-release
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: cycle-apk
+          path: dist
+
+      - name: Publish the APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          gh release delete latest-main --cleanup-tag --yes || true
+          gh release create latest-main dist/*.apk \
+            --prerelease \
+            --target "$SHA" \
+            --title "Latest build from main" \
+            --notes "Automatic Android APK build of \`main\` at commit ${SHA}. A file name ending in \`-unsigned-debugkey\` is signed with the debug key (a test build); see the README for installation and release-signing secrets."

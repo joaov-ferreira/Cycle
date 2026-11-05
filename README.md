@@ -1,5 +1,8 @@
 # CYCLE
 
+[![CI](https://github.com/joaov-ferreira/Cycle/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/joaov-ferreira/Cycle/actions/workflows/ci.yml)
+[![Android APK](https://github.com/joaov-ferreira/Cycle/actions/workflows/android-apk.yml/badge.svg?branch=main)](https://github.com/joaov-ferreira/Cycle/actions/workflows/android-apk.yml)
+
 AI powerlifting periodization manager for the bench press, squat and deadlift.
 
 ## What is CYCLE
@@ -42,8 +45,8 @@ Features (see [`docs/SPEC.md`](docs/SPEC.md) for the full specification):
   formatting), dark theme by default (light option), bottom tabs on phones and a sidebar at
   widths ≥ 900 px.
 
-**Status:** feature-complete for v1 (stages 0–15 of [`docs/PLAN.md`](docs/PLAN.md)); the CI and
-Android APK pipeline is the remaining stage. The SPEC §13 acceptance flow is covered by an
+**Status:** feature-complete for v1 (all stages of [`docs/PLAN.md`](docs/PLAN.md)), with CI and an
+automatic Android APK build on every push to `main`. The SPEC §13 acceptance flow is covered by an
 end-to-end test (`src/e2e/spec-flow.test.tsx`).
 
 ### Screenshots
@@ -250,15 +253,79 @@ the Expo SDK.
 
 ## Building the APK
 
-The Docker-based Android APK pipeline (GitHub Actions + Docker) arrives in Stage 16.
-Until then, build with EAS:
+Every push to `main` builds an Android APK inside a Docker container on GitHub Actions
+(`.github/workflows/android-apk.yml`). Native projects are generated with `npx expo prebuild`
+(Continuous Native Generation) in the container and are never committed.
+
+### Download
+
+- **Latest build of `main`**: the
+  [`latest-main` pre-release](https://github.com/joaov-ferreira/Cycle/releases/tag/latest-main)
+  always holds the APK of the newest commit on `main`.
+- **Actions artifact**: open a run of the
+  [Android APK workflow](https://github.com/joaov-ferreira/Cycle/actions/workflows/android-apk.yml)
+  and download `cycle-apk` (kept for 30 days). Run the workflow manually with "Run workflow", or
+  add the `build-apk` label to a pull request to build one without publishing.
+
+File names are `cycle-<version>-<short-sha>.apk` (release keystore) or
+`cycle-<version>-<short-sha>-unsigned-debugkey.apk`: signed with the debug key, a test build only.
+
+### Install on a device
+
+Copy the APK to the phone (or download it there), open it and allow "Install unknown apps" for
+the app you opened it from, or install over USB with `adb install cycle-<...>.apk`. Updates only
+install over a build signed with the same key, so uninstall first when switching between a
+debug-key build and a release-key build (this erases the local data).
+
+### Release signing
+
+Without secrets the APK is signed with the debug keystore. To sign with your own key, create a
+keystore once and add four repository secrets (Settings, Secrets and variables, Actions):
+
+```bash
+keytool -genkeypair -v -storetype PKCS12 -keystore cycle-release.jks -alias cycle \
+  -keyalg RSA -keysize 2048 -validity 10000
+base64 -w0 cycle-release.jks   # value of ANDROID_KEYSTORE_BASE64 (macOS: base64 -i cycle-release.jks)
+```
+
+`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and
+`ANDROID_KEY_PASSWORD`. Keep the keystore safe: losing it means users must uninstall to update.
+The signing configuration is added to the generated Gradle project by the config plugin
+`plugins/with-release-signing.js` from Gradle properties passed at build time; no native file is
+edited by hand.
+
+### Build locally with Docker
+
+Requires only Docker (no Android Studio). The image (`docker/android/Dockerfile`) pins JDK 17,
+Node 22, Android platform 37, build-tools 37.0.0, NDK 27.1.12297006 and CMake 3.30.5.
+
+```bash
+docker build -t cycle-android docker/android
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD":/app cycle-android
+ls dist/        # cycle-1.0.0-<short-sha>-unsigned-debugkey.apk
+```
+
+The first build downloads Gradle and the Android dependencies (several GB, 15 to 30 minutes);
+mount `-v cycle-gradle:/home/builder/.gradle` to keep the Gradle cache between runs. To sign with
+a release key, add `-e ANDROID_KEYSTORE_BASE64 -e ANDROID_KEYSTORE_PASSWORD -e ANDROID_KEY_ALIAS
+-e ANDROID_KEY_PASSWORD` with the same values as the secrets above. Set `CYCLE_ABIS` (default
+`arm64-v8a,armeabi-v7a`) to change the target architectures, for example `-e CYCLE_ABIS=x86_64`
+for an emulator.
+
+### Alternative: EAS Build
 
 ```bash
 npx eas-cli@latest build -p android --profile preview
 ```
 
-This requires an Expo account. The repository does not yet contain an `eas.json`, so run
+This requires an Expo account. The repository does not contain an `eas.json`, so run
 `npx eas-cli@latest build:configure` first (or let the build command prompt you to set it up).
+
+### CI
+
+`.github/workflows/ci.yml` runs on every pull request and push to `main`: `npm ci`,
+`npx expo lint`, `npx tsc --noEmit`, `npm test -- --coverage` (thresholds enforced), plus
+`shellcheck` on `scripts/` and `actionlint` on the workflows. Node comes from `.nvmrc`.
 
 ## Project documents
 
