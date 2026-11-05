@@ -73,7 +73,7 @@ Rules:
 - Do not skip, disable or weaken tests to get green.
 - Commit in small steps; a good rhythm is one commit per red→green→refactor cycle (e.g. `test: …` then `feat: …`, or a single commit containing both).
 
-Definition of done for every change: `npm test`, `npx expo lint` and `npx tsc --noEmit` pass locally and in CI.
+Definition of done for every change: `npm test`, `npx expo lint` and `npx tsc --noEmit` pass locally, and in CI once the CI workflow exists (it is added in the last plan stage). `README.md` is updated in the same change whenever the change affects what the README describes (features, setup, commands, build).
 
 ## Git & PR workflow
 
@@ -85,7 +85,7 @@ Work happens on a branch and lands on `main` through a PR whenever possible. Com
 3. Before pushing: run tests, lint and typecheck; rebase on the latest `origin/main` if it moved.
 4. Push: `git push -u origin <branch>`.
 5. Open a PR to `main` (GitHub MCP tools). The PR description includes: stage/feature, summary, list of tests added, how to verify manually, and any decisions appended to `docs/DECISIONS.md`. Update the stage status in `docs/PLAN.md` within the same PR.
-6. Wait for CI to be green. If it fails, reproduce locally, fix with a test, push again.
+6. Wait for CI to be green (once CI exists; before that, the local checks are the gate). If it fails, reproduce locally, fix with a test, push again.
 7. Merge the PR into `main` with **squash merge**, then delete the branch. One stage = one PR; the next stage starts only after the previous PR is merged.
 8. **Direct-to-`main` fallback** — if a PR cannot be opened or merged (e.g. GitHub PR tooling is unavailable in the session), land the branch directly:
    ```bash
@@ -97,4 +97,4 @@ Work happens on a branch and lands on `main` through a PR whenever possible. Com
    git push origin main
    git push origin --delete <branch>                 # optional cleanup
    ```
-   Never force-push `main`. Update the stage status in `docs/PLAN.md` in the same commit, and mention in the commit body that it was landed without a PR. CI on `main` must be green afterwards; if it is not, fix it immediately with a follow-up commit.
+   Never force-push `main`. Update the stage status in `docs/PLAN.md` in the same commit, and mention in the commit body that it was landed without a PR. CI on `main` (once it exists) must be green afterwards; if it is not, fix it immediately with a follow-up commit.

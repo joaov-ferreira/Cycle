@@ -1,6 +1,8 @@
 # CYCLE — Implementation Plan
 
 > Implements [`SPEC.md`](./SPEC.md) following the rules in [`../AGENTS.md`](../AGENTS.md).
+> Orchestration of this plan by an autonomous agent is described in
+> [`ORCHESTRATOR_PROMPT.md`](./ORCHESTRATOR_PROMPT.md).
 
 ## How this plan works
 
@@ -11,10 +13,14 @@
   - **opus** — architecture decisions, critical math engine, research and faithful
     transcription of training programs, final review.
 - **One feature at a time, closed end to end** (domain → persistence → state → UI →
-  tests → PR merged into `main`) before the next starts. No stage begins before the
-  previous one is merged.
+  tests → README → PR merged into `main`) before the next starts. **A stage is done only
+  when its PR is merged into `main`.** No stage begins before the previous one is merged.
 - Each stage = **1 branch + 1 PR → `main`**, following the TDD workflow in AGENTS.md
   (or the direct-to-`main` squash fallback described there when a PR cannot be opened).
+- **README:** created in Stage 0 and **updated by every stage** whose change affects it
+  (new feature, new command, setup change). Stale README = stage not done.
+- **CI and APK build come last** (Stage 16). Until then, `npm test`, `npx expo lint` and
+  `npx tsc --noEmit` run locally before every merge and are the quality gate.
 - **Every stage that adds UI adds its strings to both `en` and `pt-BR` catalogs**
   (SPEC §11.1). A stage is not done if any new string is missing a translation.
 - At the end, the agent marks the stage as done in the status table below (within its
@@ -24,10 +30,10 @@
 
 ```
 You are the agent for Stage <N> of the CYCLE project. Read, in this order:
-AGENTS.md, docs/SPEC.md, docs/PLAN.md (Stage <N> section) and docs/DECISIONS.md.
+AGENTS.md, docs/SPEC.md, docs/PLAN.md (Stage <N> section), docs/DECISIONS.md and README.md.
 Strictly follow the TDD and branch/PR workflow in AGENTS.md.
-Implement only the scope of Stage <N>. When done, open the PR to main,
-make sure CI is green, merge it, and update the stage status in PLAN.md within the PR
+Implement only the scope of Stage <N>, and update README.md if your change affects it.
+When done, open the PR to main and update the stage status in PLAN.md within the PR
 (if a PR cannot be opened, use the direct-to-main fallback from AGENTS.md).
 ```
 
@@ -35,29 +41,59 @@ make sure CI is green, merge it, and update the stage status in PLAN.md within t
 
 | Stage | Feature | Model | Branch | Status |
 |---|---|---|---|---|
-| 0 | Foundation (tests, CI, theme, navigation, i18n, DB) | opus | `feat/00-foundation` | ⬜ |
-| 1 | Profile + 1RM registration + 1RM history | sonnet | `feat/01-reference-1rm` | ⬜ |
-| 2 | Increments and rounding | haiku | `feat/02-rounding` | ⬜ |
-| 3 | Program database + custom 5/3/1 + Programs screen | sonnet | `feat/03-programs-531` | ⬜ |
-| 4 | Periodization generator + three-week table | opus | `feat/04-periodization` | ⬜ |
-| 5 | Calendar + session detail | sonnet | `feat/05-calendar` | ⬜ |
-| 6 | Smolov Jr. | opus | `feat/06-smolov-jr` | ⬜ |
-| 7 | Smolov (full program, block selection) | opus | `feat/07-smolov` | ⬜ |
-| 8 | Sheiko (multiple templates) | opus | `feat/08-sheiko` | ⬜ |
-| 9 | Performance tracking + RIR/RPE | sonnet | `feat/09-performance` | ⬜ |
-| 10 | e1RM engine + session estimate | opus | `feat/10-e1rm` | ⬜ |
-| 11 | Strength progression dashboard + charts | sonnet | `feat/11-progress` | ⬜ |
-| 12 | Training history | sonnet | `feat/12-history` | ⬜ |
-| 13 | Home dashboard + desktop responsiveness + i18n audit | sonnet | `feat/13-dashboard` | ⬜ |
-| 14 | Final review and E2E | opus | `chore/14-final-review` | ⬜ |
-| 15 | Android APK pipeline (GitHub Actions + Docker) | sonnet | `ci/15-android-apk` | ⬜ |
-| 16 | Project README | haiku | `docs/16-readme` | ⬜ |
+| 0 | Initial project README | haiku | `docs/00-readme` | ⬜ |
+| 1 | Foundation (tests, theme, navigation, i18n, DB) | opus | `feat/01-foundation` | ⬜ |
+| 2 | Profile + 1RM registration + 1RM history | sonnet | `feat/02-reference-1rm` | ⬜ |
+| 3 | Increments and rounding | haiku | `feat/03-rounding` | ⬜ |
+| 4 | Program database + custom 5/3/1 + Programs screen | sonnet | `feat/04-programs-531` | ⬜ |
+| 5 | Periodization generator + three-week table | opus | `feat/05-periodization` | ⬜ |
+| 6 | Calendar + session detail | sonnet | `feat/06-calendar` | ⬜ |
+| 7 | Smolov Jr. | opus | `feat/07-smolov-jr` | ⬜ |
+| 8 | Smolov (full program, block selection) | opus | `feat/08-smolov` | ⬜ |
+| 9 | Sheiko (multiple templates) | opus | `feat/09-sheiko` | ⬜ |
+| 10 | Performance tracking + RIR/RPE | sonnet | `feat/10-performance` | ⬜ |
+| 11 | e1RM engine + session estimate | opus | `feat/11-e1rm` | ⬜ |
+| 12 | Strength progression dashboard + charts | sonnet | `feat/12-progress` | ⬜ |
+| 13 | Training history | sonnet | `feat/13-history` | ⬜ |
+| 14 | Home dashboard + desktop responsiveness + i18n audit | sonnet | `feat/14-dashboard` | ⬜ |
+| 15 | Final review and E2E | opus | `chore/15-final-review` | ⬜ |
+| 16 | CI pipeline + Android APK build (GitHub Actions + Docker) | sonnet | `ci/16-ci-apk` | ⬜ |
 
-Legend: ⬜ pending · 🟨 in progress · ✅ merged
+Legend: ⬜ pending · 🟨 in progress · ✅ merged · ⚠️ merged with a recorded gap
 
 ---
 
-## Stage 0 — Foundation · **opus**
+## Stage 0 — Initial project README · **haiku**
+
+**Goal:** a `README.md` (in English) that orients any human or agent from day one.
+It describes the *target* product and marks what is not built yet; later stages keep it
+current.
+
+Sections:
+1. **What is CYCLE** — purpose, audience, planned features (from SPEC), with a
+   "Status" note pointing to the PLAN status table.
+2. **Tech stack and architecture** — Expo SDK 58, Expo Router, expo-sqlite (planned),
+   the layer diagram from SPEC §12.1 and its dependency rules.
+3. **Running the app** — prerequisites (Node version from the environment, npm),
+   `npm ci`, `npx expo start` (Expo Go, web), lint and typecheck. Tests: "added in
+   Stage 1".
+4. **Building the APK** — placeholder section: "Docker-based APK pipeline arrives in
+   Stage 16"; meanwhile, EAS alternative (`npx eas-cli@latest build -p android
+   --profile preview`).
+5. **Project documents** — links to SPEC, PLAN, DECISIONS, AGENTS.md (TDD and
+   branch/PR workflow).
+6. **Internationalization** — the app is bilingual (en / pt-BR); details filled in by
+   Stage 1.
+7. **License.**
+
+Verification: every command currently in the README runs as written; links resolve.
+No tests needed (docs-only stage).
+
+Acceptance: README merged into `main`.
+
+---
+
+## Stage 1 — Foundation · **opus**
 
 **Goal:** the technical base every feature builds on. Opus because the decisions here
 (layers, DB, testing, i18n) affect every stage.
@@ -68,28 +104,27 @@ Scope:
 2. Test infrastructure: `jest-expo`, `@testing-library/react-native`, `npm test`
    script, coverage config with the SPEC §12.3 thresholds (applied to `src/domain` and
    `src/programs` from the start).
-3. CI: `.github/workflows/ci.yml` (lint, tsc, tests with coverage) on `pull_request`
-   and `push` to `main`.
-4. Remove the template's example screens (`explore`, unused demo components).
-5. SPEC §12.1 folder structure with a short `README.md` in each layer describing its
+3. Remove the template's example screens (`explore`, unused demo components).
+4. SPEC §12.1 folder structure with a short `README.md` in each layer describing its
    dependency rules.
-6. CYCLE theme (SPEC §11): tokens in `src/constants/theme.ts`, dark by default; base
+5. CYCLE theme (SPEC §11): tokens in `src/constants/theme.ts`, dark by default; base
    components `Screen`, `Text`, `Card`, `Button`, `NumberInput` (locale-aware decimal
    separator, validation), `SegmentedControl`.
-7. i18n (SPEC §11.1): `npx expo install expo-localization`; `src/i18n/` with `en` and
+6. i18n (SPEC §11.1): `npx expo install expo-localization`; `src/i18n/` with `en` and
    `pt-BR` catalogs (pt-BR typed against en), `t()` with interpolation/plurals, locale
    detection + override, `formatNumber`/`formatKg`/`formatDate`, `I18nProvider` +
    `useT()` hook; a test that fails if catalog keys differ.
-8. Navigation: mobile tabs (Dashboard, Periodization, Training, Progress, More) with
+7. Navigation: mobile tabs (Dashboard, Periodization, Training, Progress, More) with
    minimal working placeholder screens; web layout with a sidebar at width ≥ 900 px.
    All labels localized.
-9. Persistence: `expo-sqlite` wrapper, migration runner, migration `001_init` with
+8. Persistence: `expo-sqlite` wrapper, migration runner, migration `001_init` with
    `profiles` and `settings` (including `language`); `Repository` interface + in-memory
    implementation for tests; default profile created on first boot.
-10. `docs/DECISIONS.md` entries (state library, DB testing strategy, web layout, i18n
-    approach).
-11. Adjust `app.json` (name "CYCLE", `userInterfaceStyle: "dark"`, splash/adaptive icon
+9. `docs/DECISIONS.md` entries (state library, DB testing strategy, web layout, i18n
+   approach).
+10. Adjust `app.json` (name "CYCLE", `userInterfaceStyle: "dark"`, splash/adaptive icon
     colors matching the theme).
+11. README: test commands, i18n guide (how to add strings), updated architecture.
 
 Tests (write first): migration runner (order, idempotence) with a fake; in-memory
 profile repository; tabs render; dark theme applied by default; locale detection
@@ -98,11 +133,11 @@ in both locales; catalog key parity.
 
 Acceptance: `npm test`, `npx expo lint`, `npx tsc --noEmit` green; the app opens on web
 (`npx expo start --web`) showing the 5 tabs in the dark theme, in English or Portuguese
-depending on the setting; CI green on the PR.
+depending on the setting.
 
 ---
 
-## Stage 1 — Profile + reference 1RM · **sonnet**
+## Stage 2 — Profile + reference 1RM · **sonnet**
 
 Scope (SPEC §2, §12.2 profiles):
 - Migration `reference_1rm_history`; repository with `getCurrent(profileId, lift)`,
@@ -111,7 +146,7 @@ Scope (SPEC §2, §12.2 profiles):
 - Onboarding (first boot without 1RMs) → Settings → 1RMs (edit anytime) showing history
   per lift.
 - Profile selector/creation/rename in Settings; switching profile isolates data.
-- Language selector in Settings (System / English / Português) wired to Stage 0 i18n.
+- Language selector in Settings (System / English / Português) wired to Stage 1 i18n.
 
 Tests: validation (edges), append-only (editing creates a new record), current = latest
 by effective date, profile isolation, onboarding flow (RTL) in both locales, decimal
@@ -122,7 +157,7 @@ previous versions.
 
 ---
 
-## Stage 2 — Increments and rounding · **haiku**
+## Stage 3 — Increments and rounding · **haiku**
 
 Scope (SPEC §5): `domain/rounding.ts` (`roundLoad(kg, increment, mode)`), increment
 settings (presets + custom, optional per-lift override, mode), Settings UI with a preview
@@ -136,7 +171,7 @@ Acceptance: changing the increment persists and the preview updates.
 
 ---
 
-## Stage 3 — Program database + custom 5/3/1 · **sonnet**
+## Stage 4 — Program database + custom 5/3/1 · **sonnet**
 
 Scope (SPEC §3.1–3.5):
 - `programs/schema.ts` (SPEC §3.2 types) + validator; a test that runs the validator on
@@ -157,7 +192,7 @@ percentages are editable.
 
 ---
 
-## Stage 4 — Periodization generator + table · **opus**
+## Stage 5 — Periodization generator + table · **opus**
 
 Central feature; opus for engine modeling and reactivity.
 
@@ -183,7 +218,7 @@ correct three-week table; editing a 1RM in Settings updates the table.
 
 ---
 
-## Stage 5 — Calendar + session detail · **sonnet**
+## Stage 6 — Calendar + session detail · **sonnet**
 
 Scope (SPEC §6-B): Table | Calendar toggle in Periodization, week × session grid, route
 `src/app/session/[id].tsx` with the detailed prescription (sets, %, exact → rounded,
@@ -197,7 +232,7 @@ Acceptance: tapping any card opens the correct detail.
 
 ---
 
-## Stage 6 — Smolov Jr. · **opus**
+## Stage 7 — Smolov Jr. · **opus**
 
 Opus for the fidelity and source-research requirements.
 
@@ -219,7 +254,7 @@ correct loads across the 3 weeks.
 
 ---
 
-## Stage 7 — Smolov (full original) · **opus**
+## Stage 8 — Smolov (full original) · **opus**
 
 Scope (SPEC §3.3-B): source research; full transcription (every phase and week,
 including the introductory microcycle, base, switching, intense and taper/test);
@@ -234,7 +269,7 @@ Acceptance: the user chooses Smolov and browses any 3-week block of the ~13 week
 
 ---
 
-## Stage 8 — Sheiko (multiple templates) · **opus**
+## Stage 9 — Sheiko (multiple templates) · **opus**
 
 Scope (SPEC §3.3-D): research and selection of templates with a reliable source (one
 file per template, `programs/data/sheiko-<id>.ts`); multi-lift days (filter items by the
@@ -250,7 +285,7 @@ unverified templates show the badge and calculate no load where data is missing.
 
 ---
 
-## Stage 9 — Performance tracking + RIR/RPE · **sonnet**
+## Stage 10 — Performance tracking + RIR/RPE · **sonnet**
 
 Scope (SPEC §7): migrations `performed_sessions`, `performed_sets`; `domain/rpe.ts`
 (mapping and conversions, including half points, divergence validation); logging screen
@@ -265,7 +300,7 @@ Acceptance: SPEC §13 step 4.
 
 ---
 
-## Stage 10 — e1RM engine · **opus**
+## Stage 11 — e1RM engine · **opus**
 
 Scope (SPEC §8): `domain/e1rm/` with `rts` (transcribed chart with source), `epley-rir`,
 `brzycki-rir`; validity rules; representative-set selection; migration `e1rm_history`;
@@ -281,7 +316,7 @@ Acceptance: SPEC §13 step 5 (up to the stored e1RM).
 
 ---
 
-## Stage 11 — Progression dashboard · **sonnet**
+## Stage 12 — Progression dashboard · **sonnet**
 
 Scope (SPEC §9): `domain/stats.ts` (current, latest, previous, highest, Δ kg, Δ %,
 baseline per period); `npx expo install react-native-svg`; in-house `LineChart` (e1RM
@@ -295,7 +330,7 @@ Acceptance: after logging sessions, cards and charts reflect the data.
 
 ---
 
-## Stage 12 — Training history · **sonnet**
+## Stage 13 — Training history · **sonnet**
 
 Scope (SPEC §10): list with filters (lift, program, period), detail with prescribed vs.
 actual, RIR/RPE, e1RM, comparison with equivalent previous sessions; editing a past
@@ -309,7 +344,7 @@ changing the 1RM).
 
 ---
 
-## Stage 13 — Home dashboard + responsiveness + i18n audit · **sonnet**
+## Stage 14 — Home dashboard + responsiveness + i18n audit · **sonnet**
 
 Scope (SPEC §11): Dashboard screen (active periodization: current week, next session,
 latest e1RM per lift, shortcuts); desktop layout review (sidebar with every section,
@@ -326,87 +361,64 @@ fully usable in both languages.
 
 ---
 
-## Stage 14 — Final review and E2E · **opus**
+## Stage 15 — Final review and E2E · **opus**
 
 Scope: integration test covering the whole SPEC §13 flow (in-memory repositories +
 screens, including the language switch); critical review of mathematical accuracy and
-program-data fidelity against the recorded sources; `npx expo-doctor`; fix any
-discrepancies found (in small PRs if needed).
+program-data fidelity against the recorded sources; `npx expo-doctor`; README review
+(features list matches what is implemented, screenshots in `docs/images/`, limitations
+such as `unverified` data); fix any discrepancies found.
 
-Acceptance: E2E flow green in CI; stages 0–13 ✅ in the status table.
+Acceptance: E2E flow green locally; stages 0–14 ✅ in the status table.
 
 ---
 
-## Stage 15 — Android APK pipeline (GitHub Actions + Docker) · **sonnet**
+## Stage 16 — CI pipeline + Android APK build (GitHub Actions + Docker) · **sonnet**
 
-**Goal:** every push to `main` produces an installable APK, built inside a Docker
-container in GitHub Actions (SPEC §12.4). No EAS account or local Android Studio needed.
+**Goal:** CI on every PR/push, and every push to `main` produces an installable APK,
+built inside a Docker container in GitHub Actions (SPEC §12.3, §12.4). No EAS account or
+local Android Studio needed.
 
 Scope:
-1. Read the Expo SDK 58 docs for the required toolchain (JDK, Android SDK platform /
+1. **CI workflow** `.github/workflows/ci.yml`: on `pull_request` and `push` to `main`;
+   Node from `.nvmrc`, `npm ci`, `npx expo lint`, `npx tsc --noEmit`,
+   `npm test -- --coverage` (thresholds enforced), plus `shellcheck` and `actionlint`
+   for the files below. Cache npm.
+2. Read the Expo SDK 58 docs for the required toolchain (JDK, Android SDK platform /
    build-tools, NDK, Node versions) and for local builds via `npx expo prebuild`
    (Continuous Native Generation — `android/` is generated inside the container, never
    committed).
-2. `docker/android/Dockerfile`: pinned base image with the JDK, Node (matching
-   `package.json`/`.nvmrc`), Android SDK command-line tools, accepted licenses, platform,
-   build-tools and NDK at the versions from step 1. Non-root user. No secrets baked in.
-3. `scripts/build-apk.sh` (runs inside the container): `npm ci` →
+3. `docker/android/Dockerfile`: pinned base image with the JDK, Node, Android SDK
+   command-line tools, accepted licenses, platform, build-tools and NDK at the versions
+   from step 2. Non-root user. No secrets baked in.
+4. `scripts/build-apk.sh` (runs inside the container): `npm ci` →
    `npx expo prebuild --platform android --clean --no-install` →
    `cd android && ./gradlew assembleRelease` → copy the APK to `dist/` as
    `cycle-<version>-<short-sha>.apk`. Same script works locally:
    `docker build -t cycle-android docker/android && docker run --rm -v "$PWD":/app cycle-android`.
-4. Signing: if repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
+5. Signing: if repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
    `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` are present, sign the release with them
    (configured through a config plugin or Gradle properties passed at build time — never
    by editing generated native files by hand); otherwise sign with the debug keystore and
    name the file `…-unsigned-debugkey.apk` so it is clearly an initial/test build.
-5. `.github/workflows/android-apk.yml`: triggers on `push` to `main` and
-   `workflow_dispatch`; steps: checkout → Docker Buildx with GitHub Actions layer cache →
-   build the image → run the container with the workspace mounted (Gradle and npm caches
-   mounted from `actions/cache`) → upload `dist/*.apk` with `actions/upload-artifact`
+6. **APK workflow** `.github/workflows/android-apk.yml`: triggers on `push` to `main`
+   and `workflow_dispatch`; steps: checkout → Docker Buildx with GitHub Actions layer
+   cache → build the image → run the container with the workspace mounted (Gradle and npm
+   caches via `actions/cache`) → upload `dist/*.apk` with `actions/upload-artifact`
    (retention 30 days) → publish/update a pre-release `latest-main` with the APK
    attached. `concurrency` group cancels superseded runs. Minimal `permissions`
-   (`contents: write` only for the release step).
-6. Optional PR job (`workflow_dispatch` or label `build-apk`) to build without
-   publishing, so the pipeline itself can be verified in this stage's PR.
-7. Record toolchain versions and signing approach in `docs/DECISIONS.md`.
+   (`contents: write` only for the release step). Optional PR trigger via label
+   `build-apk` (build without publishing) so the pipeline can be verified in this
+   stage's PR.
+7. README: replace the APK placeholder with (a) download from the `latest-main`
+   pre-release or the Actions artifact, (b) local Docker build commands, (c) EAS
+   alternative, release-signing secrets and how to install the APK on a device; add CI
+   badges.
+8. Record toolchain versions and signing approach in `docs/DECISIONS.md`.
 
-Tests/verification (TDD where applicable): shellcheck on `scripts/build-apk.sh`;
-`actionlint` on the workflow (add both to CI); a successful pipeline run on the PR via
-the manual/label trigger, with the APK artifact downloadable; the APK installs and opens
-on an Android emulator or device (record how it was verified in the PR).
+Verification: CI green on this stage's PR; an APK build run succeeds (label trigger or
+after merge) with a downloadable artifact; if possible, the APK installs and opens on an
+Android emulator/device (record how it was verified).
 
-Acceptance: after merge, the `main` run is green and the `latest-main` pre-release
-contains the APK.
-
----
-
-## Stage 16 — Project README · **haiku**
-
-**Goal:** a complete `README.md` (in English) written at the end, when everything it
-describes exists. Read the code, SPEC, PLAN, DECISIONS and the workflows — document
-what is actually implemented, not what was planned.
-
-Sections:
-1. **What is CYCLE** — purpose, audience, main features (periodization generator,
-   supported programs and their sources/verification status, performance tracking,
-   e1RM, progression, history, bilingual UI), a few screenshots (`docs/images/`).
-2. **Tech stack and architecture** — Expo SDK 58, Expo Router, expo-sqlite; the layer
-   diagram from SPEC §12.1 and the dependency rules.
-3. **Running the app** — prerequisites (Node version, npm), `npm ci`,
-   `npx expo start` (Expo Go vs. development build, web), running tests, lint and
-   typecheck.
-4. **Building the APK** — (a) download from the `latest-main` pre-release or the
-   Actions artifact; (b) build locally with Docker (exact `docker build` / `docker run`
-   commands from Stage 15); (c) alternative with EAS
-   (`npx eas-cli@latest build -p android --profile preview`); release signing secrets
-   and how to install the APK on a device.
-5. **Internationalization** — how to add/translate strings.
-6. **Contributing** — link to AGENTS.md (TDD, branch/PR workflow), docs/ index.
-7. **Limitations** — `unverified` program data, e1RM is an estimate, out-of-scope items
-   (SPEC §14). License.
-
-Verification: every command in the README is executed once (except the EAS one) and
-works as written; links resolve.
-
-Acceptance: README merged; stages 0–16 ✅ in the status table.
+Acceptance: after merge, CI and APK runs on `main` are green and the `latest-main`
+pre-release contains the APK; all stages ✅.

@@ -460,8 +460,10 @@ src/
 - TDD (see AGENTS.md). Minimum coverage: `domain/` and `programs/` ≥ 95% lines;
   global ≥ 80%.
 - Jest with the `jest-expo` preset + `@testing-library/react-native`.
-- CI (GitHub Actions) on every PR: `npm ci`, `npx expo lint`, `npx tsc --noEmit`,
-  `npm test -- --coverage`.
+- CI (GitHub Actions) on every PR and push to `main`: `npm ci`, `npx expo lint`,
+  `npx tsc --noEmit`, `npm test -- --coverage`. CI is added in the final stage together
+  with the APK pipeline (see PLAN); until then the same checks run locally before every
+  merge.
 - Input validation on every form (clear, localized messages).
 - UI tests run in both locales for screens with formatted numbers.
 
@@ -476,7 +478,8 @@ src/
   build is debug-key signed and labeled as such.
 - The same Docker image/script can build the APK locally. EAS Build remains a
   supported alternative.
-- The project `README.md` explains what CYCLE is, how to run it and how to build the APK.
+- The project `README.md` (created at the start of the project and kept up to date
+  throughout) explains what CYCLE is, how to run it and how to build the APK.
 
 ### 12.5 Reactivity
 
