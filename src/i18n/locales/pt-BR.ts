@@ -31,7 +31,6 @@ export const ptBR: Catalog = {
     },
     progress: {
       title: 'Progresso',
-      placeholder: 'Acompanhe seu 1RM estimado ao longo do tempo para cada levantamento.',
     },
     more: {
       title: 'Mais',
@@ -319,6 +318,49 @@ export const ptBR: Catalog = {
   },
   common: {
     comingSoon: 'Em breve',
+  },
+  progress: {
+    intro: 'Seu 1RM de referência e o 1RM estimado (e1RM) ao longo do tempo, para cada levantamento.',
+    periodLabel: 'Período',
+    periods: {
+      '4w': '4 sem',
+      '3m': '3 m',
+      '6m': '6 m',
+      '1y': '1 ano',
+      all: 'Tudo',
+    },
+    periodNames: {
+      '4w': 'as últimas 4 semanas',
+      '3m': 'os últimos 3 meses',
+      '6m': 'os últimos 6 meses',
+      '1y': 'o último ano',
+      all: 'todo o histórico',
+    },
+    cards: {
+      reference: '1RM de referência',
+      latest: 'Último e1RM',
+      previous: 'e1RM anterior',
+      highest: 'Maior e1RM',
+      improvement: 'Evolução',
+    },
+    notSet: 'Não definido',
+    noValue: '—',
+    improvementValue: '{{deltaKg}} ({{deltaPercent}}) vs. {{baseline}}',
+    improvementNone: 'Nenhum e1RM neste período',
+    estimateNote: 'Os valores de e1RM são estimativas. Evolução = último e1RM − o 1RM de referência vigente no início do período.',
+    empty: 'Ainda não há e1RM de {{lift}}. Conclua um treino com RIR ou RPE para ver sua evolução aqui.',
+    emptyPeriod: 'Nenhum e1RM de {{lift}} em {{period}}.',
+    chart: {
+      label: 'Gráfico de e1RM de {{lift}}',
+      summary: '{{lift}}, {{period}}: {{count}} estimativas de e1RM, a última de {{latest}} em {{date}}.',
+      yAxis: 'kg',
+      legendE1rm: 'e1RM (estimativa)',
+      legendReference: '1RM de referência',
+      point: '{{date}}: e1RM ≈ {{value}}',
+      tooltip: '{{date}} · e1RM ≈ {{value}} (estimativa)',
+      session: 'Sessão {{number}}, semana {{week}} · {{program}}',
+      hint: 'Toque ou passe o mouse em um ponto para ver data, valor e sessão.',
+    },
   },
   lifts: {
     bench: 'Supino',

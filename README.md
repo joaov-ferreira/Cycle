@@ -18,7 +18,8 @@ Planned features (see [`docs/SPEC.md`](docs/SPEC.md) for the full specification)
 - Load increments and rounding rules.
 - Session logging with RIR/RPE, prescribed vs. actual comparison.
 - Estimated 1RM (e1RM) per session, with the RTS chart as default formula.
-- Strength progression charts and training history.
+- Strength progression dashboard with e1RM / reference 1RM charts and a period filter.
+- Training history (planned).
 - Bilingual interface: English and Brazilian Portuguese.
 
 **Status:** under development. The foundation is in place (Stage 1): test infrastructure,
@@ -80,7 +81,13 @@ then the first set) with Δ kg and Δ % against the previous e1RM. Completing th
 estimate with the formula used; the summary offers "Use as new reference 1RM", which after a
 confirmation adds a 1RM record with origin "From e1RM". The formula is chosen in Settings: the RTS
 chart (default; the widely circulated Tuchscherer chart, whose only disputed cell, 12 reps @ RPE 6,
-is unverified and gives no estimate), Epley (RIR) or Brzycki (RIR); changing it never rewrites stored estimates. Features
+is unverified and gives no estimate), Epley (RIR) or Brzycki (RIR); changing it never rewrites stored estimates. Stage 12 fills the Progress tab (SPEC §9): per lift
+(Bench, Squat, Deadlift) it shows the current reference 1RM, the latest, previous and highest e1RM and
+the improvement (Δ kg and Δ %) of the latest e1RM over the baseline, which is the reference 1RM in
+effect at the start of the selected period (the first record for "All"), plus a chart of the e1RM line
+and the reference 1RM as steps. A period filter (4 weeks, 3 months, 6 months, 1 year, All) limits the
+chart and sets the baseline; tapping or hovering a point shows its date, value and originating
+session. Lifts without an e1RM show an empty state. Features
 are built stage by stage; the current state of each stage is in the status table of
 [`docs/PLAN.md`](docs/PLAN.md).
 
@@ -94,7 +101,7 @@ are built stage by stage; the current state of each stage is in the status table
 - `expo-localization` for device locale detection; in-house `t()` for translations.
 - `zustand` for app state (stores created per app run, consumed through selectors).
 - `jest-expo` + `@testing-library/react-native` for tests.
-- Planned: `react-native-svg` for charts (Stage 12).
+- `react-native-svg` for the in-house progress charts (no charting library).
 
 Layers (from [SPEC §12.1](docs/SPEC.md#121-layered-architecture-mandatory-separation)):
 
@@ -158,7 +165,10 @@ the sources disagree on is `unverified`, and the later RTS TRAC table's differen
 `brzycki-rir`: `w × 36 / (37 − n)`, with `n = reps + RIR`, rounded to 0.1 kg; validity: at least one
 rep, RIR ≤ 4, `n ≤ 12`) and `session.ts` (one estimate per lift from the representative set,
 comparison with the previous one). Session estimates are stored in `e1rm_history` (migration 008),
-and the formula for new estimates is a per-profile setting.
+and the formula for new estimates is a per-profile setting. The progression statistics (SPEC §9) are
+pure code in `src/domain/stats.ts` (periods, current / latest / previous / highest, Δ kg and Δ % against
+the baseline of the period) and the chart's scales, ticks and coordinates in `src/domain/chart-scale.ts`;
+`src/components/progress/` only draws them.
 
 Supporting folders: `src/constants/theme.ts` (design tokens) and `src/test-utils/`
 (test-only helpers). Each layer has a `README.md` describing its contents and dependency

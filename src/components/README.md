@@ -23,6 +23,9 @@
   cell), the session estimate card (live while logging, stored once completed) with the comparison
   with the previous e1RM, "Use as new reference 1RM" (with confirmation) and the localized formula
   names. `settings/e1rm-section.tsx` chooses the formula.
+- `progress/` — Progress screen (SPEC §9: per-lift cards, period filter) and `LineChart`, the in-house
+  `react-native-svg` chart (e1RM line, reference-1RM steps, localized axes, tap/hover tooltip, per-point
+  accessible buttons) that draws the pure `buildChartModel`.
 - `navigation/` — main tabs and the wide-screen sidebar.
 
 Rules:

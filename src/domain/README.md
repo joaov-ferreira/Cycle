@@ -18,7 +18,10 @@ transcribed RTS RPE chart with its sources, the unverified cell with its reading
 differences as a note;
 `estimate.ts`, the formulas `rts`, `epley-rir` and `brzycki-rir` on integer arithmetic, rounded to
 0.1 kg, and the validity rules; `session.ts`, the representative set per lift, the candidate sets of a
-performed session (named variations excluded) and Δ kg / Δ % against the previous estimate).
+performed session (named variations excluded) and Δ kg / Δ % against the previous estimate), `stats.ts`
+(SPEC §9: the period filter, current / latest / previous / highest and the improvement over the baseline of
+the period) and `chart-scale.ts` (nice axis ticks, linear scales and `buildChartModel`, the pixel
+coordinates of the progress chart).
 
 Dependency rules:
 

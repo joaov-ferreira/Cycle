@@ -722,3 +722,38 @@ the reference shipped with the installed package
   is the only unverified cell. The table also follows the chart's known single-sequence
   diagonal structure. Formulas, validity, rounding and the representative-set rule match
   SPEC §8: verdict ACCEPT.
+
+## Stage 12 — Strength progression dashboard + charts
+
+- **Library.** `react-native-svg` 15.16.0 (installed with `npx expo install`, the SDK 58 version) and an
+  in-house `LineChart`; no charting library (SPEC §9).
+- **Pure statistics (`src/domain/stats.ts`).** Periods: 4 weeks = 28 days; 3 months, 6 months and 1 year
+  are calendar months counted back from `now` in UTC, the day clamped to the end of a shorter month
+  (31 May − 3 months = 28 Feb). `all` has no start. The clock is an argument.
+- **Which numbers follow the period.** Current reference 1RM and the latest / previous / highest e1RM are
+  always over the whole history (they are facts about the lift). The period sets the baseline and the
+  chart range. Improvement = latest e1RM − baseline, where the baseline is the reference 1RM in effect at
+  the start of the period (last record at or before it); for `all` it is the first record. If no record
+  was in effect yet at the start (the first one is later), the first record is used. If the latest e1RM is
+  older than the period start there is no improvement ("No e1RM in this period") rather than a
+  comparison of an old estimate with a recent baseline. Without any reference 1RM there is no baseline.
+- **Rounding.** Δ kg and Δ % are computed on integer cents (no float noise: 92.9 − 90 = 2.9); Δ % is in
+  percent units to 0.1, halves away from zero, like `compareE1rm`, and shown with `formatPercent`.
+- **Chart model in the domain (`src/domain/chart-scale.ts`).** `niceTicks` (1/2/5 × 10^k steps, about five
+  ticks; a lone value is padded by 5 kg each side), `linearScale`, `timeTicks` and `buildChartModel`
+  produce the pixel coordinates so layout is tested with exact values; the component only draws.
+  The x range is `[period start, max(now, last point)]`, or the whole history for `all` (one day of
+  padding each side when it is a single instant). The reference line is a step line: the value in effect at
+  the period start, each change inside the period as a vertical step, extended to the right edge. The
+  y domain covers the visible e1RMs and reference values. Three x ticks (start, middle, end).
+- **Interaction.** Every e1RM point has a transparent 44 pt `Pressable` (accessible button labelled with
+  date and value). Press selects / deselects it, hover selects it; the date, value (labelled as an
+  estimate) and originating session (`Session N, week W · program`, from the performed session) appear
+  in a polite live region under the chart. An SVG `<Text>` cannot be queried or scaled by the OS, so the
+  axis labels are React Native `Text` overlays; the SVG holds only grid, lines and points. The chart has a
+  localized summary label.
+- **Empty states.** No e1RM at all for a lift: "No e1RM yet…" (cards still show the reference 1RM or
+  "Not set"); e1RMs exist but none in the period: "No e1RM for {lift} in {period}."
+- **Data source.** The screen reads `oneRmHistory`, `e1rmHistory` and `performedSessions` from the store
+  (no new repository methods or migrations); it is reactive to new records. The clock is injectable
+  (`now` prop) and refreshed when the period changes.

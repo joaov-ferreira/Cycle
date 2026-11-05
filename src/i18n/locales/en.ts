@@ -34,7 +34,6 @@ export const en = {
     },
     progress: {
       title: 'Progress',
-      placeholder: 'Track your estimated 1RM over time for each lift.',
     },
     more: {
       title: 'More',
@@ -322,6 +321,49 @@ export const en = {
   },
   common: {
     comingSoon: 'Coming soon',
+  },
+  progress: {
+    intro: 'Your reference 1RM and estimated 1RM (e1RM) over time, for each lift.',
+    periodLabel: 'Period',
+    periods: {
+      '4w': '4 wks',
+      '3m': '3 mo',
+      '6m': '6 mo',
+      '1y': '1 yr',
+      all: 'All',
+    },
+    periodNames: {
+      '4w': 'the last 4 weeks',
+      '3m': 'the last 3 months',
+      '6m': 'the last 6 months',
+      '1y': 'the last year',
+      all: 'all time',
+    },
+    cards: {
+      reference: 'Reference 1RM',
+      latest: 'Latest e1RM',
+      previous: 'Previous e1RM',
+      highest: 'Highest e1RM',
+      improvement: 'Improvement',
+    },
+    notSet: 'Not set',
+    noValue: '—',
+    improvementValue: '{{deltaKg}} ({{deltaPercent}}) vs. {{baseline}}',
+    improvementNone: 'No e1RM in this period',
+    estimateNote: 'e1RM values are estimates. Improvement = latest e1RM − the reference 1RM in effect at the start of the period.',
+    empty: 'No e1RM yet for {{lift}}. Complete a training session with RIR or RPE to see your progress here.',
+    emptyPeriod: 'No e1RM for {{lift}} in {{period}}.',
+    chart: {
+      label: '{{lift}} e1RM chart',
+      summary: '{{lift}}, {{period}}: {{count}} e1RM estimates, latest {{latest}} on {{date}}.',
+      yAxis: 'kg',
+      legendE1rm: 'e1RM (estimate)',
+      legendReference: 'Reference 1RM',
+      point: '{{date}}: e1RM ≈ {{value}}',
+      tooltip: '{{date}} · e1RM ≈ {{value}} (estimate)',
+      session: 'Session {{number}}, week {{week}} · {{program}}',
+      hint: 'Tap or hover a point to see its date, value and session.',
+    },
   },
   lifts: {
     bench: 'Bench Press',

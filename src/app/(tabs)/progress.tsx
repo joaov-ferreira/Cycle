@@ -1,11 +1,5 @@
-import { PlaceholderScreen } from '@/components/placeholder-screen';
+import { ProgressScreen } from '@/components/progress/progress-screen';
 
-export default function ProgressScreen() {
-  return (
-    <PlaceholderScreen
-      id="progress"
-      title="screens.progress.title"
-      description="screens.progress.placeholder"
-    />
-  );
+export default function ProgressRoute() {
+  return <ProgressScreen />;
 }

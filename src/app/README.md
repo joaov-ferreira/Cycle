@@ -11,6 +11,6 @@ and layouts here: components, hooks and utilities live in the other `src/` layer
 - `session/[id].tsx` — session detail (opened from the calendar); wraps `SessionDetailScreen`. The `id` is a
   session key `<slotId>-w<blockWeek>` of the live periodization, or `p<periodizationId>-<key>` for a
   session of an activated periodization (where performance is logged).
-- `(tabs)/index|periodization|training|progress|more.tsx` — the five tab screens (`training.tsx`
-  wraps `TrainingScreen`, which opens `/session/[id]` for logging);
+- `(tabs)/index|periodization|training|progress|more.tsx` — the five tab screens (`progress.tsx` wraps
+  `ProgressScreen`; `training.tsx` wraps `TrainingScreen`, which opens `/session/[id]` for logging);
   `periodization.tsx` wraps `PeriodizationScreen` and opens `/programs/[id]` for program settings and `/session/[id]` from the calendar.
