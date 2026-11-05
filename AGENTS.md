@@ -77,7 +77,7 @@ Definition of done for every change: `npm test`, `npx expo lint` and `npx tsc --
 
 ## Git & PR workflow
 
-`main` is protected by convention: never commit or push directly to it.
+Work happens on a branch and lands on `main` through a PR whenever possible. Committing directly to `main` is **allowed** as a fallback (see step 8), but never skip the branch, TDD and green-checks steps.
 
 1. Sync: `git fetch origin main && git checkout -B <branch> origin/main`.
    Branch names: `feat/<NN>-<slug>` for plan stages (as listed in `docs/PLAN.md`), `fix/<slug>`, `chore/<slug>`, `docs/<slug>`.
@@ -87,3 +87,14 @@ Definition of done for every change: `npm test`, `npx expo lint` and `npx tsc --
 5. Open a PR to `main` (GitHub MCP tools). The PR description includes: stage/feature, summary, list of tests added, how to verify manually, and any decisions appended to `docs/DECISIONS.md`. Update the stage status in `docs/PLAN.md` within the same PR.
 6. Wait for CI to be green. If it fails, reproduce locally, fix with a test, push again.
 7. Merge the PR into `main` with **squash merge**, then delete the branch. One stage = one PR; the next stage starts only after the previous PR is merged.
+8. **Direct-to-`main` fallback** — if a PR cannot be opened or merged (e.g. GitHub PR tooling is unavailable in the session), land the branch directly:
+   ```bash
+   git fetch origin main
+   git checkout -B main origin/main
+   git merge --squash <branch>
+   git commit -m "<type>: <stage/feature summary>"   # Conventional Commit, same content a PR description would have
+   npm test && npx expo lint && npx tsc --noEmit     # must pass on main before pushing
+   git push origin main
+   git push origin --delete <branch>                 # optional cleanup
+   ```
+   Never force-push `main`. Update the stage status in `docs/PLAN.md` in the same commit, and mention in the commit body that it was landed without a PR. CI on `main` must be green afterwards; if it is not, fix it immediately with a follow-up commit.

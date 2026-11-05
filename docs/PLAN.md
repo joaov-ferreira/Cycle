@@ -13,7 +13,8 @@
 - **One feature at a time, closed end to end** (domain → persistence → state → UI →
   tests → PR merged into `main`) before the next starts. No stage begins before the
   previous one is merged.
-- Each stage = **1 branch + 1 PR → `main`**, following the TDD workflow in AGENTS.md.
+- Each stage = **1 branch + 1 PR → `main`**, following the TDD workflow in AGENTS.md
+  (or the direct-to-`main` squash fallback described there when a PR cannot be opened).
 - **Every stage that adds UI adds its strings to both `en` and `pt-BR` catalogs**
   (SPEC §11.1). A stage is not done if any new string is missing a translation.
 - At the end, the agent marks the stage as done in the status table below (within its
@@ -26,7 +27,8 @@ You are the agent for Stage <N> of the CYCLE project. Read, in this order:
 AGENTS.md, docs/SPEC.md, docs/PLAN.md (Stage <N> section) and docs/DECISIONS.md.
 Strictly follow the TDD and branch/PR workflow in AGENTS.md.
 Implement only the scope of Stage <N>. When done, open the PR to main,
-make sure CI is green, merge it, and update the stage status in PLAN.md within the PR.
+make sure CI is green, merge it, and update the stage status in PLAN.md within the PR
+(if a PR cannot be opened, use the direct-to-main fallback from AGENTS.md).
 ```
 
 ### Status
