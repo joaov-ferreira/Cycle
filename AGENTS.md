@@ -48,6 +48,12 @@ Docs: https://docs.expo.dev/eas/index.md
 
 Read all three before starting any stage. Implement only the scope of your stage.
 
+## Language
+
+- **The project language is English**: code, identifiers, comments, docs, commit messages, branch names, PR titles/descriptions and `docs/DECISIONS.md` entries.
+- **The app is bilingual**: English (`en`) and Brazilian Portuguese (`pt-BR`). Every user-facing string goes through the i18n layer in `src/i18n/` — never hard-code UI text in components. Add each new key to both `src/i18n/locales/en.ts` (source) and `src/i18n/locales/pt-BR.ts` in the same change; a missing translation is a failing build.
+- Format numbers and dates with the locale-aware helpers from `src/i18n/` (e.g. `96.25 kg` vs `96,25 kg`). Domain code returns error/warning codes, never display strings.
+
 ## Development guidelines — TDD
 
 All production code is written test-first. For every behavior:
@@ -61,7 +67,7 @@ Rules:
 - Never write production code without a failing test that requires it. Bug fixes start with a test that reproduces the bug.
 - Pure logic lives in `src/domain/` and `src/programs/` (no React/Expo/IO imports) and is unit-tested exhaustively, including edge cases. Coverage there must stay ≥ 95% lines; global ≥ 80%.
 - Persistence is accessed only through repository interfaces in `src/data/`; tests use the in-memory implementation.
-- UI is tested with `@testing-library/react-native` (behavior and accessible queries, not snapshots of markup).
+- UI is tested with `@testing-library/react-native` (behavior and accessible queries, not snapshots of markup). Screens that display formatted numbers are tested in both `en` and `pt-BR`.
 - Program data (Smolov, Smolov Jr., Sheiko, RTS table) is covered by data tests that assert the transcription against the cited source, day by day. Never invent sets, reps or percentages; mark missing data `unverified`.
 - Calculation tests use exact expected values (computed by hand and written in the test), never values produced by the code under test.
 - Do not skip, disable or weaken tests to get green.

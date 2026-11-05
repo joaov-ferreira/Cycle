@@ -1,12 +1,15 @@
 # CYCLE — Decisions Log
 
-Registro de decisões de arquitetura e de fontes de dados. Cada entrada: data, etapa,
-decisão, alternativas consideradas, motivo. Apenas acrescente; não reescreva entradas antigas.
+Record of architecture and data-source decisions. Each entry: date, stage, decision,
+alternatives considered, rationale. Append only; never rewrite past entries.
 
-## 2026-11-05 — Planejamento
+## 2026-11-05 — Planning
 
-- Spec e plano definidos em `docs/SPEC.md` e `docs/PLAN.md`.
-- Persistência local com `expo-sqlite`, atrás de interfaces de repositório.
-- Testes com `jest-expo` + `@testing-library/react-native`; TDD obrigatório (AGENTS.md).
-- Fórmula padrão de e1RM: tabela RPE de Tuchscherer (RTS); alternativas Epley e Brzycki ajustadas por RIR.
-- Valores de Smolov, Smolov Jr. e Sheiko serão transcritos de fontes identificadas nas etapas 6–8, nunca inventados.
+- Spec and plan defined in `docs/SPEC.md` and `docs/PLAN.md`.
+- Project language is English (code, docs, commits, PRs). The app UI is bilingual:
+  English (`en`, source catalog) and Brazilian Portuguese (`pt-BR`); default from device
+  locale via `expo-localization`, overridable in Settings.
+- Local persistence with `expo-sqlite`, behind repository interfaces.
+- Testing with `jest-expo` + `@testing-library/react-native`; TDD mandatory (AGENTS.md).
+- Default e1RM formula: Tuchscherer (RTS) RPE chart; alternatives: RIR-adjusted Epley and Brzycki.
+- Smolov, Smolov Jr. and Sheiko values will be transcribed from identified sources in stages 6–8, never invented.

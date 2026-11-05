@@ -1,286 +1,289 @@
-# CYCLE — Especificação Funcional e Técnica
+# CYCLE — Functional and Technical Specification
 
-> Gerenciador de periodização de powerlifting com IA. Esta spec é a fonte de verdade
-> do produto. O plano de implementação está em [`PLAN.md`](./PLAN.md) e as regras de
-> desenvolvimento em [`../AGENTS.md`](../AGENTS.md).
+> AI powerlifting periodization manager. This spec is the product's source of truth.
+> The implementation plan lives in [`PLAN.md`](./PLAN.md) and the development rules in
+> [`../AGENTS.md`](../AGENTS.md).
 
-- **Status:** v1.0 (rascunho aprovado para implementação)
-- **Plataforma:** Expo SDK 58 / React Native 0.88 / Expo Router (iOS, Android e Web)
-- **Público:** powerlifters intermediários e avançados
-- **Prioridades (em ordem):** precisão matemática → fidelidade aos programas originais →
-  flexibilidade de configuração de sessões → acompanhamento de progressão de longo prazo
+- **Status:** v1.1 (approved for implementation)
+- **Platform:** Expo SDK 58 / React Native 0.88 / Expo Router (iOS, Android and Web)
+- **Audience:** intermediate and advanced powerlifters
+- **Languages:** project (code, docs, commits, PRs) in English; app UI bilingual —
+  English (`en`) and Brazilian Portuguese (`pt-BR`). See §11.1.
+- **Priorities (in order):** mathematical accuracy → fidelity to the original programs →
+  session-configuration flexibility → long-term progression tracking
 
 ---
 
-## 0. Glossário
+## 0. Glossary
 
-| Termo | Definição |
+| Term | Definition |
 |---|---|
-| **Lift** | Um dos três levantamentos principais: `bench` (Supino), `squat` (Agachamento), `deadlift` (Levantamento Terra). |
-| **Reference 1RM** | 1RM de referência informado pelo usuário. Base de todos os cálculos de carga. Versionado (histórico). |
-| **e1RM** | 1RM *estimado* a partir de um set real (peso, reps, RIR). Sempre exibido como estimativa. |
-| **Program template** | Programa da base interna (ex.: "Smolov Jr. — original"), com fonte, versão e status de verificação. |
-| **Program day** | Um dia de treino dentro da estrutura original de um template (ex.: Smolov Jr., semana 1, dia 3). |
-| **Session slot** | Uma sessão configurada pelo usuário: `(ordem, lift, template, program day)`. |
-| **Block** | Janela de 3 semanas do programa sendo visualizada/gerada. Para programas > 3 semanas o usuário escolhe a semana inicial do bloco. |
-| **Periodization** | Resultado gerado: lista de prescrições por semana × sessão, com cargas calculadas. |
-| **RIR / RPE** | Repetições em reserva / Rate of Perceived Exertion. Relação: `RPE = 10 − RIR`. |
+| **Lift** | One of the three main lifts: `bench` (Bench Press), `squat` (Squat), `deadlift` (Deadlift). |
+| **Reference 1RM** | One-rep max entered by the user. Basis for all load calculations. Versioned (history). |
+| **e1RM** | One-rep max *estimated* from an actual set (weight, reps, RIR). Always displayed as an estimate. |
+| **Program template** | A program in the internal database (e.g. "Smolov Jr. — original"), with source, version and verification status. |
+| **Program day** | A training day inside a template's original structure (e.g. Smolov Jr., week 1, day 3). |
+| **Session slot** | A session configured by the user: `(order, lift, template, program day)`. |
+| **Block** | The 3-week window of a program being viewed/generated. For programs longer than 3 weeks the user picks the block's starting week. |
+| **Periodization** | Generated output: list of prescriptions per week × session, with calculated loads. |
+| **RIR / RPE** | Reps in reserve / Rate of Perceived Exertion. Relationship: `RPE = 10 − RIR`. |
 
 ---
 
-## 1. Conceito central
+## 1. Core concept
 
-O usuário configura **independentemente** cada sessão de treino da semana escolhendo:
-exercício, programa, número da sessão e semana/bloco do programa. O app gera
-automaticamente uma **periodização completa de 3 semanas** a partir dessas escolhas e dos
-1RMs de referência.
+The user **independently** configures each training session of the week by choosing:
+exercise, program, session number and program week/block. The app automatically
+generates a **complete three-week periodization** from these choices and the reference
+1RMs.
 
-- Programas e exercícios podem ser misturados livremente na mesma semana.
-- Sessões podem ser adicionadas, removidas, editadas e reordenadas.
-- Qualquer alteração (exercício, programa, sessão, 1RM, incremento) **recalcula
-  imediatamente** a periodização.
+- Programs and exercises can be freely mixed within the same week.
+- Sessions can be added, removed, edited and reordered.
+- Any change (exercise, program, session, 1RM, increment) **immediately recalculates**
+  the periodization.
 
-Exemplo de configuração (deve ser reproduzível em teste E2E):
+Example configuration (must be reproducible in an E2E test):
 
-| Sessão | Exercício | Programa |
+| Session | Exercise | Program |
 |---|---|---|
 | 1 | Bench Press | 5/3/1 (custom) |
 | 2 | Bench Press | Smolov Jr. |
 | 3 | Squat | 5/3/1 (custom) |
-| 4 | Deadlift | Sheiko (template selecionado) |
+| 4 | Deadlift | Sheiko (selected template) |
 
-### 1.1 Mapeamento sessão ↔ programa
+### 1.1 Session ↔ program mapping
 
-Cada session slot aponta para **um program day** do template escolhido
-(`programDayIndex`, 1-based dentro da semana do programa). Para 5/3/1 custom existe
-apenas um dia por semana. Para Smolov Jr. o usuário escolhe qual dos 4 dias semanais a
-sessão representa.
+Each session slot points to **one program day** of the chosen template
+(`programDayIndex`, 1-based within the program week). The custom 5/3/1 has a single
+day per week. For Smolov Jr. the user picks which of the 4 weekly days the session
+represents.
 
-- O app **nunca altera** a frequência original do programa. Se a configuração do usuário
-  não cobre todos os dias semanais do template (ex.: só 1 dos 4 dias do Smolov Jr.), o
-  app exibe um **aviso de fidelidade** ("Este programa prevê 4 sessões/semana; sua
-  configuração usa 1"), sem bloquear.
-- Atalho "Adicionar todos os dias deste programa" cria os slots correspondentes de uma vez.
-
----
-
-## 2. Registro inicial de 1RM
-
-- Tela de onboarding (primeiro uso) com campos editáveis em kg para Bench, Squat e Deadlift.
-- Validação: número > 0 e ≤ 600 kg, até 2 casas decimais; obrigatório para todos os lifts
-  que tenham sessões configuradas (pode-se deixar um lift vazio se não for treinado; o app
-  impede gerar sessões para esse lift até que seja preenchido).
-- O usuário pode atualizar os 1RMs a qualquer momento (Ajustes → 1RMs).
-- **Cada alteração cria um novo registro versionado** (`reference_1rm_history`: lift,
-  valor, data efetiva, origem = `manual | from_e1rm | onboarding`). Nunca sobrescrever.
-- A periodização sempre usa o 1RM de referência **vigente**; sessões já registradas
-  guardam um *snapshot* do 1RM e das cargas usados no momento do treino.
+- The app **never changes** the program's original frequency. If the user's
+  configuration does not cover every weekly day of the template (e.g. only 1 of Smolov
+  Jr.'s 4 days), the app shows a **fidelity warning** ("This program prescribes 4
+  sessions/week; your configuration uses 1") without blocking.
+- Shortcut "Add all days of this program" creates the corresponding slots at once.
 
 ---
 
-## 3. Base de dados de programas
+## 2. Initial 1RM registration
 
-### 3.1 Regras invioláveis
+- Onboarding screen (first run) with editable kg fields for Bench, Squat and Deadlift.
+- Validation: number > 0 and ≤ 600 kg, up to 2 decimal places. A lift may be left empty
+  if it is not trained; the app prevents generating sessions for that lift until it is
+  filled in.
+- The user can update 1RMs at any time (Settings → 1RMs).
+- **Every change creates a new versioned record** (`reference_1rm_history`: lift,
+  value, effective date, origin = `manual | from_e1rm | onboarding`). Never overwrite.
+- The periodization always uses the **current** reference 1RM; recorded sessions keep a
+  *snapshot* of the 1RM and loads used at training time.
 
-1. **Nunca inventar** sets, reps ou percentuais.
-2. Nunca combinar variações diferentes sem identificá-las como templates distintos.
-3. Preservar a estrutura original (duração, frequência, ordem dos dias, progressão).
-4. Todo template contém `source` (autor, obra/publicação, URL quando houver, data de
-   consulta) e `version`.
-5. Programas com mais de 3 semanas são armazenados **completos**; o usuário visualiza um
-   bloco de 3 semanas escolhendo a semana inicial. Nunca comprimir.
-6. Dados ausentes ou não verificados são marcados explicitamente
-   (`verification: 'verified' | 'partial' | 'unverified'` no template e
-   `unverified: true` / `note` na prescrição). A UI exibe um selo
-   "Dados não verificados" e **não calcula carga** para prescrições sem percentual
-   confirmado — mostra "—" e a observação.
-7. Os dados vivem em `src/programs/data/*.ts`, validados por schema em tempo de teste
-   (um teste falha se algum template violar o schema ou omitir `source`).
+---
+
+## 3. Training program database
+
+### 3.1 Non-negotiable rules
+
+1. **Never invent** sets, reps or percentages.
+2. Never combine different variations without identifying them as distinct templates.
+3. Preserve the original structure (duration, frequency, day order, progression).
+4. Every template includes `source` (author, work/publication, URL when available,
+   access date) and `version`.
+5. Programs longer than 3 weeks are stored **in full**; the user views a 3-week block by
+   choosing the starting week. Never compress.
+6. Missing or unverified data is flagged explicitly
+   (`verification: 'verified' | 'partial' | 'unverified'` on the template and
+   `unverified: true` / `note` on the prescription). The UI shows an "Unverified data"
+   badge and **does not calculate a load** for prescriptions without a confirmed
+   percentage — it shows "—" plus the note.
+7. Data lives in `src/programs/data/*.ts`, validated against the schema at test time (a
+   test fails if any template violates the schema or omits `source`).
+8. Program data is language-neutral. Human-readable labels/notes inside templates are
+   stored in English (original terminology preserved) and may have optional `pt-BR`
+   translations (`{ en: string; 'pt-BR'?: string }`).
 
 ### 3.2 Schema (TypeScript)
 
 ```ts
 type Lift = 'bench' | 'squat' | 'deadlift';
+type LocalizedText = { en: string; 'pt-BR'?: string };
 
 interface ProgramTemplate {
   id: string;                 // 'cycle-531-custom', 'smolov-jr', 'smolov', 'sheiko-29' …
   family: '531-custom' | 'smolov' | 'smolov-jr' | 'sheiko';
   name: string;
-  version: string;            // ex.: 'original (S. Smolov, 1970s) — transcrição v1'
+  version: string;            // e.g. 'original (S. Smolov) — transcription v1'
   source: { author: string; reference: string; url?: string; accessedAt: string; notes?: string };
   verification: 'verified' | 'partial' | 'unverified';
   durationWeeks: number;
   daysPerWeek: number;
-  allowedLifts: Lift[];       // lifts para os quais o template pode ser aplicado
-  liftSelectable: boolean;    // true = usuário escolhe o lift (ex.: Smolov Jr.)
-  configurable?: ConfigurableParam[]; // parâmetros que o ORIGINAL deixa ao atleta (ver 3.4)
+  allowedLifts: Lift[];       // lifts the template may be applied to
+  liftSelectable: boolean;    // true = user picks the lift (e.g. Smolov Jr.)
+  configurable?: ConfigurableParam[]; // parameters the ORIGINAL leaves to the athlete (see 3.4)
   weeks: ProgramWeek[];
 }
 
-interface ProgramWeek { week: number; phase?: string; days: ProgramDay[] }
-interface ProgramDay  { day: number; label?: string; items: PrescriptionItem[] }
+interface ProgramWeek { week: number; phase?: LocalizedText; days: ProgramDay[] }
+interface ProgramDay  { day: number; label?: LocalizedText; items: PrescriptionItem[] }
 
 type PrescriptionItem =
-  | { kind: 'main'; lift: Lift | 'selected'; sets: SetPrescription[]; note?: string }
-  | { kind: 'accessory'; name: string; text: string; note?: string }; // não calculado
+  | { kind: 'main'; lift: Lift | 'selected'; sets: SetPrescription[]; note?: LocalizedText }
+  | { kind: 'accessory'; name: LocalizedText; text: LocalizedText; note?: LocalizedText }; // not calculated
 
 interface SetPrescription {
   reps: number;
-  percent?: number;           // fração do 1RM (0.75) — ausente => sem cálculo
-  addKg?: ParamRef;           // incremento absoluto definido pelo original (Smolov/Jr.)
+  percent?: number;           // fraction of 1RM (0.75) — absent => no calculation
+  addKg?: ParamRef;           // absolute increment defined by the original (Smolov/Jr.)
   amrap?: boolean;
-  repeat?: number;            // nº de sets idênticos (6x6 => repeat: 6)
+  repeat?: number;            // number of identical sets (6x6 => repeat: 6)
   unverified?: boolean;
-  note?: string;
+  note?: LocalizedText;
 }
 ```
 
 ### 3.3 Templates
 
-**A. 5/3/1 — versão custom do usuário** (`cycle-531-custom`, `verification: 'verified'`,
-fonte = definição do usuário nesta spec). **Não é o 5/3/1 de Wendler** — não usar
-percentuais, sets AMRAP ou deload de Wendler.
+**A. 5/3/1 — custom user version** (`cycle-531-custom`, `verification: 'verified'`,
+source = the user's definition in this spec). **This is not Wendler's 5/3/1** — do not
+use Wendler's percentages, AMRAP sets or deload.
 
-| Semana | Sets | Reps | % padrão |
+| Week | Sets | Reps | Default % |
 |---|---|---|---|
 | 1 | 3 | 5 | 75% |
 | 2 | 3 | 3 | 85% |
 | 3 | 3 | 1 | 95% |
 
-- Exatamente 3 sets de trabalho em todas as semanas.
-- Percentual por semana configurável pelo usuário (por perfil; faixa 30–105%,
-  passo 0,5%). Default 75/85/95. Lift selecionável.
+- Exactly 3 working sets in every week.
+- Per-week percentage configurable by the user (per profile; range 30–105%,
+  step 0.5%). Defaults 75/85/95. Lift selectable.
 
-**B. Smolov (original, agachamento)** (`smolov`). Programa completo (~13 semanas:
-microciclo introdutório, mesociclo base, fase de transição/switching, mesociclo intenso
-e taper/teste). Deve ser transcrito integralmente de fonte primária/consolidada
-identificada, incluindo frequência (até 4x/semana), sets, reps, percentuais e
-incrementos absolutos. Lift fixo: squat.
+**B. Smolov (original, squat)** (`smolov`). Full program (~13 weeks: introductory
+microcycle, base mesocycle, switching phase, intense mesocycle and taper/test). Must be
+transcribed in full from an identified primary/consolidated source, including frequency
+(up to 4x/week), sets, reps, percentages and absolute increments. Lift fixed: squat.
 
-**C. Smolov Jr.** (`smolov-jr`). 3 semanas, 4 dias/semana (6×6 @70%, 7×5 @75%,
-8×4 @80%, 10×3 @85% na semana 1, com incrementos absolutos nas semanas 2 e 3 conforme o
-original). Lift selecionável. Os incrementos (faixa recomendada pelo original, que
-difere entre membros superiores e inferiores) são `configurable` — o usuário escolhe um
-valor **dentro da faixa original**; fora da faixa é bloqueado.
+**C. Smolov Jr.** (`smolov-jr`). 3 weeks, 4 days/week (6×6 @70%, 7×5 @75%,
+8×4 @80%, 10×3 @85% in week 1, with absolute increments in weeks 2 and 3 per the
+original). Lift selectable. The increments (the range recommended by the original,
+which differs between upper- and lower-body lifts) are `configurable` — the user picks a
+value **within the original range**; values outside it are rejected.
 
-**D. Sheiko** (`sheiko-*`). Múltiplos templates originais (ex.: as rotinas numeradas
-amplamente difundidas como #29, #30, #31, #32, #37, #39 — a lista final depende de
-verificação de fontes). Cada template é um registro próprio com seu número/nome,
-fonte, duração e dias. Itens de acessórios são `kind: 'accessory'` (exibidos, não
-calculados). Percentuais referem-se ao 1RM de competição do lift correspondente.
+**D. Sheiko** (`sheiko-*`). Multiple original templates (e.g. the widely circulated
+numbered routines such as #29, #30, #31, #32, #37, #39 — the final list depends on source
+verification). Each template is its own record with its number/name, source, duration
+and days. Accessory items are `kind: 'accessory'` (displayed, not calculated).
+Percentages refer to the competition 1RM of the corresponding lift.
 
-> Os valores numéricos de Smolov, Smolov Jr. e Sheiko **não** são definidos nesta spec
-> por design: eles devem ser transcritos de fonte identificada pela etapa de
-> implementação correspondente (ver PLAN), com testes de "snapshot" de dados e o campo
-> `source` preenchido. Os números citados acima servem apenas como checagem de sanidade.
+> The numeric values for Smolov, Smolov Jr. and Sheiko are intentionally **not**
+> defined in this spec: they must be transcribed from an identified source by the
+> corresponding implementation stage (see PLAN), with data "snapshot" tests and the
+> `source` field filled in. The numbers quoted above are sanity checks only.
 
-### 3.4 Parâmetros configuráveis
+### 3.4 Configurable parameters
 
-Somente parâmetros que o próprio programa original deixa à escolha do atleta (ex.:
-incremento semanal do Smolov Jr.) ou que esta spec define como configuráveis (percentuais
-do 5/3/1 custom). Cada parâmetro tem `min`, `max`, `default` e `source`.
+Only parameters the original program itself leaves to the athlete (e.g. Smolov Jr.'s
+weekly increment) or that this spec defines as configurable (custom 5/3/1 percentages).
+Each parameter has `min`, `max`, `default` and `source`.
 
-### 3.5 Tela "Programas"
+### 3.5 "Programs" screen
 
-Lista de templates com nome, versão, fonte, duração, frequência, selo de verificação.
-Detalhe mostra a estrutura completa semana a semana (percentuais e reps), sem cálculos
-de carga, e permite navegar por todo o programa original.
+List of templates with name, version, source, duration, frequency and verification
+badge. The detail view shows the full structure week by week (percentages and reps),
+without load calculations, and allows browsing the entire original program.
 
 ---
 
-## 4. Gerador automático de periodização (feature central)
+## 4. Automatic periodization generator (central feature)
 
-### 4.1 Interface de configuração
+### 4.1 Configuration interface
 
-Lista ordenável de session slots. Para cada slot:
-1. Exercício (lift)
-2. Programa (template; filtrado por `allowedLifts`)
-3. Dia do programa (quando `daysPerWeek > 1`)
-4. Semana inicial do bloco (quando `durationWeeks > 3`; default 1; máximo
-   `durationWeeks − 2`; blocos parciais no fim do programa mostram apenas as semanas
-   existentes)
-5. Parâmetros configuráveis do template, se houver
+Reorderable list of session slots. For each slot:
+1. Exercise (lift)
+2. Program (template; filtered by `allowedLifts`)
+3. Program day (when `daysPerWeek > 1`)
+4. Block starting week (when `durationWeeks > 3`; default 1; max
+   `durationWeeks − 2`; partial blocks at the end of the program show only the existing
+   weeks)
+5. Template configurable parameters, if any
 
-Ações: adicionar, duplicar, remover, reordenar (setas ↑/↓ acessíveis + arrastar onde
-suportado), "Gerar periodização". A geração também é reativa: qualquer edição atualiza a
-saída instantaneamente (cálculo puro, síncrono, < 50 ms para 10 slots).
+Actions: add, duplicate, remove, reorder (accessible ↑/↓ buttons + drag where
+supported), "Generate periodization". Generation is also reactive: any edit updates the
+output instantly (pure, synchronous computation, < 50 ms for 10 slots).
 
-### 4.2 Saída
+### 4.2 Output
 
-Para cada `(semana do bloco 1..3) × (slot)`, uma `GeneratedSession` com:
+For each `(block week 1..3) × (slot)`, a `GeneratedSession` with:
 
-- semana do bloco e semana original do programa
-- número da sessão (ordem do slot)
-- lift, nome + versão do programa, dia do programa
-- lista de sets: reps, % do 1RM, carga calculada (kg, exata), carga arredondada (kg)
-- itens acessórios (texto)
-- **volume total**: tonelagem `Σ reps × carga arredondada` (kg) e nº total de reps;
-  também agregados por semana e por lift
-- avisos (dados não verificados, frequência incompleta, 1RM ausente)
+- block week and original program week
+- session number (slot order)
+- lift, program name + version, program day
+- list of sets: reps, % of 1RM, calculated load (kg, exact), rounded load (kg)
+- accessory items (text)
+- **total volume**: tonnage `Σ reps × rounded load` (kg) and total rep count; also
+  aggregated per week and per lift
+- warnings (unverified data, incomplete frequency, missing 1RM)
 
-### 4.3 Cálculo de carga
+### 4.3 Load calculation
 
 ```
-exactKg   = reference1RM[lift] × percent  (+ Σ addKg acumulados, quando o original define)
-roundedKg = round(exactKg, increment)      // ver §5
+exactKg   = reference1RM[lift] × percent  (+ Σ cumulative addKg, when the original defines it)
+roundedKg = round(exactKg, increment)      // see §5
 ```
 
-Cálculo feito em `src/domain/` (puro, determinístico, sem I/O), com testes unitários.
-Usar aritmética que evite erro de ponto flutuante (trabalhar em gramas inteiras ou
-arredondar o resultado final a 3 casas antes de exibir).
+Computed in `src/domain/` (pure, deterministic, no I/O), with unit tests. Use arithmetic
+that avoids floating-point error (work in integer grams, or round the final result to 3
+decimals before display).
 
-### 4.4 Persistência
+### 4.4 Persistence
 
-A configuração (slots) é salva por perfil. Uma periodização gerada pode ser
-"ativada" (salva com data de início), o que fixa um snapshot usado pelo calendário e
-pelo tracker; regenerar com outra configuração cria uma nova periodização sem apagar a
-anterior.
-
----
-
-## 5. Incrementos e arredondamento
-
-- Opções: 1; 1,25; 1,5; 2; 2,5 kg; custom (0,1–25 kg, passo 0,05).
-  Default: 2,5 kg.
-- Configuração global do perfil (opcional: override por lift).
-- Modo de arredondamento: **ao mais próximo** (default; empate arredonda para baixo, para
-  não prescrever acima do percentual), com opções "sempre para baixo" e "sempre para cima".
-- Sempre exibir a carga original calculada e a carga prática arredondada
-  (ex.: `96,25 → 95,0 kg`).
-- Testes de borda obrigatórios: múltiplos exatos, empates, incrementos decimais
-  (1,25; 1,5), valores grandes, resultado nunca negativo.
+The configuration (slots) is saved per profile. A generated periodization can be
+"activated" (saved with a start date), which freezes a snapshot used by the calendar and
+the tracker; regenerating with another configuration creates a new periodization without
+deleting the previous one.
 
 ---
 
-## 6. Dashboard de treino e visualização
+## 5. Load increments and rounding
 
-- **Visão A — Tabela 3 semanas:** linhas = sessões (slot), colunas = semanas 1–3,
-  célula = sets×reps @ % → kg arredondado. Em telas estreitas, rolagem horizontal da
-  tabela com primeira coluna fixa, ou alternância por semana; em telas largas, as 3
-  semanas lado a lado.
-- **Visão B — Calendário:** grade semana × sessão; cada card mostra lift, programa,
-  resumo de sets; tocar abre `/session/[id]` com a prescrição detalhada (e acesso ao
-  registro de desempenho).
-- Ambas as visões leem a **mesma** fonte de dados (store/selector) — sincronizadas por
-  construção. Teste garante que alterar um slot reflete nas duas.
+- Options: 1, 1.25, 1.5, 2, 2.5 kg; custom (0.1–25 kg, step 0.05). Default: 2.5 kg.
+- Profile-wide setting (optional per-lift override).
+- Rounding mode: **nearest** (default; ties round down, so a load is never prescribed
+  above the percentage), with "always down" and "always up" options.
+- Always display the original calculated load and the rounded practical load
+  (e.g. `96.25 → 95.0 kg`).
+- Mandatory edge-case tests: exact multiples, ties, decimal increments (1.25, 1.5),
+  large values, result never negative.
 
 ---
 
-## 7. Registro de desempenho real
+## 6. Training dashboard and visualization
 
-Para cada set de trabalho de uma sessão gerada:
+- **View A — Three-week table:** rows = sessions (slots), columns = weeks 1–3,
+  cell = sets×reps @ % → rounded kg. On narrow screens, horizontal scroll with a pinned
+  first column, or a per-week toggle; on wide screens, the 3 weeks side by side.
+- **View B — Calendar:** week × session grid; each card shows lift, program and a set
+  summary; tapping opens `/session/[id]` with the detailed prescription (and access to
+  performance logging).
+- Both views read from the **same** data source (store/selector) — synchronized by
+  construction. A test guarantees that changing a slot is reflected in both.
 
-| Campo | Regra |
+---
+
+## 7. Actual training performance tracker
+
+For each working set of a generated session:
+
+| Field | Rule |
 |---|---|
-| Peso real (kg) | obrigatório, > 0, pré-preenchido com a carga arredondada prescrita |
-| Reps completadas | obrigatório, inteiro ≥ 0 (0 = falha) |
-| RIR | inteiro 0–10; `5+` aceito |
-| RPE | opcional, 1–10 em passos de 0,5; preenchido automaticamente a partir do RIR |
-| Notas | opcional, texto ≤ 500 chars (por set e por sessão) |
+| Actual weight (kg) | required, > 0, pre-filled with the prescribed rounded load |
+| Reps completed | required, integer ≥ 0 (0 = failure) |
+| RIR | integer 0–10; `5+` accepted |
+| RPE | optional, 1–10 in 0.5 steps; auto-filled from RIR |
+| Notes | optional, text ≤ 500 chars (per set and per session) |
 
-Relação RIR ↔ RPE (`src/domain/rpe.ts`):
+RIR ↔ RPE relationship (`src/domain/rpe.ts`):
 
-| RIR | RPE aprox. |
+| RIR | Approx. RPE |
 |---|---|
 | 0 | 10 |
 | 1 | 9 |
@@ -289,184 +292,207 @@ Relação RIR ↔ RPE (`src/domain/rpe.ts`):
 | 4 | 6 |
 | 5+ | ≤ 5 |
 
-- `RPE = 10 − RIR` (para RIR ≥ 5, RPE ≤ 5). Se o usuário edita o RPE, o RIR passa a ser
-  `10 − RPE` (permitindo meio ponto, ex.: RPE 8,5 → RIR 1,5).
-- Se ambos forem informados e divergirem em mais de 0,5, exibir erro de validação.
-- Sets extras (não prescritos) podem ser adicionados e são marcados como `extra`.
-- Comparação prescrito × real por set (Δ kg, Δ reps) e por sessão (Δ tonelagem).
-- Salvamento local imediato (rascunho) e "Concluir sessão" que grava data e snapshot.
+- `RPE = 10 − RIR` (for RIR ≥ 5, RPE ≤ 5). If the user edits RPE, RIR becomes
+  `10 − RPE` (half points allowed, e.g. RPE 8.5 → RIR 1.5).
+- If both are entered and differ by more than 0.5, show a validation error.
+- Extra (non-prescribed) sets can be added and are flagged `extra`.
+- Prescribed vs. actual comparison per set (Δ kg, Δ reps) and per session (Δ tonnage).
+- Immediate local save (draft) and "Complete session", which records the date and a
+  snapshot.
 
 ---
 
-## 8. Calculadora automática de e1RM (feature crítica)
+## 8. Automatic estimated 1RM calculator (critical feature)
 
-### 8.1 Fórmulas (todas consideram RIR)
+### 8.1 Formulas (all account for RIR)
 
-Seja `w` = peso, `r` = reps completadas, `RIR` = repetições em reserva,
-`n = r + RIR` (reps até a falha estimadas).
+Let `w` = weight, `r` = reps completed, `RIR` = reps in reserve,
+`n = r + RIR` (estimated reps to failure).
 
-| ID | Nome | Fórmula | Fonte |
+| ID | Name | Formula | Source |
 |---|---|---|---|
-| `rts` (**default**) | Tabela RPE de Tuchscherer (Reactive Training Systems) | `e1RM = w / pct(r, RPE)` com `pct` da tabela RTS (reps 1–12 × RPE 6–10, meio ponto interpolado) | M. Tuchscherer, *The Reactive Training Manual* (2008) |
-| `epley-rir` | Epley ajustado por RIR | `e1RM = w × (1 + n/30)`; se `n = 1`, `e1RM = w` | Epley (1985) + ajuste RIR (Zourdos et al., 2016) |
-| `brzycki-rir` | Brzycki ajustado por RIR | `e1RM = w × 36 / (37 − n)` | Brzycki (1993) + ajuste RIR |
+| `rts` (**default**) | Tuchscherer RPE chart (Reactive Training Systems) | `e1RM = w / pct(r, RPE)` with `pct` from the RTS chart (reps 1–12 × RPE 6–10, half points interpolated) | M. Tuchscherer, *The Reactive Training Manual* (2008) |
+| `epley-rir` | RIR-adjusted Epley | `e1RM = w × (1 + n/30)`; if `n = 1`, `e1RM = w` | Epley (1985) + RIR adjustment (Zourdos et al., 2016) |
+| `brzycki-rir` | RIR-adjusted Brzycki | `e1RM = w × 36 / (37 − n)` | Brzycki (1993) + RIR adjustment |
 
-A tabela RTS deve ser transcrita de fonte identificada em `src/domain/e1rm/rts-table.ts`
-com `source`. O usuário escolhe a fórmula em Ajustes; a fórmula usada é gravada junto de
-cada estimativa (recalcular histórico com outra fórmula é uma visão, não uma reescrita).
+The RTS chart must be transcribed from an identified source into
+`src/domain/e1rm/rts-table.ts` with `source`. The user chooses the formula in Settings;
+the formula used is stored with every estimate (recomputing history with a different
+formula is a view, not a rewrite).
 
-**Exemplo de aceitação** (Bench, 80 kg × 5 @ RIR 1 / RPE 9):
-- `epley-rir`: 80 × (1 + 6/30) = **96,0 kg**
-- `brzycki-rir`: 80 × 36/31 = **92,9 kg**
-- `rts`: 80 / pct(5 reps, RPE 9) — valor esperado obtido da tabela transcrita
-  (≈ 95–96 kg; o teste deve usar o valor exato da tabela).
+**Acceptance example** (Bench, 80 kg × 5 @ RIR 1 / RPE 9):
+- `epley-rir`: 80 × (1 + 6/30) = **96.0 kg**
+- `brzycki-rir`: 80 × 36/31 = **92.9 kg**
+- `rts`: 80 / pct(5 reps, RPE 9) — expected value taken from the transcribed chart
+  (≈ 95–96 kg; the test must use the chart's exact value).
 
-### 8.2 Validade
+### 8.2 Validity
 
-Um set é **válido para e1RM** se: `r ≥ 1`, `RIR ≤ 4` (RPE ≥ 6) e `n ≤ 12`
-(ou limite da tabela). Sets fora disso exibem e1RM "baixa confiabilidade" e não entram
-no histórico. Sets sem RIR/RPE não geram e1RM.
+A set is **valid for e1RM** if: `r ≥ 1`, `RIR ≤ 4` (RPE ≥ 6) and `n ≤ 12`
+(or the chart's limit). Sets outside that range show a "low confidence" e1RM and are not
+added to history. Sets without RIR/RPE produce no e1RM.
 
-### 8.3 Estimativa representativa da sessão
+### 8.3 Representative session estimate
 
-Uma sessão gera **no máximo um e1RM por lift**, nunca um por set:
+A session produces **at most one e1RM per lift**, never one per set:
 
-1. Filtrar sets válidos do lift.
-2. Escolher o set com menor `n` (mais próximo de um esforço máximo → menor
-   extrapolação).
-3. Empate → maior peso; novo empate → menor RIR; novo empate → primeiro set.
-4. e1RM da sessão = e1RM desse set. Os e1RMs por set são exibidos apenas como
-   informação.
+1. Filter the lift's valid sets.
+2. Pick the set with the smallest `n` (closest to a maximal effort → least
+   extrapolation).
+3. Tie → heaviest weight; next tie → lowest RIR; next tie → first set.
+4. Session e1RM = that set's e1RM. Per-set e1RMs are displayed for information only.
 
-### 8.4 Exibição e histórico
+### 8.4 Display and history
 
-- Mostrar e1RM imediatamente após completar um set válido e no resumo da sessão,
-  sempre rotulado "estimado" (ex.: "e1RM ≈ 96 kg (estimativa)").
-- Comparar com o e1RM anterior do mesmo lift (Δ kg e Δ %).
-- Histórico `e1rm_history` (lift, data, valor, fórmula, set de origem, sessão).
-- Ação "Usar como novo 1RM de referência" → cria registro em
-  `reference_1rm_history` com origem `from_e1rm` (confirmação explícita; nunca
-  automático).
-
----
-
-## 9. Dashboard de progressão de força
-
-Por lift (Bench, Squat, Deadlift), cards com:
-
-- 1RM de referência atual
-- último e1RM, e1RM anterior, maior e1RM
-- melhora absoluta (kg) e percentual: `último e1RM − baseline`, onde baseline = 1RM de
-  referência vigente no início do período selecionado (default: primeiro registro)
-- gráfico histórico (linha do e1RM + degraus do 1RM de referência), um por lift,
-  com filtro de período (4 semanas, 3 meses, 6 meses, 1 ano, tudo)
-- interativo: tocar/hover em um ponto mostra data, valor, sessão de origem
-
-Gráficos com `react-native-svg` (instalado via `npx expo install`) e componentes
-próprios — leves, sem animações desnecessárias.
+- Show the e1RM immediately after a valid set is completed and in the session summary,
+  always labeled as an estimate (e.g. "e1RM ≈ 96 kg (estimate)").
+- Compare with the previous e1RM for the same lift (Δ kg and Δ %).
+- History `e1rm_history` (lift, date, value, formula, source set, session).
+- Action "Use as new reference 1RM" → creates a `reference_1rm_history` record with
+  origin `from_e1rm` (explicit confirmation; never automatic).
 
 ---
 
-## 10. Histórico de treinos
+## 9. Strength progression dashboard
 
-- Lista de sessões concluídas (mais recentes primeiro), filtro por lift, programa e
-  período.
-- Cada item: data, lift, programa (+ versão), sessão, sets×reps prescritos, pesos/reps
-  reais, RIR/RPE, e1RM.
-- Detalhe permite comparar com sessões anteriores do mesmo lift/programa/dia.
-- Dados históricos são **imutáveis** em relação a mudanças posteriores de programa,
-  configuração ou 1RM (snapshots). Edição de uma sessão passada é permitida, mas
-  recalcula apenas o e1RM daquela sessão.
+Per lift (Bench, Squat, Deadlift), cards showing:
 
----
+- current reference 1RM
+- latest e1RM, previous e1RM, highest e1RM
+- absolute (kg) and percentage improvement: `latest e1RM − baseline`, where baseline =
+  the reference 1RM in effect at the start of the selected period (default: first record)
+- historical chart (e1RM line + reference-1RM steps), one per lift, with period filter
+  (4 weeks, 3 months, 6 months, 1 year, all)
+- interactive: tap/hover on a point shows date, value and originating session
 
-## 11. Design e UX
-
-- Nome: **CYCLE**. Tema escuro por padrão (opção de claro em Ajustes).
-- Paleta: fundo `#000000` / charcoal `#121212`, `#1C1C1E`; texto `#FFFFFF` /
-  secundário `#A1A1AA`; acento vermelho sutil `#D32F2F` (uso restrito: ação primária,
-  destaque de PR, seleção); bordas `#2A2A2A`.
-- Tipografia com hierarquia forte; números tabulares (`fontVariant: ['tabular-nums']`).
-- Sem animações decorativas; transições nativas padrão apenas.
-- Responsivo: mobile (tabs) e desktop/web largo (sidebar). Breakpoint ≥ 900 px.
-- Navegação:
-  - Mobile (5 tabs): **Dashboard**, **Periodização** (Tabela | Calendário),
-    **Treino** (registro de desempenho), **Progresso**, **Mais** (Programas, Histórico,
-    Ajustes).
-  - Web/desktop: sidebar com Dashboard, Periodização, Programas, Calendário, Treino,
-    Progresso, Histórico, Ajustes.
-- Acessibilidade: alvos ≥ 44 pt, `accessibilityLabel` em controles, contraste AA.
-- Idioma da UI: português (pt-BR); textos centralizados em `src/i18n/pt-BR.ts`
-  para facilitar tradução futura. Números com vírgula decimal na UI.
+Charts built with `react-native-svg` (installed via `npx expo install`) and in-house
+components — lightweight, no unnecessary animation.
 
 ---
 
-## 12. Requisitos técnicos
+## 10. Training history
 
-### 12.1 Arquitetura em camadas (separação obrigatória)
+- List of completed sessions (newest first), filterable by lift, program and period.
+- Each item: date, lift, program (+ version), session, prescribed sets×reps, actual
+  weights/reps, RIR/RPE, e1RM.
+- The detail view allows comparison with previous sessions of the same
+  lift/program/day.
+- Historical data is **immutable** with respect to later changes to programs,
+  configuration or 1RMs (snapshots). Editing a past session is allowed but only
+  recomputes that session's e1RM.
+
+---
+
+## 11. Design and UX
+
+- Name: **CYCLE**. Dark theme by default (light option in Settings).
+- Palette: background `#000000` / charcoal `#121212`, `#1C1C1E`; text `#FFFFFF` /
+  secondary `#A1A1AA`; subtle red accent `#D32F2F` (restricted use: primary action, PR
+  highlight, selection); borders `#2A2A2A`.
+- Typography with strong hierarchy; tabular numbers (`fontVariant: ['tabular-nums']`).
+- No decorative animation; standard native transitions only.
+- Responsive: mobile (tabs) and wide desktop/web (sidebar). Breakpoint ≥ 900 px.
+- Navigation:
+  - Mobile (5 tabs): **Dashboard**, **Periodization** (Table | Calendar),
+    **Training** (performance logging), **Progress**, **More** (Programs, History,
+    Settings).
+  - Web/desktop: sidebar with Dashboard, Periodization, Programs, Calendar, Training,
+    Progress, History, Settings.
+- Accessibility: touch targets ≥ 44 pt, `accessibilityLabel` on controls, AA contrast
+  (labels are localized too).
+
+### 11.1 Internationalization (bilingual app)
+
+- Supported UI languages: **English (`en`)** and **Brazilian Portuguese (`pt-BR`)**.
+- Default: device locale (via `expo-localization`) — `pt*` → `pt-BR`, anything else →
+  `en`. The user can override it in Settings (System / English / Português); the choice
+  is persisted per profile and applies instantly without restart.
+- All user-facing strings live in translation catalogs `src/i18n/locales/en.ts` and
+  `src/i18n/locales/pt-BR.ts`. `en` is the source catalog; the `pt-BR` catalog is typed
+  against it so a missing key is a **type error**. No hard-coded UI strings in
+  components (enforced by review and by a test that compares catalog keys).
+- Lightweight in-house `t(key, params)` with interpolation and pluralization (or a
+  well-supported library if justified in `docs/DECISIONS.md`).
+- Number and date formatting is locale-aware (`Intl.NumberFormat` / `Intl.DateTimeFormat`):
+  `96.25 kg` in `en`, `96,25 kg` in `pt-BR`. Numeric inputs accept the locale's decimal
+  separator (and also `.` in `pt-BR`). Units are always kg.
+- Lift and program names: canonical English names (Bench Press, Squat, Deadlift,
+  Smolov, Sheiko) with localized display labels (e.g. Supino, Agachamento, Levantamento
+  Terra) where applicable; program names themselves are not translated.
+- Validation and warning messages are localized; domain code returns error **codes**,
+  never display strings.
+
+---
+
+## 12. Technical requirements
+
+### 12.1 Layered architecture (mandatory separation)
 
 ```
 src/
-  domain/      # motor matemático puro: rounding, loads, periodization, rpe, e1rm, stats
-  programs/    # base de programas: schema, data/*.ts, validação, seleção de blocos
-  data/        # persistência: expo-sqlite, migrations, repositories (interfaces + impl)
-  state/       # stores/hooks que ligam data ↔ domain ↔ UI
-  components/  # UI reutilizável (tabelas, cards, charts, inputs numéricos)
-  i18n/        # textos
-  app/         # rotas Expo Router (somente telas e layouts)
+  domain/      # pure math engine: rounding, loads, periodization, rpe, e1rm, stats
+  programs/    # program database: schema, data/*.ts, validation, block selection
+  data/        # persistence: expo-sqlite, migrations, repositories (interfaces + impl)
+  state/       # stores/hooks connecting data ↔ domain ↔ UI
+  components/  # reusable UI (tables, cards, charts, numeric inputs)
+  i18n/        # translation catalogs, t(), locale detection, formatters
+  app/         # Expo Router routes (screens and layouts only)
 ```
 
-- `domain/` e `programs/` não importam React, Expo ou `data/`.
-- `data/` expõe interfaces de repositório; testes usam implementação em memória.
-- Nenhum valor aleatório ou "mock" em código de produção.
+- `domain/` and `programs/` do not import React, Expo, `data/` or `i18n/`.
+- `data/` exposes repository interfaces; tests use an in-memory implementation.
+- No random or "mock" values in production code.
 
-### 12.2 Persistência
+### 12.2 Persistence
 
-- `expo-sqlite` (verificar API da versão SDK 58 na doc antes de usar).
-- Migrations versionadas (`src/data/migrations/NNN_*.ts`), executadas no boot.
-- Tabelas mínimas: `profiles`, `reference_1rm_history`, `settings`, `session_slots`,
-  `periodizations`, `generated_sessions` (snapshot JSON), `performed_sessions`,
+- `expo-sqlite` (check the SDK 58 API in the docs before using it).
+- Versioned migrations (`src/data/migrations/NNN_*.ts`), run at boot.
+- Minimum tables: `profiles`, `reference_1rm_history`, `settings`, `session_slots`,
+  `periodizations`, `generated_sessions` (JSON snapshot), `performed_sessions`,
   `performed_sets`, `e1rm_history`.
-- Perfis de usuário locais (múltiplos perfis por dispositivo; seletor em Ajustes).
-  Todos os dados são escopados por `profile_id`.
-- Web: usar o suporte web do expo-sqlite conforme documentação do SDK; se indisponível,
-  adapter alternativo atrás da mesma interface de repositório.
+- Local user profiles (multiple profiles per device; selector in Settings). All data is
+  scoped by `profile_id`.
+- Web: use expo-sqlite's web support per the SDK docs; if unavailable, an alternative
+  adapter behind the same repository interface.
 
-### 12.3 Qualidade
+### 12.3 Quality
 
-- TDD (ver AGENTS.md). Cobertura mínima: `domain/` e `programs/` ≥ 95% linhas;
+- TDD (see AGENTS.md). Minimum coverage: `domain/` and `programs/` ≥ 95% lines;
   global ≥ 80%.
-- Jest com preset `jest-expo` + `@testing-library/react-native`.
-- CI (GitHub Actions) em todo PR: `npm ci`, `npx expo lint`, `npx tsc --noEmit`,
+- Jest with the `jest-expo` preset + `@testing-library/react-native`.
+- CI (GitHub Actions) on every PR: `npm ci`, `npx expo lint`, `npx tsc --noEmit`,
   `npm test -- --coverage`.
-- Validação de entrada em todos os formulários (mensagens claras em pt-BR).
+- Input validation on every form (clear, localized messages).
+- UI tests run in both locales for screens with formatted numbers.
 
-### 12.4 Reatividade
+### 12.4 Reactivity
 
-Alterar exercício, programa, sessão, 1RM, incremento ou parâmetros configuráveis deve
-recalcular automaticamente a periodização visível (selectors memorizados derivados do
-estado; nada de recalcular manualmente em cada tela).
-
----
-
-## 13. Fluxo-alvo de aceitação (E2E)
-
-1. Abrir o app → onboarding → informar 1RMs (Bench 100, Squat 140, Deadlift 180).
-2. Periodização → Sessão 1: Bench / 5/3/1 custom; Sessão 2: Bench / Smolov Jr. dia 1;
-   Sessão 3: Squat / 5/3/1; Sessão 4: Deadlift / Sheiko (template X, dia Y).
-3. Ver tabela de 3 semanas: Sessão 1 semana 1 = 3×5 @75% → 75,0 kg; semana 2 = 3×3
-   @85% → 85,0 kg; semana 3 = 3×1 @95% → 95,0 kg (incremento 2,5 kg).
-4. Alternar para calendário → abrir Sessão 1 / semana 1 → registrar 3 sets
-   (80 kg × 5 @ RIR 1 no último).
-5. Concluir → e1RM estimado exibido e gravado; Progresso mostra o ponto no gráfico de
-   Bench; Histórico lista a sessão.
-6. Alterar 1RM do Bench para 105 → periodização recalcula; sessão concluída permanece
-   inalterada.
+Changing exercise, program, session, 1RM, increment, configurable parameters or language
+must automatically update the visible periodization (memoized selectors derived from
+state; no manual recalculation in each screen).
 
 ---
 
-## 14. Fora de escopo (v1)
+## 13. Target acceptance flow (E2E)
 
-Sincronização em nuvem/contas remotas, recursos sociais, geração por LLM de programas,
-exercícios acessórios com cálculo de carga, conversão lb (pode ser adicionada depois;
-toda a lógica usa kg).
+1. Open the app → onboarding → enter 1RMs (Bench 100, Squat 140, Deadlift 180).
+2. Periodization → Session 1: Bench / custom 5/3/1; Session 2: Bench / Smolov Jr. day 1;
+   Session 3: Squat / 5/3/1; Session 4: Deadlift / Sheiko (template X, day Y).
+3. View the three-week table: Session 1 week 1 = 3×5 @75% → 75.0 kg; week 2 = 3×3
+   @85% → 85.0 kg; week 3 = 3×1 @95% → 95.0 kg (2.5 kg increment).
+4. Switch to the calendar → open Session 1 / week 1 → log 3 sets
+   (80 kg × 5 @ RIR 1 on the last one).
+5. Complete → the estimated e1RM is displayed and stored; Progress shows the point on
+   the Bench chart; History lists the session.
+6. Change Bench 1RM to 105 → the periodization recalculates; the completed session stays
+   unchanged.
+7. Switch language to Português → all screens render in pt-BR with `75,0 kg`-style
+   formatting; switch back to English.
+
+---
+
+## 14. Out of scope (v1)
+
+Cloud sync/remote accounts, social features, LLM-generated programs, load calculation
+for accessory exercises, lb conversion (can be added later; all logic uses kg),
+languages other than English and Brazilian Portuguese.

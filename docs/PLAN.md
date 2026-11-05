@@ -1,317 +1,333 @@
-# CYCLE — Plano de Implementação
+# CYCLE — Implementation Plan
 
-> Implementa [`SPEC.md`](./SPEC.md) seguindo as regras de [`../AGENTS.md`](../AGENTS.md).
+> Implements [`SPEC.md`](./SPEC.md) following the rules in [`../AGENTS.md`](../AGENTS.md).
 
-## Como este plano funciona
+## How this plan works
 
-- O trabalho é dividido em **etapas**. Cada etapa é executada por **um agente em
-  contexto limpo** (sem memória das etapas anteriores) e da família indicada:
-  - **haiku** — tarefas pequenas, mecânicas e bem delimitadas.
-  - **sonnet** — implementação de features de UI + lógica com escopo claro.
-  - **opus** — decisões de arquitetura, motor matemático crítico, pesquisa e transcrição
-    fiel de programas de treino, revisão final.
-- **Uma feature por vez, fechada end-to-end** (domínio → persistência → estado → UI →
-  testes → PR mergeado na `main`) antes de iniciar a próxima. Nenhuma etapa começa
-  antes da anterior estar mergeada.
-- Cada etapa = **1 branch + 1 PR → `main`**, seguindo o workflow TDD do AGENTS.md.
-- O agente deve, ao final, marcar a etapa como concluída na tabela de status abaixo
-  (no próprio PR) e registrar decisões relevantes em `docs/DECISIONS.md`.
+- Work is split into **stages**. Each stage is executed by **one clean-context agent**
+  (no memory of previous stages) of the indicated model family:
+  - **haiku** — small, mechanical, tightly scoped tasks.
+  - **sonnet** — UI + logic features with a clear scope.
+  - **opus** — architecture decisions, critical math engine, research and faithful
+    transcription of training programs, final review.
+- **One feature at a time, closed end to end** (domain → persistence → state → UI →
+  tests → PR merged into `main`) before the next starts. No stage begins before the
+  previous one is merged.
+- Each stage = **1 branch + 1 PR → `main`**, following the TDD workflow in AGENTS.md.
+- **Every stage that adds UI adds its strings to both `en` and `pt-BR` catalogs**
+  (SPEC §11.1). A stage is not done if any new string is missing a translation.
+- At the end, the agent marks the stage as done in the status table below (within its
+  PR) and records relevant decisions in `docs/DECISIONS.md`.
 
-### Prompt padrão para iniciar uma etapa
+### Standard prompt to start a stage
 
 ```
-Você é o agente da Etapa <N> do projeto CYCLE. Leia, nesta ordem:
-AGENTS.md, docs/SPEC.md, docs/PLAN.md (seção da Etapa <N>) e docs/DECISIONS.md.
-Siga estritamente o workflow TDD e de branch/PR do AGENTS.md.
-Implemente somente o escopo da Etapa <N>. Ao final, abra o PR para main,
-garanta CI verde, faça o merge e atualize o status da etapa no PLAN.md dentro do PR.
+You are the agent for Stage <N> of the CYCLE project. Read, in this order:
+AGENTS.md, docs/SPEC.md, docs/PLAN.md (Stage <N> section) and docs/DECISIONS.md.
+Strictly follow the TDD and branch/PR workflow in AGENTS.md.
+Implement only the scope of Stage <N>. When done, open the PR to main,
+make sure CI is green, merge it, and update the stage status in PLAN.md within the PR.
 ```
 
 ### Status
 
-| Etapa | Feature | Modelo | Branch | Status |
+| Stage | Feature | Model | Branch | Status |
 |---|---|---|---|---|
-| 0 | Fundação (testes, CI, tema, navegação, DB) | opus | `feat/00-foundation` | ⬜ |
-| 1 | Perfil + registro de 1RM + histórico de 1RM | sonnet | `feat/01-reference-1rm` | ⬜ |
-| 2 | Incrementos e arredondamento | haiku | `feat/02-rounding` | ⬜ |
-| 3 | Base de programas + 5/3/1 custom + tela Programas | sonnet | `feat/03-programs-531` | ⬜ |
-| 4 | Gerador de periodização + Tabela 3 semanas | opus | `feat/04-periodization` | ⬜ |
-| 5 | Calendário + detalhe da sessão | sonnet | `feat/05-calendar` | ⬜ |
+| 0 | Foundation (tests, CI, theme, navigation, i18n, DB) | opus | `feat/00-foundation` | ⬜ |
+| 1 | Profile + 1RM registration + 1RM history | sonnet | `feat/01-reference-1rm` | ⬜ |
+| 2 | Increments and rounding | haiku | `feat/02-rounding` | ⬜ |
+| 3 | Program database + custom 5/3/1 + Programs screen | sonnet | `feat/03-programs-531` | ⬜ |
+| 4 | Periodization generator + three-week table | opus | `feat/04-periodization` | ⬜ |
+| 5 | Calendar + session detail | sonnet | `feat/05-calendar` | ⬜ |
 | 6 | Smolov Jr. | opus | `feat/06-smolov-jr` | ⬜ |
-| 7 | Smolov (completo, seleção de bloco) | opus | `feat/07-smolov` | ⬜ |
-| 8 | Sheiko (múltiplos templates) | opus | `feat/08-sheiko` | ⬜ |
-| 9 | Registro de desempenho + RIR/RPE | sonnet | `feat/09-performance` | ⬜ |
-| 10 | Motor de e1RM + estimativa da sessão | opus | `feat/10-e1rm` | ⬜ |
-| 11 | Dashboard de progressão + gráficos | sonnet | `feat/11-progress` | ⬜ |
-| 12 | Histórico de treinos | sonnet | `feat/12-history` | ⬜ |
-| 13 | Dashboard inicial + responsividade desktop | sonnet | `feat/13-dashboard` | ⬜ |
-| 14 | Revisão final, E2E e documentação | opus | `chore/14-final-review` | ⬜ |
+| 7 | Smolov (full program, block selection) | opus | `feat/07-smolov` | ⬜ |
+| 8 | Sheiko (multiple templates) | opus | `feat/08-sheiko` | ⬜ |
+| 9 | Performance tracking + RIR/RPE | sonnet | `feat/09-performance` | ⬜ |
+| 10 | e1RM engine + session estimate | opus | `feat/10-e1rm` | ⬜ |
+| 11 | Strength progression dashboard + charts | sonnet | `feat/11-progress` | ⬜ |
+| 12 | Training history | sonnet | `feat/12-history` | ⬜ |
+| 13 | Home dashboard + desktop responsiveness + i18n audit | sonnet | `feat/13-dashboard` | ⬜ |
+| 14 | Final review, E2E and documentation | opus | `chore/14-final-review` | ⬜ |
 
-Legenda: ⬜ pendente · 🟨 em andamento · ✅ mergeado
-
----
-
-## Etapa 0 — Fundação · **opus**
-
-**Objetivo:** base técnica sobre a qual todas as features serão construídas.
-Escolhido opus porque as decisões aqui (camadas, DB, testes) afetam todas as etapas.
-
-Escopo:
-1. Ler a doc versionada do Expo SDK 58 (`https://docs.expo.dev/versions/v58.0.0/`) para
-   `expo-sqlite`, Expo Router (tabs/stack), `jest-expo`.
-2. Infra de testes: `jest-expo`, `@testing-library/react-native`, script
-   `npm test`, config de cobertura com thresholds da SPEC §12.3 (aplicados a
-   `src/domain` e `src/programs` desde já).
-3. CI: `.github/workflows/ci.yml` (lint, tsc, test com cobertura) em `pull_request`
-   e `push` para `main`.
-4. Remover telas de exemplo do template (`explore`, componentes de demo não usados).
-5. Estrutura de pastas da SPEC §12.1 com `README.md` curto em cada camada descrevendo
-   as regras de dependência.
-6. Tema CYCLE (SPEC §11): tokens em `src/constants/theme.ts`, dark por padrão;
-   componentes base `Screen`, `Text`, `Card`, `Button`, `NumberInput` (vírgula decimal,
-   validação), `SegmentedControl`.
-7. Navegação: tabs mobile (Dashboard, Periodização, Treino, Progresso, Mais) com telas
-   placeholder mínimas e funcionais; layout web com sidebar para largura ≥ 900 px.
-8. Persistência: wrapper `expo-sqlite`, runner de migrations, migration `001_init`
-   com `profiles` e `settings`; interface `Repository` + implementação em memória para
-   testes; perfil padrão criado no primeiro boot.
-9. `src/i18n/pt-BR.ts`, `docs/DECISIONS.md` (registrar escolhas: lib de estado, estratégia
-   de testes de DB, layout web).
-10. Ajustar `app.json` (nome "CYCLE", `userInterfaceStyle: "dark"`, cores do splash/ícone
-    adaptativo para o tema).
-
-Testes (escrever antes): runner de migrations (ordem, idempotência) com fake;
-repositório de perfis em memória; render das tabs; tema dark aplicado por padrão.
-
-Aceite: `npm test`, `npx expo lint`, `npx tsc --noEmit` verdes; app abre em web
-(`npx expo start --web`) mostrando as 5 tabs com tema escuro; CI verde no PR.
+Legend: ⬜ pending · 🟨 in progress · ✅ merged
 
 ---
 
-## Etapa 1 — Perfil + 1RM de referência · **sonnet**
+## Stage 0 — Foundation · **opus**
 
-Escopo (SPEC §2, §12.2 perfis):
-- Migration `reference_1rm_history`; repositório com `getCurrent(profileId, lift)`,
+**Goal:** the technical base every feature builds on. Opus because the decisions here
+(layers, DB, testing, i18n) affect every stage.
+
+Scope:
+1. Read the versioned Expo SDK 58 docs (`https://docs.expo.dev/versions/v58.0.0/`) for
+   `expo-sqlite`, `expo-localization`, Expo Router (tabs/stack) and `jest-expo`.
+2. Test infrastructure: `jest-expo`, `@testing-library/react-native`, `npm test`
+   script, coverage config with the SPEC §12.3 thresholds (applied to `src/domain` and
+   `src/programs` from the start).
+3. CI: `.github/workflows/ci.yml` (lint, tsc, tests with coverage) on `pull_request`
+   and `push` to `main`.
+4. Remove the template's example screens (`explore`, unused demo components).
+5. SPEC §12.1 folder structure with a short `README.md` in each layer describing its
+   dependency rules.
+6. CYCLE theme (SPEC §11): tokens in `src/constants/theme.ts`, dark by default; base
+   components `Screen`, `Text`, `Card`, `Button`, `NumberInput` (locale-aware decimal
+   separator, validation), `SegmentedControl`.
+7. i18n (SPEC §11.1): `npx expo install expo-localization`; `src/i18n/` with `en` and
+   `pt-BR` catalogs (pt-BR typed against en), `t()` with interpolation/plurals, locale
+   detection + override, `formatNumber`/`formatKg`/`formatDate`, `I18nProvider` +
+   `useT()` hook; a test that fails if catalog keys differ.
+8. Navigation: mobile tabs (Dashboard, Periodization, Training, Progress, More) with
+   minimal working placeholder screens; web layout with a sidebar at width ≥ 900 px.
+   All labels localized.
+9. Persistence: `expo-sqlite` wrapper, migration runner, migration `001_init` with
+   `profiles` and `settings` (including `language`); `Repository` interface + in-memory
+   implementation for tests; default profile created on first boot.
+10. `docs/DECISIONS.md` entries (state library, DB testing strategy, web layout, i18n
+    approach).
+11. Adjust `app.json` (name "CYCLE", `userInterfaceStyle: "dark"`, splash/adaptive icon
+    colors matching the theme).
+
+Tests (write first): migration runner (order, idempotence) with a fake; in-memory
+profile repository; tabs render; dark theme applied by default; locale detection
+(`pt-BR`, `pt-PT` → `pt-BR`; `en-US`, `de-DE` → `en`); override persists; `formatKg`
+in both locales; catalog key parity.
+
+Acceptance: `npm test`, `npx expo lint`, `npx tsc --noEmit` green; the app opens on web
+(`npx expo start --web`) showing the 5 tabs in the dark theme, in English or Portuguese
+depending on the setting; CI green on the PR.
+
+---
+
+## Stage 1 — Profile + reference 1RM · **sonnet**
+
+Scope (SPEC §2, §12.2 profiles):
+- Migration `reference_1rm_history`; repository with `getCurrent(profileId, lift)`,
   `listHistory`, `record(value, source)` (append-only).
-- `domain/validation.ts`: validação de 1RM (> 0, ≤ 600, 2 casas).
-- Onboarding (primeiro boot sem 1RMs) → Ajustes → 1RMs (editar a qualquer momento)
-  mostrando histórico por lift.
-- Seletor/criação/renomeação de perfis em Ajustes; troca de perfil isola dados.
+- `domain/validation.ts`: 1RM validation (> 0, ≤ 600, 2 decimals) returning error codes.
+- Onboarding (first boot without 1RMs) → Settings → 1RMs (edit anytime) showing history
+  per lift.
+- Profile selector/creation/rename in Settings; switching profile isolates data.
+- Language selector in Settings (System / English / Português) wired to Stage 0 i18n.
 
-Testes: validação (bordas), append-only (editar cria novo registro), atual = mais
-recente por data efetiva, isolamento por perfil, fluxo de onboarding (RTL).
+Tests: validation (edges), append-only (editing creates a new record), current = latest
+by effective date, profile isolation, onboarding flow (RTL) in both locales, decimal
+input with `,` in pt-BR.
 
-Aceite: usuário informa 1RMs, reabre o app e os valores persistem; histórico mostra
-versões anteriores.
-
----
-
-## Etapa 2 — Incrementos e arredondamento · **haiku**
-
-Escopo (SPEC §5): `domain/rounding.ts` (`roundLoad(kg, increment, mode)`), settings de
-incremento (presets + custom, override por lift opcional, modo), UI em Ajustes com
-preview "exemplo: 96,25 → 95,0 kg".
-
-Testes (tabela de casos): múltiplos exatos; empate → para baixo no modo nearest;
-1,25 / 1,5 / custom 0,5; modos down/up; valores grandes; sem erro de ponto flutuante
-(ex.: `roundLoad(0.1+0.2, …)`); custom inválido rejeitado.
-
-Aceite: alterar incremento persiste e o preview atualiza.
+Acceptance: the user enters 1RMs, reopens the app and the values persist; history shows
+previous versions.
 
 ---
 
-## Etapa 3 — Base de programas + 5/3/1 custom · **sonnet**
+## Stage 2 — Increments and rounding · **haiku**
 
-Escopo (SPEC §3.1–3.5):
-- `programs/schema.ts` (tipos da SPEC §3.2) + validador; teste que roda o validador em
-  **todos** os templates registrados (falha se faltar `source`, `version`, semanas
-  inconsistentes, etc.).
-- `programs/data/cycle-531-custom.ts` exatamente como SPEC §3.3-A.
-- `programs/registry.ts` (lista, busca por id, filtro por lift) e
-  `programs/blocks.ts` (`getBlock(template, startWeek)` → até 3 semanas, sem
-  comprimir; já testado com um template fake de 13 semanas).
-- Configuração dos percentuais do 5/3/1 por perfil (settings), faixa 30–105%.
-- Tela "Programas" (lista + detalhe da estrutura original, selo de verificação).
+Scope (SPEC §5): `domain/rounding.ts` (`roundLoad(kg, increment, mode)`), increment
+settings (presets + custom, optional per-lift override, mode), Settings UI with a preview
+"example: 96.25 → 95.0 kg" (localized formatting).
 
-Testes: schema, 5/3/1 = 3 sets em todas as semanas com reps 5/3/1, percentuais default
-e customizados, `getBlock` em bordas (início, fim parcial).
+Tests (case table): exact multiples; tie → down in nearest mode; 1.25 / 1.5 / custom
+0.5; down/up modes; large values; no floating-point error (e.g.
+`roundLoad(0.1 + 0.2, …)`); invalid custom rejected.
 
-Aceite: tela Programas lista o 5/3/1 custom com fonte e estrutura; percentuais editáveis.
+Acceptance: changing the increment persists and the preview updates.
 
 ---
 
-## Etapa 4 — Gerador de periodização + Tabela · **opus**
+## Stage 3 — Program database + custom 5/3/1 · **sonnet**
 
-Feature central; opus pela modelagem do motor e da reatividade.
+Scope (SPEC §3.1–3.5):
+- `programs/schema.ts` (SPEC §3.2 types) + validator; a test that runs the validator on
+  **all** registered templates (fails if `source`, `version` is missing, weeks are
+  inconsistent, etc.).
+- `programs/data/cycle-531-custom.ts` exactly as SPEC §3.3-A.
+- `programs/registry.ts` (list, find by id, filter by lift) and `programs/blocks.ts`
+  (`getBlock(template, startWeek)` → up to 3 weeks, never compressed; tested with a fake
+  13-week template).
+- Per-profile configuration of the 5/3/1 percentages (settings), range 30–105%.
+- "Programs" screen (list + original-structure detail, verification badge), localized.
 
-Escopo (SPEC §1, §4, §6-A):
-- Migration `session_slots`, `periodizations`, `generated_sessions`.
-- `domain/periodization.ts`: `generatePeriodization(slots, templates, ref1RMs,
-  rounding, params) → Periodization` puro; cálculo de carga exata + arredondada;
-  tonelagem e reps totais por sessão/semana/lift; avisos (1RM ausente, frequência
-  incompleta, dados não verificados → sem carga).
-- Store/selectors memorizados: qualquer mudança em slots, 1RM, rounding ou parâmetros
-  recalcula.
-- UI Periodização: editor de slots (adicionar, duplicar, remover, reordenar ↑/↓,
-  escolher lift → programa → dia → semana inicial do bloco), botão "Gerar/Ativar"
-  (salva snapshot com data de início) e **Visão Tabela** (SPEC §6-A), responsiva.
-- Nesta etapa só o 5/3/1 está disponível — o motor deve ser genérico (testado com
-  templates fake multi-dia, multi-semana, com `addKg` e itens acessórios).
+Tests: schema, 5/3/1 = 3 sets every week with reps 5/3/1, default and custom
+percentages, `getBlock` edge cases (start, partial end).
 
-Testes: casos do fluxo E2E da SPEC §13 passo 3; mistura de lifts; reordenação altera
-número da sessão; alterar 1RM recalcula; prescrição `unverified` não gera carga;
-performance (10 slots < 50 ms); componente tabela renderiza valores exatos/arredondados.
-
-Aceite: usuário monta 3 sessões com 5/3/1 (bench, squat, deadlift) e vê a tabela
-correta de 3 semanas; editar 1RM em Ajustes atualiza a tabela.
+Acceptance: the Programs screen lists the custom 5/3/1 with source and structure;
+percentages are editable.
 
 ---
 
-## Etapa 5 — Calendário + detalhe da sessão · **sonnet**
+## Stage 4 — Periodization generator + table · **opus**
 
-Escopo (SPEC §6-B): toggle Tabela | Calendário na Periodização, grade semana × sessão,
-rota `src/app/session/[id].tsx` com prescrição detalhada (sets, %, exata → arredondada,
-volume, acessórios, avisos, programa+versão+fonte). Ambas as visões consomem o mesmo
+Central feature; opus for engine modeling and reactivity.
+
+Scope (SPEC §1, §4, §6-A):
+- Migrations `session_slots`, `periodizations`, `generated_sessions`.
+- `domain/periodization.ts`: pure `generatePeriodization(slots, templates, ref1RMs,
+  rounding, params) → Periodization`; exact + rounded load; tonnage and total reps per
+  session/week/lift; warnings as codes (missing 1RM, incomplete frequency, unverified
+  data → no load).
+- Memoized store/selectors: any change to slots, 1RM, rounding or params recalculates.
+- Periodization UI: slot editor (add, duplicate, remove, reorder ↑/↓, choose lift →
+  program → day → block starting week), "Generate/Activate" button (saves a snapshot
+  with a start date) and **Table view** (SPEC §6-A), responsive.
+- Only 5/3/1 is available at this stage — the engine must be generic (tested with fake
+  multi-day, multi-week templates with `addKg` and accessory items).
+
+Tests: SPEC §13 step 3 cases; mixed lifts; reordering changes the session number;
+changing 1RM recalculates; `unverified` prescription produces no load; performance (10
+slots < 50 ms); table component renders exact/rounded values in both locales.
+
+Acceptance: the user builds 3 sessions with 5/3/1 (bench, squat, deadlift) and sees the
+correct three-week table; editing a 1RM in Settings updates the table.
+
+---
+
+## Stage 5 — Calendar + session detail · **sonnet**
+
+Scope (SPEC §6-B): Table | Calendar toggle in Periodization, week × session grid, route
+`src/app/session/[id].tsx` with the detailed prescription (sets, %, exact → rounded,
+volume, accessories, warnings, program + version + source). Both views consume the same
 selector.
 
-Testes: sincronização (alterar slot reflete nas duas visões), navegação para o detalhe
-com params corretos, render do detalhe.
+Tests: synchronization (changing a slot is reflected in both views), navigation to the
+detail with correct params, detail render.
 
-Aceite: tocar em qualquer card abre o detalhe correto.
-
----
-
-## Etapa 6 — Smolov Jr. · **opus**
-
-Opus pela exigência de fidelidade e pesquisa de fontes.
-
-Escopo (SPEC §3.3-C):
-1. Pesquisar e identificar fonte(s) do Smolov Jr. original; registrar em
-   `source` e `docs/DECISIONS.md` (citações, URLs, data de acesso, divergências entre
-   fontes e qual foi adotada).
-2. Transcrever para `programs/data/smolov-jr.ts`: 3 semanas × 4 dias, sets/reps/%
-   e incrementos absolutos semanas 2–3 como parâmetro `configurable` com faixa original
-   (diferenciando superiores/inferiores se o original o fizer).
-3. Lift selecionável; UI de parâmetro no editor de slot (bloqueia fora da faixa).
-4. Ação "Adicionar todos os dias deste programa"; aviso de frequência incompleta.
-
-Testes: snapshot dos dados contra a tabela da fonte (teste explícito por dia), cálculo
-de cargas das semanas 2–3 com incremento, validação da faixa, schema.
-
-Aceite: configuração da SPEC §13 (Sessão 2 = Bench / Smolov Jr. dia 1) gera cargas
-corretas nas 3 semanas.
+Acceptance: tapping any card opens the correct detail.
 
 ---
 
-## Etapa 7 — Smolov (original completo) · **opus**
+## Stage 6 — Smolov Jr. · **opus**
 
-Escopo (SPEC §3.3-B): pesquisa de fonte; transcrição completa (todas as fases e
-semanas, incluindo microciclo introdutório, base, switching, intenso e taper/teste);
-o que não for confirmável fica `unverified` com nota; seleção de semana inicial do
-bloco na UI (bloco parcial no fim). Lift fixo squat.
+Opus for the fidelity and source-research requirements.
 
-Testes: snapshot por semana/dia, duração total, nenhuma semana comprimida,
-`getBlock` em todas as posições válidas, prescrições `unverified` sem carga.
+Scope (SPEC §3.3-C):
+1. Research and identify source(s) for the original Smolov Jr.; record them in `source`
+   and `docs/DECISIONS.md` (citations, URLs, access date, discrepancies between sources
+   and which one was adopted).
+2. Transcribe into `programs/data/smolov-jr.ts`: 3 weeks × 4 days, sets/reps/% and the
+   week 2–3 absolute increments as a `configurable` parameter with the original range
+   (distinguishing upper/lower body if the original does).
+3. Selectable lift; parameter UI in the slot editor (rejects values outside the range).
+4. "Add all days of this program" action; incomplete-frequency warning.
 
-Aceite: usuário escolhe Smolov e navega por qualquer bloco de 3 semanas das ~13.
+Tests: data snapshot against the source table (explicit test per day), week 2–3 loads
+with increment, range validation, schema.
 
----
-
-## Etapa 8 — Sheiko (múltiplos templates) · **opus**
-
-Escopo (SPEC §3.3-D): pesquisa e seleção dos templates com fonte confiável (cada um
-um arquivo `programs/data/sheiko-<id>.ts`); dias multi-lift (filtra itens pelo lift do
-slot, mostra os demais itens do dia como informação); acessórios como
-`kind: 'accessory'`; seletor de template no editor de slot; tela Programas agrupa
-"Sheiko" com seus templates.
-
-Testes: snapshot por template, filtro por lift em dias multi-lift, templates longos com
-blocos, schema.
-
-Aceite: Sessão 4 da SPEC §13 (Deadlift / Sheiko) gera prescrição correta; templates não
-verificados exibem o selo e não calculam carga onde faltam dados.
+Acceptance: the SPEC §13 configuration (Session 2 = Bench / Smolov Jr. day 1) generates
+correct loads across the 3 weeks.
 
 ---
 
-## Etapa 9 — Registro de desempenho + RIR/RPE · **sonnet**
+## Stage 7 — Smolov (full original) · **opus**
 
-Escopo (SPEC §7): migrations `performed_sessions`, `performed_sets`; `domain/rpe.ts`
-(mapeamento e conversões, inclusive meio ponto, validação de divergência); tela de
-registro a partir do detalhe da sessão (pré-preenchimento com a carga prescrita, sets
-extras, notas, rascunho auto-salvo, "Concluir sessão" com snapshot); comparação
-prescrito × real; tab **Treino** mostra a próxima sessão pendente e sessões em andamento.
+Scope (SPEC §3.3-B): source research; full transcription (every phase and week,
+including the introductory microcycle, base, switching, intense and taper/test);
+anything that cannot be confirmed is `unverified` with a note; block starting-week
+selection in the UI (partial block at the end). Lift fixed to squat. Phase labels in en
+(+ pt-BR translation).
 
-Testes: tabela RIR↔RPE completa, RPE→RIR com meio ponto, divergência > 0,5 é erro,
-validações de campos, rascunho persiste, snapshot imutável após mudar 1RM.
+Tests: snapshot per week/day, total duration, no compressed week, `getBlock` at every
+valid position, `unverified` prescriptions produce no load.
 
-Aceite: passo 4 do fluxo da SPEC §13.
-
----
-
-## Etapa 10 — Motor de e1RM · **opus**
-
-Escopo (SPEC §8): `domain/e1rm/` com `rts` (tabela transcrita com fonte),
-`epley-rir`, `brzycki-rir`; regras de validade; seleção do set representativo;
-migration `e1rm_history`; exibição imediata após set válido e no resumo; comparação
-com e1RM anterior; seleção de fórmula em Ajustes; ação "Usar como novo 1RM de
-referência" (confirmação, origem `from_e1rm`).
-
-Testes: exemplo de aceitação da SPEC §8.1 (valores exatos), bordas de validade (RIR 5,
-n = 13, r = 0), seleção representativa (todos os desempates), sessão com vários sets gera
-um único registro por lift, troca de fórmula não reescreve histórico.
-
-Aceite: passo 5 do fluxo da SPEC §13 (até o e1RM gravado).
+Acceptance: the user chooses Smolov and browses any 3-week block of the ~13 weeks.
 
 ---
 
-## Etapa 11 — Dashboard de progressão · **sonnet**
+## Stage 8 — Sheiko (multiple templates) · **opus**
 
-Escopo (SPEC §9): `domain/stats.ts` (atual, último, anterior, maior, Δ kg, Δ %,
-baseline por período); `npx expo install react-native-svg`; componente `LineChart`
-próprio (linha e1RM + degraus de 1RM de referência, eixos, toque/hover com tooltip);
-tela Progresso com 3 seções (Bench, Squat, Deadlift) e filtro de período.
+Scope (SPEC §3.3-D): research and selection of templates with a reliable source (one
+file per template, `programs/data/sheiko-<id>.ts`); multi-lift days (filter items by the
+slot's lift, show the day's other items as information); accessories as
+`kind: 'accessory'`; template selector in the slot editor; the Programs screen groups
+"Sheiko" with its templates.
 
-Testes: estatísticas (histórico vazio, 1 ponto, vários, baseline por período), escala do
-gráfico (domínio/ticks), render e interação do tooltip.
+Tests: snapshot per template, lift filtering on multi-lift days, long templates with
+blocks, schema.
 
-Aceite: após registrar sessões, os cards e gráficos refletem os dados.
-
----
-
-## Etapa 12 — Histórico de treinos · **sonnet**
-
-Escopo (SPEC §10): lista com filtros (lift, programa, período), detalhe com
-prescrito × real, RIR/RPE, e1RM, comparação com sessões anteriores equivalentes;
-edição de sessão passada recalcula apenas seu e1RM.
-
-Testes: filtros, ordenação, imutabilidade (mudar programa/1RM não altera histórico),
-edição recalcula e1RM daquela sessão apenas.
-
-Aceite: passo 5–6 do fluxo da SPEC §13 (Histórico lista a sessão; ela não muda após
-alterar 1RM).
+Acceptance: SPEC §13 Session 4 (Deadlift / Sheiko) generates the correct prescription;
+unverified templates show the badge and calculate no load where data is missing.
 
 ---
 
-## Etapa 13 — Dashboard inicial + responsividade · **sonnet**
+## Stage 9 — Performance tracking + RIR/RPE · **sonnet**
 
-Escopo (SPEC §11): tela Dashboard (periodização ativa: semana atual, próxima sessão,
-último e1RM por lift, atalhos); revisão de layout desktop (sidebar com todas as seções,
-tabela 3 semanas lado a lado) e mobile; auditoria de acessibilidade (labels, alvos,
-contraste) e de textos pt-BR.
+Scope (SPEC §7): migrations `performed_sessions`, `performed_sets`; `domain/rpe.ts`
+(mapping and conversions, including half points, divergence validation); logging screen
+from the session detail (pre-filled with the prescribed load, extra sets, notes,
+auto-saved draft, "Complete session" with snapshot); prescribed vs. actual comparison;
+the **Training** tab shows the next pending session and sessions in progress.
 
-Testes: render do Dashboard com e sem dados; layout responsivo em larguras 375 / 1280
-(mock de dimensões).
+Tests: full RIR↔RPE table, RPE→RIR with half points, divergence > 0.5 is an error, field
+validation, draft persists, snapshot immutable after changing 1RM.
 
-Aceite: navegação completa em mobile e web sem telas placeholder restantes.
+Acceptance: SPEC §13 step 4.
 
 ---
 
-## Etapa 14 — Revisão final, E2E e documentação · **opus**
+## Stage 10 — e1RM engine · **opus**
 
-Escopo: teste de integração cobrindo todo o fluxo da SPEC §13 (repositórios em
-memória + telas); revisão crítica de precisão matemática e fidelidade dos dados dos
-programas contra as fontes registradas; `npx expo-doctor`; README com setup, arquitetura,
-fontes dos programas e limitações (dados `unverified`); corrigir divergências encontradas
-(em PRs pequenos se necessário).
+Scope (SPEC §8): `domain/e1rm/` with `rts` (transcribed chart with source), `epley-rir`,
+`brzycki-rir`; validity rules; representative-set selection; migration `e1rm_history`;
+immediate display after a valid set and in the summary; comparison with the previous
+e1RM; formula selection in Settings; "Use as new reference 1RM" action (confirmation,
+origin `from_e1rm`).
 
-Aceite: fluxo E2E verde no CI; todas as etapas ✅ na tabela de status.
+Tests: SPEC §8.1 acceptance example (exact values), validity edges (RIR 5, n = 13,
+r = 0), representative selection (every tie-breaker), a multi-set session yields a
+single record per lift, changing formula does not rewrite history.
+
+Acceptance: SPEC §13 step 5 (up to the stored e1RM).
+
+---
+
+## Stage 11 — Progression dashboard · **sonnet**
+
+Scope (SPEC §9): `domain/stats.ts` (current, latest, previous, highest, Δ kg, Δ %,
+baseline per period); `npx expo install react-native-svg`; in-house `LineChart` (e1RM
+line + reference-1RM steps, axes, tap/hover tooltip, localized axis labels and dates);
+Progress screen with 3 sections (Bench, Squat, Deadlift) and period filter.
+
+Tests: statistics (empty history, 1 point, many, baseline per period), chart scale
+(domain/ticks), render and tooltip interaction.
+
+Acceptance: after logging sessions, cards and charts reflect the data.
+
+---
+
+## Stage 12 — Training history · **sonnet**
+
+Scope (SPEC §10): list with filters (lift, program, period), detail with prescribed vs.
+actual, RIR/RPE, e1RM, comparison with equivalent previous sessions; editing a past
+session recomputes only its e1RM.
+
+Tests: filters, ordering, immutability (changing program/1RM does not alter history),
+editing recomputes only that session's e1RM.
+
+Acceptance: SPEC §13 steps 5–6 (History lists the session; it does not change after
+changing the 1RM).
+
+---
+
+## Stage 13 — Home dashboard + responsiveness + i18n audit · **sonnet**
+
+Scope (SPEC §11): Dashboard screen (active periodization: current week, next session,
+latest e1RM per lift, shortcuts); desktop layout review (sidebar with every section,
+three-week table side by side) and mobile; accessibility audit (labels, targets,
+contrast); full i18n audit — no hard-coded strings, every screen reviewed in `en` and
+`pt-BR`, number/date formatting consistent.
+
+Tests: Dashboard render with and without data; responsive layout at widths 375 / 1280
+(mocked dimensions); a static check/test that flags string literals rendered directly in
+`<Text>` inside `src/app` and `src/components`.
+
+Acceptance: full navigation on mobile and web, no placeholder screens left, the app is
+fully usable in both languages.
+
+---
+
+## Stage 14 — Final review, E2E and documentation · **opus**
+
+Scope: integration test covering the whole SPEC §13 flow (in-memory repositories +
+screens, including the language switch); critical review of mathematical accuracy and
+program-data fidelity against the recorded sources; `npx expo-doctor`; README (in
+English) with setup, architecture, program sources, i18n guide (how to add strings) and
+limitations (`unverified` data); fix any discrepancies found (in small PRs if needed).
+
+Acceptance: E2E flow green in CI; every stage ✅ in the status table.
