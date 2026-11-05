@@ -18,6 +18,8 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="settings" />
+          <Stack.Screen name="programs/index" />
+          <Stack.Screen name="programs/[id]" />
         </Stack>
       </OnboardingGate>
     </AppProviders>

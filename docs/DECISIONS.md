@@ -177,3 +177,40 @@ the reference shipped with the installed package
 - **Naming.** The option that follows the profile default is labelled "Use default" (pt-BR
   "Usar padrão"), not "Default", so it does not collide with the profile button of the same
   name in Settings.
+
+## 2026-11-05 — Stage 4: Program database + custom 5/3/1
+
+- **Schema additions to SPEC §3.2.** `SetPrescription.percentParam` links a set to a `fraction`
+  parameter (its `percent` must equal the parameter default, checked by the validator), so the
+  template stays self-describing and `resolveTemplate` can apply the athlete's values.
+  `ParamRef` is `{ param: string }` and is used by `addKg` (unit `kg`). `ConfigurableParam` is
+  `{ id, label, unit: 'fraction' | 'kg', min, max, step?, default, source }`.
+- **5/3/1 representation.** One `main` item per week with `lift: 'selected'` and a single set
+  entry with `repeat: 3` (the 6×6 idiom of the schema); `totalSets` expands it. The three
+  percentages are the parameters `week1Percent`, `week2Percent`, `week3Percent`
+  (30–105 %, step 0.5 %, defaults 75/85/95 %). Source: the user's definition, `docs/SPEC.md`
+  §3.3-A, accessed 2026-11-05, with a note that it is not Wendler's 5/3/1.
+- **Validator rules beyond the SPEC list.** Contiguous week and day numbering, `daysPerWeek`
+  days in every week, `liftSelectable` iff more than one allowed lift, lift of each main item
+  allowed by the template, a set without percent must be `unverified` with a note, and a
+  `verified` template may not contain unverified sets. Percentages are limited to (0, 150 %].
+- **Block rules.** `getBlock` accepts a start week from 1 to `durationWeeks` and returns the
+  existing weeks only (partial block at the end), throwing `RangeError` otherwise.
+  `maxBlockStartWeek` (`durationWeeks - 2`, at least 1) is what the generator UI offers
+  (SPEC §4.1).
+- **Parameter storage.** Table `program_params(profile_id, template_id, param_id, value)`
+  (migration 005), generic so Smolov Jr. increments reuse it. The range is per template, so the
+  repository only requires a finite number and the store validates with `validateParamValue`
+  (error codes `belowMin`, `aboveMax`, `notMultipleOfStep`, `invalidNumber`, `unknownParam` in
+  `InvalidProgramParamError`). A stored value that is no longer valid falls back to the default.
+  The data layer therefore does not import `src/programs/`.
+- **Exact steps.** Parameter steps are checked on micro-units, so `0.755` is on the 0.5 % step and
+  floating-point noise (`0.1 + 0.2`) cannot reject a valid value. The UI edits percentages
+  (75.5) and converts to fractions (0.755) with integer rounding.
+- **Programs routes.** `/programs` (list) and `/programs/[id]` (detail) are stack routes opened
+  from More, like Settings; screens live in `src/components/programs/`. The list shows
+  version, source, duration, frequency and a verification badge; the detail also shows the
+  accessed date and notes, the percentage editor and the full structure. Template names,
+  versions and source texts are stored in English (SPEC §3.1 rule 8) and are not translated;
+  labels around them are. Unverified sets show "—" instead of a percentage plus their note and
+  an "Unverified data" badge, and no load is ever shown in this screen.

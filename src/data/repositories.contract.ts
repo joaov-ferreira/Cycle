@@ -332,5 +332,70 @@ export function describeRepositoriesContract(name: string, factory: Repositories
         await expect(repos.rounding.setLiftIncrement(8, 'bench', 1)).rejects.toThrow(ProfileNotFoundError);
       });
     });
+
+    describe('program parameters', () => {
+      it('starts empty', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        expect(await repos.programParams.getAll(p.id)).toEqual({});
+      });
+
+      it('stores values per template and parameter, exactly', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        expect(await repos.programParams.set(p.id, 'cycle-531-custom', 'week1Percent', 0.755)).toEqual({
+          'cycle-531-custom': { week1Percent: 0.755 },
+        });
+        await repos.programParams.set(p.id, 'cycle-531-custom', 'week2Percent', 0.9);
+        await repos.programParams.set(p.id, 'other', 'x', 3);
+        expect(await repos.programParams.getAll(p.id)).toEqual({
+          'cycle-531-custom': { week1Percent: 0.755, week2Percent: 0.9 },
+          other: { x: 3 },
+        });
+      });
+
+      it('overwrites a stored value', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        await repos.programParams.set(p.id, 't', 'a', 1);
+        expect(await repos.programParams.set(p.id, 't', 'a', 2)).toEqual({ t: { a: 2 } });
+      });
+
+      it('resets all parameters of one template only', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        await repos.programParams.set(p.id, 't', 'a', 1);
+        await repos.programParams.set(p.id, 't', 'b', 2);
+        await repos.programParams.set(p.id, 'u', 'a', 3);
+        expect(await repos.programParams.reset(p.id, 't')).toEqual({ u: { a: 3 } });
+        expect(await repos.programParams.reset(p.id, 'nothing')).toEqual({ u: { a: 3 } });
+      });
+
+      it('isolates values per profile', async () => {
+        const repos = await factory(fixedClock);
+        const a = await repos.profiles.create({ name: 'Ana' });
+        const b = await repos.profiles.create({ name: 'Bruno' });
+        await repos.programParams.set(a.id, 't', 'a', 1);
+        expect(await repos.programParams.getAll(b.id)).toEqual({});
+        await repos.programParams.reset(b.id, 't');
+        expect(await repos.programParams.getAll(a.id)).toEqual({ t: { a: 1 } });
+      });
+
+      it('rejects non-finite values and keeps the stored one', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        await repos.programParams.set(p.id, 't', 'a', 1);
+        await expect(repos.programParams.set(p.id, 't', 'a', Number.NaN)).rejects.toThrow(RangeError);
+        await expect(repos.programParams.set(p.id, 't', 'a', Infinity)).rejects.toThrow(RangeError);
+        expect(await repos.programParams.getAll(p.id)).toEqual({ t: { a: 1 } });
+      });
+
+      it('throws ProfileNotFoundError for an unknown profile', async () => {
+        const repos = await factory(fixedClock);
+        await expect(repos.programParams.getAll(9)).rejects.toThrow(ProfileNotFoundError);
+        await expect(repos.programParams.set(9, 't', 'a', 1)).rejects.toThrow(ProfileNotFoundError);
+        await expect(repos.programParams.reset(9, 't')).rejects.toThrow(ProfileNotFoundError);
+      });
+    });
   });
 }

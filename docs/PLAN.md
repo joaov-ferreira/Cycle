@@ -45,7 +45,7 @@ When done, open the PR to main and update the stage status in PLAN.md within the
 | 1 | Foundation (tests, theme, navigation, i18n, DB) | opus | `feat/01-foundation` | ✅ |
 | 2 | Profile + 1RM registration + 1RM history | sonnet | `feat/02-reference-1rm` | ✅ |
 | 3 | Increments and rounding | haiku | `feat/03-rounding` | ✅ |
-| 4 | Program database + custom 5/3/1 + Programs screen | sonnet | `feat/04-programs-531` | ⬜ |
+| 4 | Program database + custom 5/3/1 + Programs screen | sonnet | `feat/04-programs-531` | ✅ |
 | 5 | Periodization generator + three-week table | opus | `feat/05-periodization` | ⬜ |
 | 6 | Calendar + session detail | sonnet | `feat/06-calendar` | ⬜ |
 | 7 | Smolov Jr. | opus | `feat/07-smolov-jr` | ⬜ |

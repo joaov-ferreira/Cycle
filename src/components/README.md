@@ -9,6 +9,8 @@
 - `onboarding/` — first-run 1RM gate. `settings/` — Settings screen sections (profiles,
   1RMs and history, increments and rounding, language). `one-rm/` — the three-lift 1RM form.
   `rounding/` — `IncrementPicker` (presets and custom increment).
+- `programs/` — Programs screen (list), program detail, original-structure view and the
+  percentage editor.
 - `navigation/` — main tabs and the wide-screen sidebar.
 
 Rules:

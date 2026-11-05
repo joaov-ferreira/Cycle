@@ -8,7 +8,9 @@ SQLite (`expo-sqlite`) database, versioned migrations and repositories.
   register them in `migrations/index.ts`; never edit a released migration.
 - `repositories.ts` — repository **interfaces** and entity types (`profiles` incl. rename and
   the remembered active profile, `settings`, append-only `referenceOneRms`, `rounding`:
-  the load increment, rounding mode and per-lift increment overrides).
+  the load increment, rounding mode and per-lift increment overrides, `programParams`:
+  athlete-chosen values of configurable template parameters, by template and parameter id;
+  ranges are validated by `src/programs/` through the store, not by the repository).
 - `memory/` — in-memory implementation (tests).
 - `sqlite/` — SQLite implementation and `openAppDatabase()` / `openSqliteRepositories()`.
 - `repositories.contract.ts` — one behavioral test suite run against **both**

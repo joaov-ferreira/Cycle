@@ -7,7 +7,8 @@ Connects persistence (`src/data/`) and the math engine (`src/domain/`) to the UI
   persist through the repositories before updating state.
   Also profiles (create / rename / switch), the active profile's reference 1RM history
   (`saveReferenceOneRms`), the onboarding flag (`completeOnboarding`) and the rounding
-  settings (`setIncrementKg`, `setRoundingMode`, `setLiftIncrementKg`).
+  settings (`setIncrementKg`, `setRoundingMode`, `setLiftIncrementKg`) and the program parameters
+  (`setProgramParam`, `resetProgramParams`; values are checked against the template's range).
 - `app-store-context.tsx` — `AppStoreProvider` and `useAppStore(selector)`.
 - Derived data is exposed through selectors (`select*`), so screens never recompute it
   by hand (SPEC §12.5).

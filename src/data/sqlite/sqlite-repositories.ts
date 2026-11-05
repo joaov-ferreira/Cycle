@@ -13,6 +13,7 @@ import {
   type Profile,
   type ReferenceOneRm,
   type Repositories,
+  type ProgramParamValues,
   type RoundingSettings,
   type RoundingSettingsPatch,
   type Settings,
@@ -67,6 +68,7 @@ const SETTINGS_COLUMNS: Record<keyof SettingsPatch, string> = {
 };
 
 type RoundingRow = { increment_kg: number; rounding_mode: RoundingMode };
+type ParamRow = { template_id: string; param_id: string; value: number };
 type OverrideRow = { lift: Lift; increment_kg: number };
 
 const toSqlValue = (value: string | boolean | undefined): string | number =>
@@ -109,6 +111,19 @@ export function createSqliteRepositories(
         overrides.map((o) => [o.lift, o.increment_kg]),
       ) as Partial<Record<Lift, number>>,
     };
+  }
+
+  async function getParams(profileId: number): Promise<ProgramParamValues> {
+    await requireProfile(profileId);
+    const rows = await db.getAllAsync<ParamRow>(
+      'SELECT template_id, param_id, value FROM program_params WHERE profile_id = ? ORDER BY template_id, param_id',
+      [profileId],
+    );
+    const values: ProgramParamValues = {};
+    for (const row of rows) {
+      values[row.template_id] = { ...values[row.template_id], [row.param_id]: row.value };
+    }
+    return values;
   }
 
   return {
@@ -253,6 +268,27 @@ export function createSqliteRepositories(
           );
         }
         return getRounding(profileId);
+      },
+    },
+    programParams: {
+      getAll: getParams,
+      async set(profileId: number, templateId: string, paramId: string, value: number) {
+        await requireProfile(profileId);
+        if (!Number.isFinite(value)) throw new RangeError(`Program parameter must be finite: ${value}`);
+        await db.runAsync(
+          `INSERT INTO program_params (profile_id, template_id, param_id, value) VALUES (?, ?, ?, ?)
+           ON CONFLICT (profile_id, template_id, param_id) DO UPDATE SET value = excluded.value`,
+          [profileId, templateId, paramId, value],
+        );
+        return getParams(profileId);
+      },
+      async reset(profileId: number, templateId: string) {
+        await requireProfile(profileId);
+        await db.runAsync('DELETE FROM program_params WHERE profile_id = ? AND template_id = ?', [
+          profileId,
+          templateId,
+        ]);
+        return getParams(profileId);
       },
     },
   };

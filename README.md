@@ -29,7 +29,12 @@ Bench, Squat and Deadlift 1RMs, and Settings (More → Settings) to switch, crea
 rename profiles, edit the 1RMs (every change appends a record; the history is shown per
 lift) and choose the language (System / English / Português). Stage 3 adds load increments
 and rounding to Settings: the rounding mode, the default increment (a preset or a custom
-value), a per-lift increment override, and a live example (`96.25 kg → 95.0 kg`). Features
+value), a per-lift increment override, and a live example (`96.25 kg → 95.0 kg`). Stage 4
+adds the program database and the Programs screen (More → Programs): each template with
+its version, source, duration, frequency and verification badge, and a detail view with the
+full original structure week by week. The first template is the custom 5/3/1 (3 sets of
+5 / 3 / 1 reps at 75 / 85 / 95 % by default); its three percentages can be edited per
+profile (30–105 % in 0.5 % steps). Features
 are built stage by stage; the current state of each stage is in the status table of
 [`docs/PLAN.md`](docs/PLAN.md).
 
@@ -70,6 +75,14 @@ load is never prescribed above its percentage), `down` and `up`. The default inc
 2.5 kg, a preset (1, 1.25, 1.5, 2 or 2.5 kg) or a custom value (0.1–25 kg in 0.05 steps).
 Each lift can override the default increment. The settings are stored per profile in
 `rounding_settings` and `lift_increment_overrides`.
+
+Program templates (SPEC §3) live in `src/programs/`: the schema (`schema.ts`), one file per
+template in `data/`, `validate.ts` (a test validates every registered template and fails if
+one omits its source or version), the `registry.ts` (list, find by id, filter by lift),
+`blocks.ts` (`getBlock(template, startWeek)`: three consecutive weeks, never compressed,
+fewer at the end of the program) and `params.ts` (configurable parameters such as the 5/3/1
+percentages, with their allowed range). Parameter values chosen by the athlete are stored
+per profile in `program_params`; the template defaults apply until one is saved.
 
 Supporting folders: `src/constants/theme.ts` (design tokens) and `src/test-utils/`
 (test-only helpers). Each layer has a `README.md` describing its contents and dependency

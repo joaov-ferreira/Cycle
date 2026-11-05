@@ -122,11 +122,27 @@ export interface RoundingRepository {
   ): Promise<RoundingSettings>;
 }
 
+/** Chosen parameter values by template id, then parameter id (SPEC §3.4). */
+export type ProgramParamValues = Record<string, Record<string, number>>;
+
+export interface ProgramParamRepository {
+  /** Every stored value of the profile; parameters never set are absent (use the default). */
+  getAll(profileId: number): Promise<ProgramParamValues>;
+  /**
+   * Stores one value. The repository only requires a finite number (`RangeError` otherwise);
+   * the allowed range belongs to the template and is checked by the caller.
+   */
+  set(profileId: number, templateId: string, paramId: string, value: number): Promise<ProgramParamValues>;
+  /** Forgets every stored value of one template, restoring its defaults. */
+  reset(profileId: number, templateId: string): Promise<ProgramParamValues>;
+}
+
 export type Repositories = {
   profiles: ProfileRepository;
   settings: SettingsRepository;
   referenceOneRms: ReferenceOneRmRepository;
   rounding: RoundingRepository;
+  programParams: ProgramParamRepository;
 };
 
 export type Clock = () => Date;

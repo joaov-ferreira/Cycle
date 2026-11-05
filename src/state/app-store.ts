@@ -7,6 +7,7 @@ import {
   ProfileNotFoundError,
   type OneRmOrigin,
   type Profile,
+  type ProgramParamValues,
   type ReferenceOneRm,
   type Repositories,
   type RoundingSettings,
@@ -23,6 +24,8 @@ import {
 } from '@/domain/rounding';
 import { validateProfileName, validateReferenceOneRm, type ProfileNameError } from '@/domain/validation';
 import type { LanguageSetting } from '@/i18n/locale';
+import { resolveParamValues, validateParamValue, type ParamValueError } from '@/programs/params';
+import { findTemplate } from '@/programs/registry';
 
 export type AppStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -34,6 +37,15 @@ export class InvalidProfileNameError extends Error {
   constructor(readonly code: ProfileNameError) {
     super(`Invalid profile name: ${code}`);
     this.name = 'InvalidProfileNameError';
+  }
+}
+
+/** Thrown for a parameter value outside its template's allowed range (SPEC §3.4). */
+export class InvalidProgramParamError extends Error {
+  readonly code = 'INVALID_PROGRAM_PARAM';
+  constructor(readonly reason: ParamValueError | 'unknownParam') {
+    super(`Invalid program parameter: ${reason}`);
+    this.name = 'InvalidProgramParamError';
   }
 }
 
@@ -68,6 +80,15 @@ export type AppState = {
   setRoundingMode: (mode: RoundingMode) => Promise<void>;
   /** Sets the increment of one lift, or removes its override with `null`. */
   setLiftIncrementKg: (lift: Lift, incrementKg: number | null) => Promise<void>;
+  /** Athlete-chosen template parameters of the active profile; absent means default. */
+  programParams: ProgramParamValues;
+  /**
+   * Saves a template parameter (e.g. a custom 5/3/1 percentage). Throws
+   * `InvalidProgramParamError` unless the value is within the template's range and step.
+   */
+  setProgramParam: (templateId: string, paramId: string, value: number) => Promise<void>;
+  /** Restores every parameter of a template to its default. */
+  resetProgramParams: (templateId: string) => Promise<void>;
 };
 
 export type AppStore = StoreApi<AppState>;
@@ -98,13 +119,14 @@ export function createAppStore(repos: Repositories): AppStore {
 
     /** Loads everything belonging to `profile` in one go, so state never mixes profiles. */
     async function loadProfile(profile: Profile) {
-      const [profiles, settings, oneRmHistory, rounding] = await Promise.all([
+      const [profiles, settings, oneRmHistory, rounding, programParams] = await Promise.all([
         repos.profiles.list(),
         repos.settings.get(profile.id),
         repos.referenceOneRms.listHistory(profile.id),
         repos.rounding.get(profile.id),
+        repos.programParams.getAll(profile.id),
       ]);
-      set({ status: 'ready', profile, profiles, settings, oneRmHistory, rounding });
+      set({ status: 'ready', profile, profiles, settings, oneRmHistory, rounding, programParams });
     }
 
     async function saveReferenceOneRms(values: OneRmValues, origin: OneRmOrigin) {
@@ -134,6 +156,7 @@ export function createAppStore(repos: Repositories): AppStore {
       settings: null,
       oneRmHistory: [],
       rounding: null,
+      programParams: {},
       async init(defaultProfileName) {
         set({ status: 'loading' });
         try {
@@ -182,6 +205,18 @@ export function createAppStore(repos: Repositories): AppStore {
         const profile = requireReady();
         set({ rounding: await repos.rounding.setLiftIncrement(profile.id, lift, incrementKg) });
       },
+      async setProgramParam(templateId, paramId, value) {
+        const profile = requireReady();
+        const param = findTemplate(templateId)?.configurable?.find((p) => p.id === paramId);
+        if (!param) throw new InvalidProgramParamError('unknownParam');
+        const invalid = validateParamValue(param, value);
+        if (invalid) throw new InvalidProgramParamError(invalid);
+        set({ programParams: await repos.programParams.set(profile.id, templateId, paramId, value) });
+      },
+      async resetProgramParams(templateId) {
+        const profile = requireReady();
+        set({ programParams: await repos.programParams.reset(profile.id, templateId) });
+      },
     };
   });
 }
@@ -226,3 +261,24 @@ export const selectIncrementKg =
   (lift: Lift) =>
   (state: AppState): number =>
     effectiveIncrement(lift, selectDefaultIncrementKg(state), state.rounding?.liftIncrementsKg ?? {});
+
+const NO_OVERRIDES: Record<string, number> = {};
+
+/**
+ * The stored (overridden) parameter values of a template. The reference is stable until the
+ * values change, so it is safe as a selector result; resolve defaults with `resolveParamValues`.
+ */
+export const selectProgramParamOverrides =
+  (templateId: string) =>
+  (state: AppState): Record<string, number> =>
+    state.programParams[templateId] ?? NO_OVERRIDES;
+
+/** The value in effect for one template parameter: the saved one when valid, else the default. */
+export const selectProgramParamValue =
+  (templateId: string, paramId: string) =>
+  (state: AppState): number | undefined => {
+    const template = findTemplate(templateId);
+    return template
+      ? resolveParamValues(template, selectProgramParamOverrides(templateId)(state))[paramId]
+      : undefined;
+  };

@@ -3,6 +3,9 @@ import type { Repositories } from '@/data/repositories';
 
 import {
   createAppStore,
+  InvalidProgramParamError,
+  selectProgramParamOverrides,
+  selectProgramParamValue,
   selectColorScheme,
   selectCurrentOneRm,
   selectDefaultIncrementKg,
@@ -345,5 +348,98 @@ describe('app store: increments and rounding (SPEC §5)', () => {
     await expect(store.getState().setIncrementKg(1)).rejects.toThrow('App store is not ready');
     await expect(store.getState().setRoundingMode('down')).rejects.toThrow('App store is not ready');
     await expect(store.getState().setLiftIncrementKg('bench', 1)).rejects.toThrow('App store is not ready');
+  });
+});
+
+describe('app store: program parameters', () => {
+  const T = 'cycle-531-custom';
+
+  async function readyStore() {
+    const repos = createMemoryRepositories();
+    const store = createAppStore(repos);
+    await store.getState().init('Default');
+    return { repos, store };
+  }
+
+  it('uses the template defaults until a value is saved', async () => {
+    const { store } = await readyStore();
+    const state = store.getState();
+    expect(selectProgramParamValue(T, 'week1Percent')(state)).toBe(0.75);
+    expect(selectProgramParamValue(T, 'week2Percent')(state)).toBe(0.85);
+    expect(selectProgramParamValue(T, 'week3Percent')(state)).toBe(0.95);
+    expect(selectProgramParamOverrides(T)(state)).toEqual({});
+  });
+
+  it('saves a valid value and persists it', async () => {
+    const { repos, store } = await readyStore();
+    await store.getState().setProgramParam(T, 'week1Percent', 0.8);
+    expect(selectProgramParamValue(T, 'week1Percent')(store.getState())).toBe(0.8);
+    expect(selectProgramParamOverrides(T)(store.getState())).toEqual({ week1Percent: 0.8 });
+    expect(await repos.programParams.getAll(1)).toEqual({ [T]: { week1Percent: 0.8 } });
+  });
+
+  it('accepts the range limits 30 % and 105 % and half-percent steps', async () => {
+    const { store } = await readyStore();
+    await store.getState().setProgramParam(T, 'week1Percent', 0.3);
+    await store.getState().setProgramParam(T, 'week2Percent', 1.05);
+    await store.getState().setProgramParam(T, 'week3Percent', 0.955);
+    expect(selectProgramParamOverrides(T)(store.getState())).toEqual({
+      week1Percent: 0.3,
+      week2Percent: 1.05,
+      week3Percent: 0.955,
+    });
+  });
+
+  it('rejects out-of-range, off-step and unknown parameters without storing anything', async () => {
+    const { repos, store } = await readyStore();
+    const set = store.getState().setProgramParam;
+    await expect(set(T, 'week1Percent', 0.29)).rejects.toMatchObject({ reason: 'belowMin' });
+    await expect(set(T, 'week1Percent', 1.06)).rejects.toMatchObject({ reason: 'aboveMax' });
+    await expect(set(T, 'week1Percent', 0.7525)).rejects.toMatchObject({ reason: 'notMultipleOfStep' });
+    await expect(set(T, 'week1Percent', Number.NaN)).rejects.toThrow(InvalidProgramParamError);
+    await expect(set(T, 'nope', 0.8)).rejects.toMatchObject({ reason: 'unknownParam' });
+    await expect(set('nope', 'week1Percent', 0.8)).rejects.toMatchObject({ reason: 'unknownParam' });
+    expect(await repos.programParams.getAll(1)).toEqual({});
+  });
+
+  it('restores the defaults of one template', async () => {
+    const { repos, store } = await readyStore();
+    await store.getState().setProgramParam(T, 'week1Percent', 0.8);
+    await store.getState().resetProgramParams(T);
+    expect(selectProgramParamValue(T, 'week1Percent')(store.getState())).toBe(0.75);
+    expect(await repos.programParams.getAll(1)).toEqual({});
+  });
+
+  it('loads values per profile and after a restart', async () => {
+    const { repos, store } = await readyStore();
+    await store.getState().setProgramParam(T, 'week3Percent', 0.9);
+    await store.getState().createProfile('Bruno');
+    expect(selectProgramParamValue(T, 'week3Percent')(store.getState())).toBe(0.95);
+
+    await store.getState().switchProfile(1);
+    expect(selectProgramParamValue(T, 'week3Percent')(store.getState())).toBe(0.9);
+
+    const restarted = createAppStore(repos);
+    await restarted.getState().init('Default');
+    expect(selectProgramParamValue(T, 'week3Percent')(restarted.getState())).toBe(0.9);
+  });
+
+  it('ignores a stored value that is no longer valid for its parameter', async () => {
+    const { repos, store } = await readyStore();
+    await repos.programParams.set(1, T, 'week1Percent', 2);
+    await store.getState().init('Default');
+    expect(selectProgramParamValue(T, 'week1Percent')(store.getState())).toBe(0.75);
+  });
+
+  it('returns a stable reference for "no overrides"', async () => {
+    const { store } = await readyStore();
+    const select = selectProgramParamOverrides(T);
+    expect(select(store.getState())).toBe(select(store.getState()));
+  });
+
+  it('rejects actions before init', async () => {
+    const store = createAppStore(createMemoryRepositories());
+    await expect(store.getState().setProgramParam(T, 'week1Percent', 0.8)).rejects.toThrow('App store is not ready');
+    await expect(store.getState().resetProgramParams(T)).rejects.toThrow('App store is not ready');
   });
 });

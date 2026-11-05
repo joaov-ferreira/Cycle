@@ -1,7 +1,17 @@
 # `src/programs/` — program database
 
 Program schema (SPEC §3.2), template data in `data/*.ts`, schema validation and block
-selection. Populated from Stage 4 onwards.
+selection.
+
+- `schema.ts` — types (`ProgramTemplate`, `SetPrescription`, `ConfigurableParam`, …).
+- `validate.ts` — `validateTemplate` returns issue codes with a path; `registry.test.ts`
+  runs it on every registered template.
+- `registry.ts` — `listTemplates`, `findTemplate`, `templatesForLift`. Register new templates here.
+- `blocks.ts` — `getBlock(template, startWeek)` (3 weeks, partial at the end), `maxBlockStartWeek`.
+- `params.ts` — range checks for configurable parameters, `resolveParamValues`,
+  `resolveTemplate` (applies the athlete's values to percent-linked sets), `totalSets`.
+- `localized.ts` — `pickLocalized` (English fallback).
+- `data/cycle-531-custom.ts` — SPEC §3.3-A.
 
 Dependency rules:
 

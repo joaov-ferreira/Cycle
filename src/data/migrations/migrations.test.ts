@@ -22,6 +22,7 @@ describe('registered migrations', () => {
       [2, 'reference_1rm'],
       [3, 'profile_state'],
       [4, 'rounding'],
+      [5, 'program_params'],
     ]);
   });
 
@@ -30,7 +31,7 @@ describe('registered migrations', () => {
     const again = await runMigrations(db, migrations);
     expect(again.applied).toEqual([]);
     const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version', []);
-    expect(version).toEqual({ user_version: 4 });
+    expect(version).toEqual({ user_version: 5 });
   });
 });
 
@@ -185,5 +186,32 @@ describe('004_rounding', () => {
     await db.runAsync('DELETE FROM profiles WHERE id = ?', [1]);
     expect(await db.getAllAsync('SELECT * FROM rounding_settings', [])).toEqual([]);
     expect(await db.getAllAsync('SELECT * FROM lift_increment_overrides', [])).toEqual([]);
+  });
+});
+
+describe('005_program_params', () => {
+  it('creates the program parameter table', async () => {
+    const db = await migratedDb();
+    expect(await columns(db, 'program_params')).toEqual(['profile_id', 'template_id', 'param_id', 'value']);
+  });
+
+  it('keeps one value per profile, template and parameter', async () => {
+    const db = await migratedDb();
+    await db.runAsync('INSERT INTO profiles (name, created_at) VALUES (?, ?)', ['A', 'x']);
+    await db.runAsync('INSERT INTO program_params VALUES (?, ?, ?, ?)', [1, 't', 'p', 0.8]);
+    await expect(
+      db.runAsync('INSERT INTO program_params VALUES (?, ?, ?, ?)', [1, 't', 'p', 0.9]),
+    ).rejects.toThrow(/UNIQUE constraint failed/);
+    await expect(
+      db.runAsync('INSERT INTO program_params VALUES (?, ?, ?, ?)', [2, 't', 'p', 0.9]),
+    ).rejects.toThrow(/FOREIGN KEY constraint failed/);
+  });
+
+  it('deletes parameters with their profile', async () => {
+    const db = await migratedDb();
+    await db.runAsync('INSERT INTO profiles (name, created_at) VALUES (?, ?)', ['A', 'x']);
+    await db.runAsync('INSERT INTO program_params VALUES (?, ?, ?, ?)', [1, 't', 'p', 0.8]);
+    await db.runAsync('DELETE FROM profiles WHERE id = ?', [1]);
+    expect(await db.getAllAsync('SELECT * FROM program_params', [])).toEqual([]);
   });
 });

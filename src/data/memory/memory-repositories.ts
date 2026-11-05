@@ -10,6 +10,7 @@ import {
   ProfileNotFoundError,
   type Clock,
   type Profile,
+  type ProgramParamValues,
   type ReferenceOneRm,
   type Repositories,
   type RoundingSettings,
@@ -26,6 +27,7 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
   const settings = new Map<number, Settings>();
   const oneRms: ReferenceOneRm[] = [];
   const rounding = new Map<number, { incrementKg: number; mode: RoundingMode }>();
+  const programParams = new Map<number, ProgramParamValues>();
   const liftIncrements = new Map<number, Partial<Record<Lift, number>>>();
   let activeProfileId: number | null = null;
   let nextId = 1;
@@ -49,6 +51,12 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
       ...(rounding.get(profileId) ?? DEFAULT_ROUNDING),
       liftIncrementsKg: { ...liftIncrements.get(profileId) },
     };
+  }
+
+  function paramSnapshot(profileId: number): ProgramParamValues {
+    return Object.fromEntries(
+      Object.entries(programParams.get(profileId) ?? {}).map(([template, values]) => [template, { ...values }]),
+    );
   }
 
   return {
@@ -144,6 +152,27 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
         }
         liftIncrements.set(profileId, overrides);
         return roundingSnapshot(profileId);
+      },
+    },
+    programParams: {
+      async getAll(profileId) {
+        requireSettings(profileId);
+        return paramSnapshot(profileId);
+      },
+      async set(profileId, templateId, paramId, value) {
+        requireSettings(profileId);
+        if (!Number.isFinite(value)) throw new RangeError(`Program parameter must be finite: ${value}`);
+        const all = paramSnapshot(profileId);
+        all[templateId] = { ...all[templateId], [paramId]: value };
+        programParams.set(profileId, all);
+        return paramSnapshot(profileId);
+      },
+      async reset(profileId, templateId) {
+        requireSettings(profileId);
+        const all = paramSnapshot(profileId);
+        delete all[templateId];
+        programParams.set(profileId, all);
+        return paramSnapshot(profileId);
       },
     },
   };

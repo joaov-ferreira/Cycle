@@ -5,7 +5,6 @@ import { Card, Screen, Text } from '@/components/ui';
 import { useT, type MessageKey } from '@/i18n';
 
 const COMING_SOON: readonly { title: MessageKey; description: MessageKey }[] = [
-  { title: 'screens.more.programs', description: 'screens.more.programsDescription' },
   { title: 'screens.more.history', description: 'screens.more.historyDescription' },
 ];
 
@@ -23,6 +22,15 @@ export default function MoreScreen() {
           </Text>
         </Card>
       ))}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('screens.more.programs')}
+        onPress={() => router.push('/programs')}>
+        <Card>
+          <Text variant="heading">{t('screens.more.programs')}</Text>
+          <Text tone="secondary">{t('screens.more.programsDescription')}</Text>
+        </Card>
+      </Pressable>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('screens.more.settings')}
