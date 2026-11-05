@@ -51,6 +51,62 @@ export const en = {
   common: {
     comingSoon: 'Coming soon',
   },
+  lifts: {
+    bench: 'Bench Press',
+    squat: 'Squat',
+    deadlift: 'Deadlift',
+  },
+  oneRm: {
+    fieldLabel: '{{lift}} 1RM',
+    unitHint: 'Leave a lift empty if you do not train it.',
+    current: 'Current: {{value}}',
+    notSet: 'Not set',
+    history: 'History',
+    noHistory: 'No records yet',
+    historyEntry: '{{date}}: {{value}} ({{origin}})',
+    origin: {
+      manual: 'Manual',
+      from_e1rm: 'From e1RM',
+      onboarding: 'Onboarding',
+    },
+    save: 'Save 1RMs',
+    saved: {
+      one: '{{count}} 1RM saved',
+      other: '{{count}} 1RMs saved',
+    },
+    nothingChanged: 'No changes to save',
+  },
+  onboarding: {
+    title: 'Welcome to CYCLE',
+    intro:
+      'Enter your current one-rep max for each lift. Every load in your programs is calculated from these values. You can change them anytime in Settings.',
+    start: 'Save and continue',
+    skip: 'Skip for now',
+  },
+  settings: {
+    title: 'Settings',
+    back: 'Back',
+    profiles: {
+      title: 'Profile',
+      select: 'Switch profile',
+      active: 'Active',
+      renameLabel: 'Profile name',
+      rename: 'Rename profile',
+      newLabel: 'New profile name',
+      add: 'Add profile',
+    },
+    oneRms: {
+      title: '1RMs',
+      description: 'Each change adds a new record; previous values are kept in the history.',
+    },
+    language: {
+      title: 'Language',
+      label: 'App language',
+      system: 'System',
+      en: 'English',
+      ptBR: 'Português',
+    },
+  },
   profile: {
     defaultName: 'Default',
   },
@@ -60,6 +116,7 @@ export const en = {
     belowMin: 'Must be at least {{min}}',
     notAboveMin: 'Must be greater than {{min}}',
     aboveMax: 'Must be at most {{max}}',
+    tooLong: 'Use at most {{max}} characters',
     tooManyDecimals: {
       one: 'Use at most {{count}} decimal place',
       other: 'Use at most {{count}} decimal places',

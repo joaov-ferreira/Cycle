@@ -5,10 +5,15 @@ export { runMigrations, type Migration, type MigrationResult } from './migrate';
 export { migrations } from './migrations';
 export {
   DEFAULT_SETTINGS,
+  InvalidReferenceOneRmError,
   ProfileNotFoundError,
   type Clock,
   type Profile,
+  type OneRmOrigin,
   type ProfileRepository,
+  type RecordReferenceOneRmInput,
+  type ReferenceOneRm,
+  type ReferenceOneRmRepository,
   type Repositories,
   type Settings,
   type SettingsPatch,

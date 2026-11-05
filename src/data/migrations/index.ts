@@ -1,5 +1,11 @@
 import type { Migration } from '../migrate';
 import { migration001Init } from './001_init';
+import { migration002Reference1rm } from './002_reference_1rm';
+import { migration003ProfileState } from './003_profile_state';
 
 /** Every schema migration, in order. Append new files as `NNN_<name>.ts`; never edit old ones. */
-export const migrations: readonly Migration[] = [migration001Init];
+export const migrations: readonly Migration[] = [
+  migration001Init,
+  migration002Reference1rm,
+  migration003ProfileState,
+];

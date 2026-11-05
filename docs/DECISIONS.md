@@ -107,3 +107,37 @@ the reference shipped with the installed package
   every text/background pair. The tab bar marks the active tab with the text color
   plus a raised background, not with red text: `#D32F2F` on the dark surfaces is
   below 4.5:1.
+
+## 2026-11-05 — Stage 2: Profile + reference 1RM
+
+- **Append-only history.** Table `reference_1rm_history(id, profile_id, lift, value REAL,
+  effective_at, origin)` with CHECKs on lift, origin and `0 < value <= 600`, and an index on
+  `(profile_id, lift, effective_at DESC, id DESC)`. The repository has no update or
+  delete. "Current" is the latest by effective date; ties go to the latest insertion
+  (highest id). `effective_at` defaults to the repository clock and may be supplied
+  (backdated entries do not displace a newer value). Values are validated in the domain
+  (`validateReferenceOneRm`) by both repository implementations and by the store before
+  anything is written; the DB CHECK is a backstop. Kilograms are stored as REAL: the
+  input rule (2 decimals, <= 600) keeps them exactly representable for display.
+- **Active profile.** Persisted in a single-row table `app_state(id CHECK = 1,
+  active_profile_id REFERENCES profiles ON DELETE SET NULL)` (migration 003), exposed as
+  `profiles.getActiveId/setActiveId`. `ensureDefaultProfile` uses the remembered profile,
+  else the oldest, else creates one. Alternative considered: a column on `settings`
+  (per-profile, so unable to say which profile is active).
+- **Onboarding flag.** `settings.onboarding_completed` (migration 003) is per profile, so a
+  new profile also gets the first-run 1RM screen. Skipping records nothing and sets the
+  flag; empty lifts in onboarding or Settings are simply not recorded (a stored value
+  cannot be cleared, consistent with append-only). Saving a value equal to the current one
+  adds no record. Onboarding is rendered by `OnboardingGate` around the root stack instead
+  of a route, so no navigation redirects are needed.
+- **Store.** `profiles`, `oneRmHistory` (all lifts, newest first) and the active profile's
+  data are loaded together on init and on switch, so state never mixes two profiles.
+  `saveReferenceOneRms` validates every value before writing any. Profile name errors
+  (`required`, `tooLong` at 40 characters after trimming) are domain codes surfaced as
+  `InvalidProfileNameError`; the UI maps them to localized messages.
+- **Settings is a stack route** (`/settings`, opened from More), not a sixth tab, keeping
+  SPEC §11's five-tab navigation. Its sections live in `src/components/settings/`; the
+  route file only wraps `SettingsScreen`. The sidebar entry for Settings is part of the
+  Stage 14 navigation audit.
+- **Language selector** reuses the Stage 1 `language` setting through the store; it applies
+  instantly because the locale is derived from the persisted setting.

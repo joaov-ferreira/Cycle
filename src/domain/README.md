@@ -2,6 +2,9 @@
 
 Rounding, loads, periodization, RIR/RPE, e1RM, statistics and input validation rules.
 
+Contents: `lifts.ts` (the three lifts), `number-validation.ts` (generic decimal rules),
+`validation.ts` (reference 1RM and profile name rules).
+
 Dependency rules:
 
 - Pure TypeScript only. **No imports** of React, React Native, Expo, `src/data/`,

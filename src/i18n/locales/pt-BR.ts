@@ -48,6 +48,62 @@ export const ptBR: Catalog = {
   common: {
     comingSoon: 'Em breve',
   },
+  lifts: {
+    bench: 'Supino',
+    squat: 'Agachamento',
+    deadlift: 'Levantamento Terra',
+  },
+  oneRm: {
+    fieldLabel: '1RM de {{lift}}',
+    unitHint: 'Deixe o levantamento vazio se você não o treina.',
+    current: 'Atual: {{value}}',
+    notSet: 'Não definido',
+    history: 'Histórico',
+    noHistory: 'Nenhum registro ainda',
+    historyEntry: '{{date}}: {{value}} ({{origin}})',
+    origin: {
+      manual: 'Manual',
+      from_e1rm: 'A partir do e1RM',
+      onboarding: 'Primeiro acesso',
+    },
+    save: 'Salvar 1RMs',
+    saved: {
+      one: '{{count}} 1RM salvo',
+      other: '{{count}} 1RMs salvos',
+    },
+    nothingChanged: 'Nenhuma alteração para salvar',
+  },
+  onboarding: {
+    title: 'Bem-vindo ao CYCLE',
+    intro:
+      'Informe seu 1RM atual de cada levantamento. Todas as cargas dos programas são calculadas a partir desses valores. Você pode alterá-los a qualquer momento em Configurações.',
+    start: 'Salvar e continuar',
+    skip: 'Pular por enquanto',
+  },
+  settings: {
+    title: 'Configurações',
+    back: 'Voltar',
+    profiles: {
+      title: 'Perfil',
+      select: 'Trocar de perfil',
+      active: 'Ativo',
+      renameLabel: 'Nome do perfil',
+      rename: 'Renomear perfil',
+      newLabel: 'Nome do novo perfil',
+      add: 'Adicionar perfil',
+    },
+    oneRms: {
+      title: '1RMs',
+      description: 'Cada alteração cria um novo registro; os valores anteriores ficam no histórico.',
+    },
+    language: {
+      title: 'Idioma',
+      label: 'Idioma do app',
+      system: 'Sistema',
+      en: 'English',
+      ptBR: 'Português',
+    },
+  },
   profile: {
     defaultName: 'Padrão',
   },
@@ -57,6 +113,7 @@ export const ptBR: Catalog = {
     belowMin: 'Deve ser no mínimo {{min}}',
     notAboveMin: 'Deve ser maior que {{min}}',
     aboveMax: 'Deve ser no máximo {{max}}',
+    tooLong: 'Use no máximo {{max}} caracteres',
     tooManyDecimals: {
       one: 'Use no máximo {{count}} casa decimal',
       other: 'Use no máximo {{count}} casas decimais',

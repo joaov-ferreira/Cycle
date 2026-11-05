@@ -24,7 +24,10 @@ Planned features (see [`docs/SPEC.md`](docs/SPEC.md) for the full specification)
 **Status:** under development. The foundation is in place (Stage 1): test infrastructure,
 CYCLE dark theme and base components, bilingual i18n layer, five-tab navigation (sidebar on
 wide screens) with placeholder screens, and local SQLite persistence with migrations and a
-default profile. Features are built stage by stage; the current state of each stage is in
+default profile. Stage 2 adds profiles and reference 1RMs: a first-run onboarding for the
+Bench, Squat and Deadlift 1RMs, and Settings (More → Settings) to switch, create and
+rename profiles, edit the 1RMs (every change appends a record; the history is shown per
+lift) and choose the language (System / English / Português). Features are built stage by stage; the current state of each stage is in
 the status table of [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Tech stack and architecture
@@ -51,6 +54,11 @@ src/
   i18n/        # translation catalogs, t(), locale detection, formatters
   app/         # Expo Router routes (screens and layouts only)
 ```
+
+Reference 1RMs (SPEC §2) are validated in `src/domain/validation.ts` (> 0 and ≤ 600 kg, up
+to 2 decimals) and stored append-only in `reference_1rm_history`: the repository only adds
+records, and the current value is the latest by effective date. Data is scoped by profile;
+the active profile is remembered across launches.
 
 Supporting folders: `src/constants/theme.ts` (design tokens) and `src/test-utils/`
 (test-only helpers). Each layer has a `README.md` describing its contents and dependency
@@ -144,7 +152,7 @@ This requires an Expo account. The repository does not yet contain an `eas.json`
 The app is bilingual: English (`en`, the source catalog) and Brazilian Portuguese (`pt-BR`).
 The language defaults to the device locale (`pt*` → Portuguese, anything else → English).
 The per-profile `language` setting (`system`, `en` or `pt-BR`) overrides the device locale
-and applies right away, without a restart. The Settings screen for it arrives in Stage 2.
+and applies right away, without a restart. Choose it in More → Settings → Language.
 
 ### Adding a string
 

@@ -2,7 +2,12 @@
  * Behavioral contract every `Repositories` implementation must satisfy. Run against the
  * in-memory implementation and the SQLite implementation (on node:sqlite) in tests.
  */
-import { ProfileNotFoundError, type Clock, type Repositories } from './repositories';
+import {
+  InvalidReferenceOneRmError,
+  ProfileNotFoundError,
+  type Clock,
+  type Repositories,
+} from './repositories';
 
 export type RepositoriesFactory = (clock: Clock) => Promise<Repositories>;
 
@@ -39,6 +44,35 @@ export function describeRepositoriesContract(name: string, factory: Repositories
         (await repos.profiles.list())[0].name = 'Mutated again';
         expect((await repos.profiles.getById(1))?.name).toBe('Ana');
       });
+
+      it('renames a profile, keeping its id and creation time', async () => {
+        const repos = await factory(fixedClock);
+        const a = await repos.profiles.create({ name: 'Ana' });
+        const renamed = await repos.profiles.rename(a.id, 'Ana Souza');
+        expect(renamed).toEqual({ ...a, name: 'Ana Souza' });
+        expect(await repos.profiles.getById(a.id)).toEqual(renamed);
+      });
+
+      it('throws ProfileNotFoundError when renaming an unknown profile', async () => {
+        const repos = await factory(fixedClock);
+        await expect(repos.profiles.rename(9, 'X')).rejects.toThrow(ProfileNotFoundError);
+      });
+
+      it('remembers the active profile, which is null until one is chosen', async () => {
+        const repos = await factory(fixedClock);
+        expect(await repos.profiles.getActiveId()).toBeNull();
+        const a = await repos.profiles.create({ name: 'Ana' });
+        const b = await repos.profiles.create({ name: 'Bruno' });
+        await repos.profiles.setActiveId(b.id);
+        expect(await repos.profiles.getActiveId()).toBe(b.id);
+        await repos.profiles.setActiveId(a.id);
+        expect(await repos.profiles.getActiveId()).toBe(a.id);
+      });
+
+      it('rejects an unknown active profile', async () => {
+        const repos = await factory(fixedClock);
+        await expect(repos.profiles.setActiveId(5)).rejects.toThrow(ProfileNotFoundError);
+      });
     });
 
     describe('settings', () => {
@@ -49,6 +83,7 @@ export function describeRepositoriesContract(name: string, factory: Repositories
           profileId: p.id,
           language: 'system',
           theme: 'dark',
+          onboardingCompleted: false,
         });
       });
 
@@ -59,12 +94,14 @@ export function describeRepositoriesContract(name: string, factory: Repositories
           profileId: p.id,
           language: 'pt-BR',
           theme: 'dark',
+          onboardingCompleted: false,
         });
         await repos.settings.update(p.id, { theme: 'light' });
         expect(await repos.settings.get(p.id)).toEqual({
           profileId: p.id,
           language: 'pt-BR',
           theme: 'light',
+          onboardingCompleted: false,
         });
       });
 
@@ -74,6 +111,16 @@ export function describeRepositoriesContract(name: string, factory: Repositories
         const b = await repos.profiles.create({ name: 'Bruno' });
         await repos.settings.update(a.id, { language: 'en' });
         expect((await repos.settings.get(b.id)).language).toBe('system');
+      });
+
+      it('stores the onboarding flag per profile', async () => {
+        const repos = await factory(fixedClock);
+        const a = await repos.profiles.create({ name: 'Ana' });
+        const b = await repos.profiles.create({ name: 'Bruno' });
+        const updated = await repos.settings.update(a.id, { onboardingCompleted: true });
+        expect(updated.onboardingCompleted).toBe(true);
+        expect((await repos.settings.get(a.id)).onboardingCompleted).toBe(true);
+        expect((await repos.settings.get(b.id)).onboardingCompleted).toBe(false);
       });
 
       it('accepts an empty patch', async () => {
@@ -89,6 +136,116 @@ export function describeRepositoriesContract(name: string, factory: Repositories
           code: 'PROFILE_NOT_FOUND',
           profileId: 7,
         });
+      });
+    });
+
+    describe('reference 1RM history', () => {
+      it('has no current value and an empty history at first', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        expect(await repos.referenceOneRms.getCurrent(p.id, 'bench')).toBeNull();
+        expect(await repos.referenceOneRms.listHistory(p.id)).toEqual([]);
+      });
+
+      it('records a value with the clock timestamp as effective date', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        const record = await repos.referenceOneRms.record({
+          profileId: p.id,
+          lift: 'bench',
+          value: 100,
+          origin: 'onboarding',
+        });
+        expect(record).toEqual({
+          id: 1,
+          profileId: p.id,
+          lift: 'bench',
+          value: 100,
+          effectiveAt: '2026-11-05T10:00:00.000Z',
+          origin: 'onboarding',
+        });
+        expect(await repos.referenceOneRms.getCurrent(p.id, 'bench')).toEqual(record);
+      });
+
+      it('is append-only: a new value adds a record and keeps the old one', async () => {
+        let now = new Date('2026-11-05T10:00:00.000Z');
+        const repos = await factory(() => now);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        const first = await repos.referenceOneRms.record({ profileId: p.id, lift: 'squat', value: 140, origin: 'manual' });
+        now = new Date('2026-11-12T10:00:00.000Z');
+        const second = await repos.referenceOneRms.record({ profileId: p.id, lift: 'squat', value: 142.5, origin: 'manual' });
+        expect(await repos.referenceOneRms.getCurrent(p.id, 'squat')).toEqual(second);
+        expect(await repos.referenceOneRms.listHistory(p.id, 'squat')).toEqual([second, first]);
+        expect(first.value).toBe(140);
+      });
+
+      it('takes the current value by effective date, not by insertion order', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        const newer = await repos.referenceOneRms.record({
+          profileId: p.id, lift: 'deadlift', value: 200, origin: 'manual', effectiveAt: '2026-10-01T00:00:00.000Z',
+        });
+        const backdated = await repos.referenceOneRms.record({
+          profileId: p.id, lift: 'deadlift', value: 180, origin: 'manual', effectiveAt: '2026-09-01T00:00:00.000Z',
+        });
+        expect(await repos.referenceOneRms.getCurrent(p.id, 'deadlift')).toEqual(newer);
+        expect(await repos.referenceOneRms.listHistory(p.id, 'deadlift')).toEqual([newer, backdated]);
+      });
+
+      it('breaks effective-date ties by insertion order (latest wins)', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        await repos.referenceOneRms.record({ profileId: p.id, lift: 'bench', value: 100, origin: 'manual' });
+        const second = await repos.referenceOneRms.record({ profileId: p.id, lift: 'bench', value: 102.5, origin: 'from_e1rm' });
+        expect(await repos.referenceOneRms.getCurrent(p.id, 'bench')).toEqual(second);
+      });
+
+      it('keeps lifts independent and lists the whole history newest first', async () => {
+        let now = new Date('2026-11-05T10:00:00.000Z');
+        const repos = await factory(() => now);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        const bench = await repos.referenceOneRms.record({ profileId: p.id, lift: 'bench', value: 100, origin: 'onboarding' });
+        now = new Date('2026-11-06T10:00:00.000Z');
+        const squat = await repos.referenceOneRms.record({ profileId: p.id, lift: 'squat', value: 140, origin: 'onboarding' });
+        expect(await repos.referenceOneRms.getCurrent(p.id, 'bench')).toEqual(bench);
+        expect(await repos.referenceOneRms.getCurrent(p.id, 'deadlift')).toBeNull();
+        expect(await repos.referenceOneRms.listHistory(p.id)).toEqual([squat, bench]);
+        expect(await repos.referenceOneRms.listHistory(p.id, 'bench')).toEqual([bench]);
+      });
+
+      it('isolates history per profile', async () => {
+        const repos = await factory(fixedClock);
+        const a = await repos.profiles.create({ name: 'Ana' });
+        const b = await repos.profiles.create({ name: 'Bruno' });
+        await repos.referenceOneRms.record({ profileId: a.id, lift: 'bench', value: 100, origin: 'manual' });
+        expect(await repos.referenceOneRms.getCurrent(b.id, 'bench')).toBeNull();
+        expect(await repos.referenceOneRms.listHistory(b.id)).toEqual([]);
+      });
+
+      it('stores decimal values exactly', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        await repos.referenceOneRms.record({ profileId: p.id, lift: 'bench', value: 96.25, origin: 'manual' });
+        expect((await repos.referenceOneRms.getCurrent(p.id, 'bench'))?.value).toBe(96.25);
+      });
+
+      it('rejects invalid values with an error code and stores nothing', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        await expect(
+          repos.referenceOneRms.record({ profileId: p.id, lift: 'bench', value: 601, origin: 'manual' }),
+        ).rejects.toThrow(InvalidReferenceOneRmError);
+        await expect(
+          repos.referenceOneRms.record({ profileId: p.id, lift: 'bench', value: 0, origin: 'manual' }),
+        ).rejects.toMatchObject({ code: 'INVALID_REFERENCE_1RM', reason: 'notAboveMin' });
+        expect(await repos.referenceOneRms.listHistory(p.id)).toEqual([]);
+      });
+
+      it('throws ProfileNotFoundError for an unknown profile', async () => {
+        const repos = await factory(fixedClock);
+        await expect(
+          repos.referenceOneRms.record({ profileId: 3, lift: 'bench', value: 100, origin: 'manual' }),
+        ).rejects.toThrow(ProfileNotFoundError);
       });
     });
   });

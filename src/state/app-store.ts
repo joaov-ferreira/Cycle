@@ -3,24 +3,57 @@ import { createStore, type StoreApi } from 'zustand/vanilla';
 import { ensureDefaultProfile } from '@/data/bootstrap';
 import {
   DEFAULT_SETTINGS,
+  InvalidReferenceOneRmError,
+  ProfileNotFoundError,
+  type OneRmOrigin,
   type Profile,
+  type ReferenceOneRm,
   type Repositories,
   type Settings,
   type SettingsPatch,
   type ThemeSetting,
 } from '@/data/repositories';
+import { LIFTS, type Lift } from '@/domain/lifts';
+import { validateProfileName, validateReferenceOneRm, type ProfileNameError } from '@/domain/validation';
 import type { LanguageSetting } from '@/i18n/locale';
 
 export type AppStatus = 'idle' | 'loading' | 'ready' | 'error';
 
+/** Reference 1RMs entered per lift; lifts left out are untouched. */
+export type OneRmValues = Partial<Record<Lift, number>>;
+
+/** Thrown for a profile name rejected by `validateProfileName`; `code` is the error code. */
+export class InvalidProfileNameError extends Error {
+  constructor(readonly code: ProfileNameError) {
+    super(`Invalid profile name: ${code}`);
+    this.name = 'InvalidProfileNameError';
+  }
+}
+
 export type AppState = {
   status: AppStatus;
+  /** The active profile. */
   profile: Profile | null;
+  /** Every profile on the device, oldest first. */
+  profiles: Profile[];
   settings: Settings | null;
+  /** The active profile's reference 1RM records for all lifts, newest first (append-only). */
+  oneRmHistory: ReferenceOneRm[];
   /** Loads (or creates on first boot) the active profile and its settings. */
   init: (defaultProfileName: string) => Promise<void>;
   setLanguage: (language: LanguageSetting) => Promise<void>;
   setTheme: (theme: ThemeSetting) => Promise<void>;
+  /** Creates a profile and makes it the active one. */
+  createProfile: (name: string) => Promise<void>;
+  renameProfile: (id: number, name: string) => Promise<void>;
+  switchProfile: (id: number) => Promise<void>;
+  /**
+   * Appends a record for each given lift whose value differs from its current one
+   * (validating all values first). Returns how many records were added.
+   */
+  saveReferenceOneRms: (values: OneRmValues, origin: OneRmOrigin) => Promise<number>;
+  /** Saves the first-run 1RMs (origin `onboarding`; may be empty) and ends onboarding. */
+  completeOnboarding: (values: OneRmValues) => Promise<void>;
 };
 
 export type AppStore = StoreApi<AppState>;
@@ -31,29 +64,96 @@ export type AppStore = StoreApi<AppState>;
  */
 export function createAppStore(repos: Repositories): AppStore {
   return createStore<AppState>()((set, get) => {
-    async function updateSettings(patch: SettingsPatch) {
+    function requireReady(): Profile {
       const { profile, status } = get();
       if (status !== 'ready' || !profile) throw new Error('App store is not ready');
+      return profile;
+    }
+
+    async function updateSettings(patch: SettingsPatch) {
+      const profile = requireReady();
       const settings = await repos.settings.update(profile.id, patch);
       set({ settings });
+    }
+
+    function checkedName(name: string): string {
+      const error = validateProfileName(name);
+      if (error) throw new InvalidProfileNameError(error);
+      return name.trim();
+    }
+
+    /** Loads everything belonging to `profile` in one go, so state never mixes profiles. */
+    async function loadProfile(profile: Profile) {
+      const [profiles, settings, oneRmHistory] = await Promise.all([
+        repos.profiles.list(),
+        repos.settings.get(profile.id),
+        repos.referenceOneRms.listHistory(profile.id),
+      ]);
+      set({ status: 'ready', profile, profiles, settings, oneRmHistory });
+    }
+
+    async function saveReferenceOneRms(values: OneRmValues, origin: OneRmOrigin) {
+      const profile = requireReady();
+      const entries = LIFTS.flatMap((lift) => {
+        const value = values[lift];
+        return value === undefined ? [] : [[lift, value] as const];
+      });
+      for (const [, value] of entries) {
+        const invalid = validateReferenceOneRm(value);
+        if (invalid) throw new InvalidReferenceOneRmError(invalid);
+      }
+      const changed = entries.filter(
+        ([lift, value]) => selectCurrentOneRm(lift)(get())?.value !== value,
+      );
+      for (const [lift, value] of changed) {
+        await repos.referenceOneRms.record({ profileId: profile.id, lift, value, origin });
+      }
+      set({ oneRmHistory: await repos.referenceOneRms.listHistory(profile.id) });
+      return changed.length;
     }
 
     return {
       status: 'idle',
       profile: null,
+      profiles: [],
       settings: null,
+      oneRmHistory: [],
       async init(defaultProfileName) {
         set({ status: 'loading' });
         try {
-          const profile = await ensureDefaultProfile(repos, defaultProfileName);
-          const settings = await repos.settings.get(profile.id);
-          set({ status: 'ready', profile, settings });
+          await loadProfile(await ensureDefaultProfile(repos, defaultProfileName));
         } catch {
           set({ status: 'error' });
         }
       },
       setLanguage: (language) => updateSettings({ language }),
       setTheme: (theme) => updateSettings({ theme }),
+      async createProfile(name) {
+        requireReady();
+        const profile = await repos.profiles.create({ name: checkedName(name) });
+        await repos.profiles.setActiveId(profile.id);
+        await loadProfile(profile);
+      },
+      async renameProfile(id, name) {
+        const active = requireReady();
+        const renamed = await repos.profiles.rename(id, checkedName(name));
+        set({
+          profiles: get().profiles.map((p) => (p.id === id ? renamed : p)),
+          profile: active.id === id ? renamed : active,
+        });
+      },
+      async switchProfile(id) {
+        requireReady();
+        const profile = await repos.profiles.getById(id);
+        if (!profile) throw new ProfileNotFoundError(id);
+        await repos.profiles.setActiveId(id);
+        await loadProfile(profile);
+      },
+      saveReferenceOneRms,
+      async completeOnboarding(values) {
+        await saveReferenceOneRms(values, 'onboarding');
+        await updateSettings({ onboardingCompleted: true });
+      },
     };
   });
 }
@@ -63,3 +163,19 @@ export const selectLanguageSetting = (state: AppState): LanguageSetting =>
 
 export const selectColorScheme = (state: AppState): ThemeSetting =>
   state.settings?.theme ?? DEFAULT_SETTINGS.theme;
+
+/** True on first run: the active profile has not completed (or skipped) the 1RM onboarding. */
+export const selectNeedsOnboarding = (state: AppState): boolean =>
+  state.settings !== null && !state.settings.onboardingCompleted;
+
+/** The reference 1RM in effect for `lift`, or null when it was never entered. */
+export const selectCurrentOneRm =
+  (lift: Lift) =>
+  (state: AppState): ReferenceOneRm | null =>
+    state.oneRmHistory.find((record) => record.lift === lift) ?? null;
+
+/** History of one lift, newest first. Returns a new array: memoize it in components. */
+export const selectOneRmHistory =
+  (lift: Lift) =>
+  (state: AppState): ReferenceOneRm[] =>
+    state.oneRmHistory.filter((record) => record.lift === lift);

@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { AppProviders } from '@/components/app-providers';
+import { OnboardingGate } from '@/components/onboarding/onboarding-gate';
 import { openSqliteRepositories } from '@/data/sqlite/open-database';
 
 SplashScreen.preventAutoHideAsync();
@@ -13,9 +14,12 @@ function hideSplash() {
 export default function RootLayout() {
   return (
     <AppProviders openRepositories={openSqliteRepositories} onReady={hideSplash}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-      </Stack>
+      <OnboardingGate>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="settings" />
+        </Stack>
+      </OnboardingGate>
     </AppProviders>
   );
 }

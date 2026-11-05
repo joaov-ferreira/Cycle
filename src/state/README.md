@@ -5,6 +5,8 @@ Connects persistence (`src/data/`) and the math engine (`src/domain/`) to the UI
 - `app-store.ts` — the app store (zustand, vanilla `createStore`), created per app run
   with the `Repositories` to use. Holds the active profile and its settings; actions
   persist through the repositories before updating state.
+  Also profiles (create / rename / switch), the active profile's reference 1RM history
+  (`saveReferenceOneRms`) and the onboarding flag (`completeOnboarding`).
 - `app-store-context.tsx` — `AppStoreProvider` and `useAppStore(selector)`.
 - Derived data is exposed through selectors (`select*`), so screens never recompute it
   by hand (SPEC §12.5).

@@ -25,3 +25,18 @@ describe('SQLite repositories', () => {
     expect((await second.settings.get(p.id)).language).toBe('pt-BR');
   });
 });
+
+describe('SQLite active profile', () => {
+  it('survives a restart and is cleared when the profile is deleted', async () => {
+    const db = new NodeSqliteDatabase();
+    await db.execAsync('PRAGMA foreign_keys = ON');
+    await runMigrations(db, migrations);
+    const repos = createSqliteRepositories(db);
+    const p = await repos.profiles.create({ name: 'Ana' });
+    await repos.profiles.setActiveId(p.id);
+
+    expect(await createSqliteRepositories(db).profiles.getActiveId()).toBe(p.id);
+    await db.runAsync('DELETE FROM profiles WHERE id = ?', [p.id]);
+    expect(await repos.profiles.getActiveId()).toBeNull();
+  });
+});

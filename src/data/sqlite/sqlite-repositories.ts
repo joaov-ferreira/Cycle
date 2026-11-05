@@ -1,15 +1,45 @@
+import type { Lift } from '@/domain/lifts';
+import { validateReferenceOneRm } from '@/domain/validation';
+
 import type { SqlDatabase } from '../database';
 import {
+  InvalidReferenceOneRmError,
   ProfileNotFoundError,
   type Clock,
+  type OneRmOrigin,
   type Profile,
+  type ReferenceOneRm,
   type Repositories,
   type Settings,
   type SettingsPatch,
 } from '../repositories';
 
 type ProfileRow = { id: number; name: string; created_at: string };
-type SettingsRow = { profile_id: number; language: Settings['language']; theme: Settings['theme'] };
+type SettingsRow = {
+  profile_id: number;
+  language: Settings['language'];
+  theme: Settings['theme'];
+  onboarding_completed: number;
+};
+type OneRmRow = {
+  id: number;
+  profile_id: number;
+  lift: Lift;
+  value: number;
+  effective_at: string;
+  origin: OneRmOrigin;
+};
+
+const toOneRm = (row: OneRmRow): ReferenceOneRm => ({
+  id: row.id,
+  profileId: row.profile_id,
+  lift: row.lift,
+  value: row.value,
+  effectiveAt: row.effective_at,
+  origin: row.origin,
+});
+const ONE_RM_COLUMNS = 'id, profile_id, lift, value, effective_at, origin';
+const NEWEST_FIRST = 'ORDER BY effective_at DESC, id DESC';
 
 const toProfile = (row: ProfileRow): Profile => ({
   id: row.id,
@@ -21,13 +51,18 @@ const toSettings = (row: SettingsRow): Settings => ({
   profileId: row.profile_id,
   language: row.language,
   theme: row.theme,
+  onboardingCompleted: row.onboarding_completed === 1,
 });
 
 /** Column for each patchable settings field (allowlist: never interpolate caller keys). */
 const SETTINGS_COLUMNS: Record<keyof SettingsPatch, string> = {
   language: 'language',
   theme: 'theme',
+  onboardingCompleted: 'onboarding_completed',
 };
+
+const toSqlValue = (value: string | boolean | undefined): string | number =>
+  typeof value === 'boolean' ? (value ? 1 : 0) : (value as string);
 
 /** `Repositories` backed by SQLite (expo-sqlite in the app, node:sqlite in tests). */
 export function createSqliteRepositories(
@@ -36,7 +71,7 @@ export function createSqliteRepositories(
 ): Repositories {
   async function getSettings(profileId: number): Promise<Settings> {
     const row = await db.getFirstAsync<SettingsRow>(
-      'SELECT profile_id, language, theme FROM settings WHERE profile_id = ?',
+      'SELECT profile_id, language, theme, onboarding_completed FROM settings WHERE profile_id = ?',
       [profileId],
     );
     if (!row) throw new ProfileNotFoundError(profileId);
@@ -72,13 +107,38 @@ export function createSqliteRepositories(
         });
         return { id, name, createdAt };
       },
+      async rename(id, name) {
+        const result = await db.runAsync('UPDATE profiles SET name = ? WHERE id = ?', [name, id]);
+        if (result.changes === 0) throw new ProfileNotFoundError(id);
+        const row = await db.getFirstAsync<ProfileRow>(
+          'SELECT id, name, created_at FROM profiles WHERE id = ?',
+          [id],
+        );
+        return toProfile(row as ProfileRow);
+      },
+      async getActiveId() {
+        const row = await db.getFirstAsync<{ active_profile_id: number | null }>(
+          'SELECT active_profile_id FROM app_state WHERE id = 1',
+          [],
+        );
+        return row?.active_profile_id ?? null;
+      },
+      async setActiveId(id) {
+        const exists = await db.getFirstAsync('SELECT 1 FROM profiles WHERE id = ?', [id]);
+        if (!exists) throw new ProfileNotFoundError(id);
+        await db.runAsync(
+          `INSERT INTO app_state (id, active_profile_id) VALUES (1, ?)
+           ON CONFLICT (id) DO UPDATE SET active_profile_id = excluded.active_profile_id`,
+          [id],
+        );
+      },
     },
     settings: {
       get: getSettings,
       async update(profileId, patch) {
         const entries = (Object.keys(SETTINGS_COLUMNS) as (keyof SettingsPatch)[])
           .filter((key) => patch[key] !== undefined)
-          .map((key) => [SETTINGS_COLUMNS[key], patch[key] as string] as const);
+          .map((key) => [SETTINGS_COLUMNS[key], toSqlValue(patch[key])] as const);
         if (entries.length > 0) {
           const assignments = entries.map(([column]) => `${column} = ?`).join(', ');
           const result = await db.runAsync(
@@ -88,6 +148,44 @@ export function createSqliteRepositories(
           if (result.changes === 0) throw new ProfileNotFoundError(profileId);
         }
         return getSettings(profileId);
+      },
+    },
+    referenceOneRms: {
+      async getCurrent(profileId, lift) {
+        const row = await db.getFirstAsync<OneRmRow>(
+          `SELECT ${ONE_RM_COLUMNS} FROM reference_1rm_history
+           WHERE profile_id = ? AND lift = ? ${NEWEST_FIRST} LIMIT 1`,
+          [profileId, lift],
+        );
+        return row ? toOneRm(row) : null;
+      },
+      async listHistory(profileId, lift) {
+        const rows =
+          lift === undefined
+            ? await db.getAllAsync<OneRmRow>(
+                `SELECT ${ONE_RM_COLUMNS} FROM reference_1rm_history
+                 WHERE profile_id = ? ${NEWEST_FIRST}`,
+                [profileId],
+              )
+            : await db.getAllAsync<OneRmRow>(
+                `SELECT ${ONE_RM_COLUMNS} FROM reference_1rm_history
+                 WHERE profile_id = ? AND lift = ? ${NEWEST_FIRST}`,
+                [profileId, lift],
+              );
+        return rows.map(toOneRm);
+      },
+      async record({ profileId, lift, value, origin, effectiveAt }) {
+        const exists = await db.getFirstAsync('SELECT 1 FROM profiles WHERE id = ?', [profileId]);
+        if (!exists) throw new ProfileNotFoundError(profileId);
+        const invalid = validateReferenceOneRm(value);
+        if (invalid) throw new InvalidReferenceOneRmError(invalid);
+        const at = effectiveAt ?? clock().toISOString();
+        const result = await db.runAsync(
+          `INSERT INTO reference_1rm_history (profile_id, lift, value, effective_at, origin)
+           VALUES (?, ?, ?, ?, ?)`,
+          [profileId, lift, value, at, origin],
+        );
+        return { id: result.lastInsertRowId, profileId, lift, value, effectiveAt: at, origin };
       },
     },
   };
