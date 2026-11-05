@@ -5,6 +5,10 @@ import { validateReferenceOneRm } from '@/domain/validation';
 import type { SqlDatabase } from '../database';
 import type { PerformanceSnapshot, SetRecord } from '@/domain/performance';
 import {
+  assertValidE1rmFormula,
+  assertValidE1rmRecord,
+  E1rmAlreadyRecordedError,
+  type E1rmRecord,
   assertValidPerformance,
   PerformedSessionCompletedError,
   PerformedSessionNotFoundError,
@@ -40,6 +44,7 @@ type SettingsRow = {
   language: Settings['language'];
   theme: Settings['theme'];
   onboarding_completed: number;
+  e1rm_formula: Settings['e1rmFormula'];
 };
 type OneRmRow = {
   id: number;
@@ -72,6 +77,7 @@ const toSettings = (row: SettingsRow): Settings => ({
   language: row.language,
   theme: row.theme,
   onboardingCompleted: row.onboarding_completed === 1,
+  e1rmFormula: row.e1rm_formula,
 });
 
 /** Column for each patchable settings field (allowlist: never interpolate caller keys). */
@@ -79,7 +85,37 @@ const SETTINGS_COLUMNS: Record<keyof SettingsPatch, string> = {
   language: 'language',
   theme: 'theme',
   onboardingCompleted: 'onboarding_completed',
+  e1rmFormula: 'e1rm_formula',
 };
+
+type E1rmRow = {
+  id: number;
+  profile_id: number;
+  lift: Lift;
+  performed_session_id: number;
+  set_position: number;
+  recorded_at: string;
+  value_kg: number;
+  formula: E1rmRecord['formula'];
+  weight_kg: number;
+  reps: number;
+  rir: number;
+};
+const E1RM_COLUMNS =
+  'id, profile_id, lift, performed_session_id, set_position, recorded_at, value_kg, formula, weight_kg, reps, rir';
+const toE1rm = (row: E1rmRow): E1rmRecord => ({
+  id: row.id,
+  profileId: row.profile_id,
+  lift: row.lift,
+  performedSessionId: row.performed_session_id,
+  setPosition: row.set_position,
+  recordedAt: row.recorded_at,
+  valueKg: row.value_kg,
+  formula: row.formula,
+  weightKg: row.weight_kg,
+  reps: row.reps,
+  rir: row.rir,
+});
 
 type SlotRow = {
   id: number;
@@ -187,7 +223,7 @@ export function createSqliteRepositories(
 ): Repositories {
   async function getSettings(profileId: number): Promise<Settings> {
     const row = await db.getFirstAsync<SettingsRow>(
-      'SELECT profile_id, language, theme, onboarding_completed FROM settings WHERE profile_id = ?',
+      'SELECT profile_id, language, theme, onboarding_completed, e1rm_formula FROM settings WHERE profile_id = ?',
       [profileId],
     );
     if (!row) throw new ProfileNotFoundError(profileId);
@@ -336,6 +372,7 @@ export function createSqliteRepositories(
     settings: {
       get: getSettings,
       async update(profileId, patch) {
+        if (patch.e1rmFormula !== undefined) assertValidE1rmFormula(patch.e1rmFormula);
         const entries = (Object.keys(SETTINGS_COLUMNS) as (keyof SettingsPatch)[])
           .filter((key) => patch[key] !== undefined)
           .map((key) => [SETTINGS_COLUMNS[key], toSqlValue(patch[key])] as const);
@@ -639,6 +676,54 @@ export function createSqliteRepositories(
           [profileId],
         );
         return withSets(rows);
+      },
+    },
+    e1rmHistory: {
+      async record(input) {
+        await requireProfile(input.profileId);
+        assertValidE1rmRecord(input);
+        const owned = await db.getFirstAsync('SELECT 1 FROM performed_sessions WHERE id = ? AND profile_id = ?', [
+          input.performedSessionId,
+          input.profileId,
+        ]);
+        if (!owned) throw new PerformedSessionNotFoundError(input.performedSessionId);
+        const duplicate = await db.getFirstAsync(
+          'SELECT 1 FROM e1rm_history WHERE performed_session_id = ? AND lift = ?',
+          [input.performedSessionId, input.lift],
+        );
+        if (duplicate) throw new E1rmAlreadyRecordedError(input.performedSessionId, input.lift);
+        const result = await db.runAsync(
+          `INSERT INTO e1rm_history (profile_id, lift, performed_session_id, set_position, recorded_at, value_kg,
+             formula, weight_kg, reps, rir) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            input.profileId,
+            input.lift,
+            input.performedSessionId,
+            input.setPosition,
+            input.recordedAt,
+            input.valueKg,
+            input.formula,
+            input.weightKg,
+            input.reps,
+            input.rir,
+          ],
+        );
+        return { id: result.lastInsertRowId, ...input };
+      },
+      async list(profileId, lift) {
+        await requireProfile(profileId);
+        const rows =
+          lift === undefined
+            ? await db.getAllAsync<E1rmRow>(
+                `SELECT ${E1RM_COLUMNS} FROM e1rm_history WHERE profile_id = ? ORDER BY recorded_at DESC, id DESC`,
+                [profileId],
+              )
+            : await db.getAllAsync<E1rmRow>(
+                `SELECT ${E1RM_COLUMNS} FROM e1rm_history WHERE profile_id = ? AND lift = ?
+                 ORDER BY recorded_at DESC, id DESC`,
+                [profileId, lift],
+              );
+        return rows.map(toE1rm);
       },
     },
   };

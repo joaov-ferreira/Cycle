@@ -270,6 +270,36 @@ export const ptBR: Catalog = {
       tonnage: 'Tonelagem: {{actual}} realizada · {{prescribed}} prescrita · Δ {{delta}}',
     },
   },
+  e1rm: {
+    estimate: 'e1RM ≈ {{value}} (estimativa)',
+    lowConfidence: 'e1RM ≈ {{value}} (estimativa, baixa confiança: {{reason}})',
+    lowConfidenceNoValue: 'e1RM: baixa confiança, sem estimativa ({{reason}})',
+    reasons: {
+      rirAbove4: 'RIR acima de 4',
+      beyondRepLimit: 'mais de 12 repetições até a falha',
+    },
+    unverified: 'e1RM: sem estimativa (o valor da tabela RTS para esta série não foi verificado)',
+    sessionTitle: 'e1RM da sessão (estimativa)',
+    sessionLine: '{{lift}}: e1RM ≈ {{value}} (estimativa), da série {{set}}',
+    formulaLine: 'Fórmula: {{formula}}',
+    none: 'Nenhuma série é válida para o e1RM (pelo menos 1 repetição, RIR de 0 a 4 e no máximo 12 repetições até a falha).',
+    previous: 'e1RM anterior: {{value}} · Δ {{deltaKg}} ({{deltaPercent}})',
+    noPrevious: 'Primeiro e1RM deste levantamento.',
+    formulas: {
+      rts: 'Tabela RTS',
+      epleyRir: 'Epley (RIR)',
+      brzyckiRir: 'Brzycki (RIR)',
+    },
+    useAsReference: 'Usar como novo 1RM de referência',
+    useAsReferenceFor: 'Usar o e1RM de {{lift}} como novo 1RM de referência',
+    confirmTitle: 'Definir o 1RM de referência de {{lift}} como {{value}}?',
+    confirmBody:
+      'Referência atual: {{current}}. Um novo registro (origem: do e1RM) é adicionado ao histórico de 1RM; a periodização atual é recalculada com ele.',
+    notSet: 'não definido',
+    confirm: 'Confirmar',
+    cancel: 'Cancelar',
+    adopted: '1RM de referência de {{lift}} definido como {{value}}.',
+  },
   training: {
     intro: 'Registre as séries que você realmente fez. Tudo é salvo enquanto você digita.',
     noPeriodization: 'Nenhuma periodização ativada ainda. Ative uma em Periodização para começar a registrar.',
@@ -344,6 +374,12 @@ export const ptBR: Catalog = {
       system: 'Sistema',
       en: 'English',
       ptBR: 'Português',
+    },
+    e1rm: {
+      title: '1RM estimado (e1RM)',
+      label: 'Fórmula do e1RM',
+      description:
+        'Usada nas novas estimativas. As estimativas já registradas mantêm a fórmula com que foram calculadas.',
     },
     rounding: {
       title: 'Incrementos e arredondamento',

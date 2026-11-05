@@ -7,6 +7,7 @@ import {
   PerformedSessionNotFoundError,
   ProfileNotFoundError,
   SessionSlotNotFoundError,
+  type E1rmRecord,
   type OneRmOrigin,
   type PerformedSession,
   type Profile,
@@ -20,6 +21,8 @@ import {
   type SettingsPatch,
   type ThemeSetting,
 } from '@/data/repositories';
+import type { E1rmFormula } from '@/domain/e1rm/estimate';
+import { sessionE1rmCandidates, sessionEstimates } from '@/domain/e1rm/session';
 import { LIFTS, type Lift } from '@/domain/lifts';
 import {
   buildPerformanceSnapshot,
@@ -203,6 +206,19 @@ export type AppState = {
     periodizationId: number,
     sessionKey: string,
   ) => Promise<{ periodization: StoredPeriodization; session: GeneratedSession } | null>;
+  /**
+   * The profile's session e1RMs (SPEC §8.4), newest first. Completing a session stores at most one
+   * per lift, with the formula in effect; changing the formula never rewrites them.
+   */
+  e1rmHistory: E1rmRecord[];
+  /** Formula for new estimates. Throws `RangeError` for an unknown formula. */
+  setE1rmFormula: (formula: E1rmFormula) => Promise<void>;
+  /**
+   * "Use as new reference 1RM": appends a reference 1RM record (origin `from_e1rm`) with the
+   * estimate's value. Called only after the user confirms. Throws `RangeError` for an unknown
+   * record and `InvalidReferenceOneRmError` when the value breaks SPEC §2 rules.
+   */
+  adoptE1rmAsReference: (e1rmId: number) => Promise<void>;
 };
 
 export type AppStore = StoreApi<AppState>;
@@ -271,6 +287,7 @@ export function createAppStore(repos: Repositories): AppStore {
         sessionSlots,
         activePeriodization,
         performedSessions,
+        e1rmHistory,
       ] = await Promise.all([
           repos.profiles.list(),
           repos.settings.get(profile.id),
@@ -280,6 +297,7 @@ export function createAppStore(repos: Repositories): AppStore {
           repos.sessionSlots.list(profile.id),
           repos.periodizations.getLatest(profile.id),
           repos.performances.list(profile.id),
+          repos.e1rmHistory.list(profile.id),
         ]);
       const activeSessions = await sessionsOf(profile.id, activePeriodization);
       set({
@@ -294,6 +312,7 @@ export function createAppStore(repos: Repositories): AppStore {
         activePeriodization,
         activeSessions,
         performedSessions,
+        e1rmHistory,
       });
     }
 
@@ -342,6 +361,7 @@ export function createAppStore(repos: Repositories): AppStore {
       activePeriodization: null,
       activeSessions: [],
       performedSessions: [],
+      e1rmHistory: [],
       async init(defaultProfileName) {
         set({ status: 'loading' });
         try {
@@ -509,9 +529,43 @@ export function createAppStore(repos: Repositories): AppStore {
             record.id,
             buildPerformanceSnapshot(snapshotSource.periodization, snapshotSource.session),
           );
-          set({ performedSessions: withPerformed(done) });
+          const formula = get().settings?.e1rmFormula ?? DEFAULT_SETTINGS.e1rmFormula;
+          const estimates = sessionEstimates(sessionE1rmCandidates(snapshotSource.session, done.sets), formula);
+          for (const estimate of estimates) {
+            await repos.e1rmHistory.record({
+              profileId: profile.id,
+              lift: estimate.lift,
+              performedSessionId: done.id,
+              setPosition: estimate.position,
+              recordedAt: done.completedAt as string,
+              valueKg: estimate.e1rmKg,
+              formula: estimate.formula,
+              weightKg: estimate.weightKg,
+              reps: estimate.reps,
+              rir: estimate.rir,
+            });
+          }
+          set({
+            performedSessions: withPerformed(done),
+            ...(estimates.length > 0 ? { e1rmHistory: await repos.e1rmHistory.list(profile.id) } : {}),
+          });
           return done;
         }),
+      setE1rmFormula: (e1rmFormula) => updateSettings({ e1rmFormula }),
+      async adoptE1rmAsReference(e1rmId) {
+        const profile = requireReady();
+        const record = get().e1rmHistory.find((entry) => entry.id === e1rmId);
+        if (!record) throw new RangeError(`Unknown e1RM record: ${e1rmId}`);
+        const invalid = validateReferenceOneRm(record.valueKg);
+        if (invalid) throw new InvalidReferenceOneRmError(invalid);
+        await repos.referenceOneRms.record({
+          profileId: profile.id,
+          lift: record.lift,
+          value: record.valueKg,
+          origin: 'from_e1rm',
+        });
+        set({ oneRmHistory: await repos.referenceOneRms.listHistory(profile.id) });
+      },
     };
   });
 }

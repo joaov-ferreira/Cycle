@@ -5,6 +5,7 @@ import {
   validateIncrement,
   type RoundingMode,
 } from '@/domain/rounding';
+import { DEFAULT_E1RM_FORMULA, isE1rmFormula, MAX_E1RM_RIR, type E1rmFormula } from '@/domain/e1rm/estimate';
 import type { NumberValidationError } from '@/domain/number-validation';
 import type {
   GeneratedSession,
@@ -38,6 +39,8 @@ export type Settings = {
   theme: ThemeSetting;
   /** True once the first-run 1RM onboarding was completed or skipped. */
   onboardingCompleted: boolean;
+  /** Formula used for new e1RM estimates (SPEC §8.1); stored estimates keep their own. */
+  e1rmFormula: E1rmFormula;
 };
 
 export type SettingsPatch = Partial<Omit<Settings, 'profileId'>>;
@@ -46,6 +49,7 @@ export const DEFAULT_SETTINGS: Omit<Settings, 'profileId'> = {
   language: 'system',
   theme: 'dark',
   onboardingCompleted: false,
+  e1rmFormula: DEFAULT_E1RM_FORMULA,
 };
 
 export interface ProfileRepository {
@@ -65,6 +69,7 @@ export interface ProfileRepository {
 export interface SettingsRepository {
   /** Settings of an existing profile; throws `ProfileNotFoundError` otherwise. */
   get(profileId: number): Promise<Settings>;
+  /** Throws `RangeError` for an unknown e1RM formula (nothing is stored). */
   update(profileId: number, patch: SettingsPatch): Promise<Settings>;
 }
 
@@ -272,6 +277,37 @@ export interface PerformanceRepository {
   list(profileId: number): Promise<PerformedSession[]>;
 }
 
+/** A session e1RM (SPEC §8.4): the estimate, the formula used and the set it comes from. */
+export type E1rmRecord = {
+  id: number;
+  profileId: number;
+  lift: Lift;
+  performedSessionId: number;
+  /** 0-based position of the source set in the performed session. */
+  setPosition: number;
+  /** ISO 8601 timestamp: when the session was completed. */
+  recordedAt: string;
+  valueKg: number;
+  formula: E1rmFormula;
+  weightKg: number;
+  reps: number;
+  rir: number;
+};
+
+export type RecordE1rmInput = Omit<E1rmRecord, 'id'>;
+
+/** Append-only e1RM history: at most one estimate per lift and performed session, never rewritten. */
+export interface E1rmHistoryRepository {
+  /**
+   * Appends an estimate. Throws `RangeError` for invalid values, `ProfileNotFoundError` for an
+   * unknown profile, `PerformedSessionNotFoundError` for a performed session that is not the
+   * profile's and `E1rmAlreadyRecordedError` when the session already has one for that lift.
+   */
+  record(input: RecordE1rmInput): Promise<E1rmRecord>;
+  /** Newest first (date, then insertion); all lifts when `lift` is omitted. */
+  list(profileId: number, lift?: Lift): Promise<E1rmRecord[]>;
+}
+
 export type Repositories = {
   profiles: ProfileRepository;
   settings: SettingsRepository;
@@ -281,6 +317,7 @@ export type Repositories = {
   sessionSlots: SessionSlotRepository;
   periodizations: PeriodizationRepository;
   performances: PerformanceRepository;
+  e1rmHistory: E1rmHistoryRepository;
 };
 
 export type Clock = () => Date;
@@ -307,6 +344,17 @@ export class PerformedSessionCompletedError extends Error {
   constructor(readonly performedSessionId: number) {
     super(`Performed session ${performedSessionId} is already completed`);
     this.name = 'PerformedSessionCompletedError';
+  }
+}
+
+export class E1rmAlreadyRecordedError extends Error {
+  readonly code = 'E1RM_ALREADY_RECORDED';
+  constructor(
+    readonly performedSessionId: number,
+    readonly lift: Lift,
+  ) {
+    super(`Performed session ${performedSessionId} already has a ${lift} e1RM`);
+    this.name = 'E1rmAlreadyRecordedError';
   }
 }
 
@@ -337,6 +385,26 @@ export function assertValidPerformance(
 ): void {
   const errors = validatePerformedSession(input, options);
   if (hasErrors(errors)) throw new RangeError(`Invalid performed session: ${JSON.stringify(errors)}`);
+}
+
+/** Throws `RangeError` unless the e1RM formula is one of SPEC §8.1's. */
+export function assertValidE1rmFormula(formula: unknown): void {
+  if (!isE1rmFormula(formula)) throw new RangeError(`Unknown e1RM formula: ${String(formula)}`);
+}
+
+/** Throws `RangeError` unless the estimate comes from a valid set (SPEC §8.2) and has a value. */
+export function assertValidE1rmRecord(input: RecordE1rmInput): void {
+  const positive = (n: number) => Number.isFinite(n) && n > 0;
+  assertValidE1rmFormula(input.formula);
+  if (!isLift(input.lift)) throw new RangeError(`Unknown lift: ${String(input.lift)}`);
+  if (!positive(input.valueKg)) throw new RangeError(`Invalid e1RM: ${input.valueKg}`);
+  if (!positive(input.weightKg)) throw new RangeError(`Invalid weight: ${input.weightKg}`);
+  if (!Number.isInteger(input.reps) || input.reps < 1) throw new RangeError(`Invalid reps: ${input.reps}`);
+  if (!(input.rir >= 0 && input.rir <= MAX_E1RM_RIR)) throw new RangeError(`Invalid RIR: ${input.rir}`);
+  if (!Number.isInteger(input.setPosition) || input.setPosition < 0) {
+    throw new RangeError(`Invalid set position: ${input.setPosition}`);
+  }
+  if (input.recordedAt.trim() === '') throw new RangeError('The e1RM date must not be blank');
 }
 
 /** Throws `RangeError` unless `ids` is a permutation of `current`. */

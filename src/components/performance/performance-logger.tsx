@@ -21,8 +21,10 @@ import { useI18n, type MessageKey } from '@/i18n';
 import { pickLocalized } from '@/programs/localized';
 import { PerformedSessionIncompleteError } from '@/state/app-store';
 import { useAppStore } from '@/state/app-store-context';
+import { selectE1rmFormula } from '@/state/e1rm-selectors';
 import { selectPerformedSession } from '@/state/performance-selectors';
 
+import { CompletedSessionE1rm, DraftSessionE1rm, SetE1rmLine, useSetEstimates } from '../e1rm/session-e1rm';
 import { Button, Card, Text, TextField } from '../ui';
 import {
   extraRow,
@@ -160,6 +162,13 @@ function LoggerForm({
 
   const parsed = rows.map((row) => parseRow(row, locale, { complete: showRequired }));
   const records = parsed.map(({ record: set }) => set);
+  const formula = useAppStore(selectE1rmFormula);
+  // e1RM only from values that pass validation (an invalid field counts as not entered)
+  const validSets = useMemo(
+    () => rows.map((row) => sanitize(parseRow(row, locale, { complete: false }))),
+    [rows, locale],
+  );
+  const setEstimates = useSetEstimates(session, validSets, formula);
 
   /** Updates the form and stores the draft right away (SPEC §7: immediate local save). */
   function update(nextRows: SetRow[], nextNotes: string) {
@@ -287,6 +296,7 @@ function LoggerForm({
                 record={set}
               />
             ) : null}
+            <SetE1rmLine estimate={setEstimates.get(index)} />
             {row.prescribedIndex === null ? (
               <Button
                 variant="secondary"
@@ -310,6 +320,7 @@ function LoggerForm({
           <TonnageLine sets={records} />
         </Card>
       ) : null}
+      <DraftSessionE1rm session={session} sets={validSets} />
       {formError ? (
         <Text tone="danger" accessibilityLiveRegion="polite">
           {formError}
@@ -321,8 +332,13 @@ function LoggerForm({
 }
 
 /** Read-only summary of a completed session with the prescribed-vs-actual comparison. */
-function CompletedSummary({ record }: { record: PerformedSession }) {
+function CompletedSummary({ record, session }: { record: PerformedSession; session: GeneratedSession }) {
   const { t, formatKg, formatNumber, formatDate } = useI18n();
+  const currentFormula = useAppStore(selectE1rmFormula);
+  const e1rmHistory = useAppStore((s) => s.e1rmHistory);
+  // per-set estimates use the formula of the stored session estimate (else the current one)
+  const formula = e1rmHistory.find((entry) => entry.performedSessionId === record.id)?.formula ?? currentFormula;
+  const setEstimates = useSetEstimates(record.snapshot?.session ?? session, record.sets, formula);
   return (
     <>
       <Card testID="performance-completed">
@@ -338,7 +354,7 @@ function CompletedSummary({ record }: { record: PerformedSession }) {
           ...(set.rpe === null ? [] : [t('performance.rpeLabel', { value: formatNumber(set.rpe) })]),
         ];
         return (
-          <Card key={index}>
+          <Card key={index} testID={`set-${index + 1}`}>
             <SetHeading number={index + 1} extra={set.prescribedIndex === null} />
             <Text tabular>{parts.join(' · ')}</Text>
             <SetComparisonLine
@@ -346,6 +362,7 @@ function CompletedSummary({ record }: { record: PerformedSession }) {
               prescribedReps={set.prescribedReps}
               record={set}
             />
+            <SetE1rmLine estimate={setEstimates.get(index)} />
             {set.notes ? <Text tone="secondary">{set.notes}</Text> : null}
           </Card>
         );
@@ -360,6 +377,7 @@ function CompletedSummary({ record }: { record: PerformedSession }) {
         <Text variant="heading">{t('performance.compare.title')}</Text>
         <TonnageLine sets={record.sets} />
       </Card>
+      <CompletedSessionE1rm performed={record} />
     </>
   );
 }
@@ -371,7 +389,7 @@ function CompletedSummary({ record }: { record: PerformedSession }) {
  */
 export function PerformanceLogger({ periodizationId, session }: PerformanceLoggerProps) {
   const record = useAppStore(selectPerformedSession(periodizationId, session.key));
-  if (record?.status === 'completed') return <CompletedSummary record={record} />;
+  if (record?.status === 'completed') return <CompletedSummary record={record} session={session} />;
   return <LoggerForm periodizationId={periodizationId} session={session} record={record} />;
 }
 

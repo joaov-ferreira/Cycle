@@ -7,7 +7,7 @@
 - `app-providers.tsx` — boot gate: opens persistence, boots the app store, provides
   locale and theme.
 - `onboarding/` — first-run 1RM gate. `settings/` — Settings screen sections (profiles,
-  1RMs and history, increments and rounding, language). `one-rm/` — the three-lift 1RM form.
+  1RMs and history, increments and rounding, e1RM formula, language). `one-rm/` — the three-lift 1RM form.
   `rounding/` — `IncrementPicker` (presets and custom increment).
 - `programs/` — Programs screen (list, Sheiko templates grouped by family), program detail, original-structure view, the
   percentage editor and the kg-increment editor (Smolov Jr.).
@@ -19,6 +19,10 @@
 - `performance/` — the performance logger (per-set weight, reps, RIR/RPE, notes; extra sets;
   auto-saved draft; completion and the read-only summary with prescribed vs. actual) and the
   Training screen (sessions in progress and the next pending session).
+- `e1rm/` — e1RM display (SPEC §8): the per-set estimate line (valid, low confidence, unverified RTS
+  cell), the session estimate card (live while logging, stored once completed) with the comparison
+  with the previous e1RM, "Use as new reference 1RM" (with confirmation) and the localized formula
+  names. `settings/e1rm-section.tsx` chooses the formula.
 - `navigation/` — main tabs and the wide-screen sidebar.
 
 Rules:

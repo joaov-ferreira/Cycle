@@ -40,6 +40,7 @@ describe('app store', () => {
       language: 'system',
       theme: 'dark',
       onboardingCompleted: false,
+      e1rmFormula: 'rts',
     });
     expect(await repos.profiles.list()).toHaveLength(1);
   });

@@ -3,6 +3,10 @@ import type { RoundingMode } from '@/domain/rounding';
 import { validateReferenceOneRm } from '@/domain/validation';
 
 import {
+  assertValidE1rmFormula,
+  assertValidE1rmRecord,
+  E1rmAlreadyRecordedError,
+  type E1rmRecord,
   assertValidPerformance,
   PerformedSessionCompletedError,
   PerformedSessionNotFoundError,
@@ -45,6 +49,8 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
   const periodizations: StoredPeriodization[] = [];
   const generated: StoredGeneratedSession[] = [];
   const performed: PerformedSession[] = [];
+  const e1rms: E1rmRecord[] = [];
+  let nextE1rmId = 1;
   let nextPerformedId = 1;
   let nextSlotId = 1;
   let nextPeriodizationId = 1;
@@ -128,7 +134,9 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
         return { ...requireSettings(profileId) };
       },
       async update(profileId, patch) {
-        const updated = { ...requireSettings(profileId), ...patch, profileId };
+        const current = requireSettings(profileId);
+        if (patch.e1rmFormula !== undefined) assertValidE1rmFormula(patch.e1rmFormula);
+        const updated = { ...current, ...patch, profileId };
         settings.set(profileId, updated);
         return { ...updated };
       },
@@ -352,6 +360,28 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
             .filter((r) => r.profileId === profileId)
             .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : b.id - a.id)),
         );
+      },
+    },
+    e1rmHistory: {
+      async record(input) {
+        requireProfile(input.profileId);
+        assertValidE1rmRecord(input);
+        if (!performed.some((r) => r.id === input.performedSessionId && r.profileId === input.profileId)) {
+          throw new PerformedSessionNotFoundError(input.performedSessionId);
+        }
+        if (e1rms.some((r) => r.performedSessionId === input.performedSessionId && r.lift === input.lift)) {
+          throw new E1rmAlreadyRecordedError(input.performedSessionId, input.lift);
+        }
+        const record: E1rmRecord = { id: nextE1rmId++, ...input };
+        e1rms.push(record);
+        return { ...record };
+      },
+      async list(profileId, lift) {
+        requireProfile(profileId);
+        return e1rms
+          .filter((r) => r.profileId === profileId && (lift === undefined || r.lift === lift))
+          .sort((a, b) => (a.recordedAt < b.recordedAt ? 1 : a.recordedAt > b.recordedAt ? -1 : b.id - a.id))
+          .map((r) => ({ ...r }));
       },
     },
   };

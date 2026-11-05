@@ -15,7 +15,10 @@ SQLite (`expo-sqlite`) database, versioned migrations and repositories.
   activated periodizations, immutable snapshots of the configuration and the generated sessions
   stored as JSON, the latest being the active one), `performances`: performed sessions of an
   activated periodization (`performed_sessions` / `performed_sets`): a draft is overwritten in
-  place on every save, completing it stores the date and a snapshot and makes it immutable).
+  place on every save, completing it stores the date and a snapshot and makes it immutable),
+  `e1rmHistory`: append-only session e1RMs (`e1rm_history`, migration 008), at most one per lift and
+  performed session, with the formula and the source set; `settings.e1rmFormula` is the formula for new
+  estimates (default `rts`).
 - `memory/` — in-memory implementation (tests).
 - `sqlite/` — SQLite implementation and `openAppDatabase()` / `openSqliteRepositories()`.
 - `repositories.contract.ts` — one behavioral test suite run against **both**

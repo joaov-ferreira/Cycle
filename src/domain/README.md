@@ -13,7 +13,12 @@ items go to `otherItems` and a day without work for the slot lift raises `liftNo
 `performance.ts` (the sets to log from a generated session, field validation, prescribed-vs-actual
 comparison, the completion snapshot, snapshot session ids, the queue of pending sessions) and
 `session-slots.ts` (slot editing rules: program filtered by lift, day and start week kept in range;
-`missingProgramDays` for "Add all days of this program").
+`missingProgramDays` for "Add all days of this program") and `e1rm/` (SPEC §8: `rts-table.ts`, the
+transcribed RTS RPE chart with its sources, the unverified cell with its readings and the RTS TRAC
+differences as a note;
+`estimate.ts`, the formulas `rts`, `epley-rir` and `brzycki-rir` on integer arithmetic, rounded to
+0.1 kg, and the validity rules; `session.ts`, the representative set per lift, the candidate sets of a
+performed session (named variations excluded) and Δ kg / Δ % against the previous estimate).
 
 Dependency rules:
 

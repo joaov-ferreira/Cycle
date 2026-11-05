@@ -273,6 +273,36 @@ export const en = {
       tonnage: 'Tonnage: {{actual}} performed · {{prescribed}} prescribed · Δ {{delta}}',
     },
   },
+  e1rm: {
+    estimate: 'e1RM ≈ {{value}} (estimate)',
+    lowConfidence: 'e1RM ≈ {{value}} (estimate, low confidence: {{reason}})',
+    lowConfidenceNoValue: 'e1RM: low confidence, no estimate ({{reason}})',
+    reasons: {
+      rirAbove4: 'RIR above 4',
+      beyondRepLimit: 'more than 12 reps to failure',
+    },
+    unverified: 'e1RM: no estimate (the RTS chart value for this set is unverified)',
+    sessionTitle: 'Session e1RM (estimate)',
+    sessionLine: '{{lift}}: e1RM ≈ {{value}} (estimate), from set {{set}}',
+    formulaLine: 'Formula: {{formula}}',
+    none: 'No set is valid for an e1RM (at least 1 rep, RIR 0–4 and at most 12 reps to failure).',
+    previous: 'Previous e1RM: {{value}} · Δ {{deltaKg}} ({{deltaPercent}})',
+    noPrevious: 'First e1RM for this lift.',
+    formulas: {
+      rts: 'RTS chart',
+      epleyRir: 'Epley (RIR)',
+      brzyckiRir: 'Brzycki (RIR)',
+    },
+    useAsReference: 'Use as new reference 1RM',
+    useAsReferenceFor: 'Use the {{lift}} e1RM as the new reference 1RM',
+    confirmTitle: 'Set the {{lift}} reference 1RM to {{value}}?',
+    confirmBody:
+      'Current reference: {{current}}. A new record (origin: from e1RM) is added to the 1RM history; the current periodization is recalculated with it.',
+    notSet: 'not set',
+    confirm: 'Confirm',
+    cancel: 'Cancel',
+    adopted: '{{lift}} reference 1RM set to {{value}}.',
+  },
   training: {
     intro: 'Log the sets you actually performed. Everything is saved as you type.',
     noPeriodization: 'No activated periodization yet. Activate one in Periodization to start logging.',
@@ -347,6 +377,12 @@ export const en = {
       system: 'System',
       en: 'English',
       ptBR: 'Português',
+    },
+    e1rm: {
+      title: 'Estimated 1RM (e1RM)',
+      label: 'e1RM formula',
+      description:
+        'Used for new estimates. Estimates already stored keep the formula they were calculated with.',
     },
     rounding: {
       title: 'Increments and rounding',

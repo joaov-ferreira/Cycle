@@ -25,6 +25,7 @@ describe('registered migrations', () => {
       [5, 'program_params'],
       [6, 'periodization'],
       [7, 'performance'],
+      [8, 'e1rm'],
     ]);
   });
 
@@ -33,7 +34,7 @@ describe('registered migrations', () => {
     const again = await runMigrations(db, migrations);
     expect(again.applied).toEqual([]);
     const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version', []);
-    expect(version).toEqual({ user_version: 7 });
+    expect(version).toEqual({ user_version: 8 });
   });
 });
 
@@ -46,6 +47,7 @@ describe('001_init', () => {
       'language',
       'theme',
       'onboarding_completed',
+      'e1rm_formula',
     ]);
   });
 
@@ -426,5 +428,105 @@ describe('007_performance', () => {
     await db.runAsync('DELETE FROM profiles WHERE id = 1', []);
     expect(await db.getAllAsync('SELECT * FROM performed_sessions', [])).toEqual([]);
     expect(await db.getAllAsync('SELECT * FROM performed_sets', [])).toEqual([]);
+  });
+});
+
+describe('008_e1rm', () => {
+  async function withPerformedSession() {
+    const db = await migratedDb();
+    await db.runAsync('INSERT INTO profiles (name, created_at) VALUES (?, ?)', ['A', 'x']);
+    await db.runAsync('INSERT INTO settings (profile_id) VALUES (?)', [1]);
+    await db.runAsync(
+      'INSERT INTO periodizations (profile_id, start_date, created_at, config) VALUES (?, ?, ?, ?)',
+      [1, '2026-11-09', 'x', '{}'],
+    );
+    await db.runAsync(
+      `INSERT INTO performed_sessions (profile_id, periodization_id, session_key, session_number, block_week, lift,
+         template_id, template_name, status, started_at, updated_at, completed_at, notes, snapshot)
+       VALUES (1, 1, '1-w1', 1, 1, 'bench', 't', 'T', 'completed', 'x', 'x', 'y', '', '{}')`,
+      [],
+    );
+    return db;
+  }
+  const insertEstimate = (db: NodeSqliteDatabase, overrides: Record<string, string | number | null> = {}) => {
+    const row = {
+      profile_id: 1,
+      lift: 'bench',
+      performed_session_id: 1,
+      set_position: 2,
+      recorded_at: '2026-11-09T18:00:00.000Z',
+      value_kg: 95.6,
+      formula: 'rts',
+      weight_kg: 80,
+      reps: 5,
+      rir: 1,
+      ...overrides,
+    };
+    return db.runAsync(
+      `INSERT INTO e1rm_history (${Object.keys(row).join(', ')}) VALUES (${Object.keys(row).map(() => '?').join(', ')})`,
+      Object.values(row),
+    );
+  };
+
+  it('adds the e1RM formula setting, RTS by default and constrained to the three formulas', async () => {
+    const db = await withPerformedSession();
+    expect(await db.getFirstAsync('SELECT e1rm_formula FROM settings', [])).toEqual({ e1rm_formula: 'rts' });
+    await db.runAsync("UPDATE settings SET e1rm_formula = 'brzycki-rir'", []);
+    await db.runAsync("UPDATE settings SET e1rm_formula = 'epley-rir'", []);
+    await expect(db.runAsync("UPDATE settings SET e1rm_formula = 'epley'", [])).rejects.toThrow(/CHECK constraint failed/);
+  });
+
+  it('creates e1rm_history with the formula and the source set', async () => {
+    const db = await migratedDb();
+    expect(await columns(db, 'e1rm_history')).toEqual([
+      'id',
+      'profile_id',
+      'lift',
+      'performed_session_id',
+      'set_position',
+      'recorded_at',
+      'value_kg',
+      'formula',
+      'weight_kg',
+      'reps',
+      'rir',
+    ]);
+  });
+
+  it('allows a single estimate per lift and performed session', async () => {
+    const db = await withPerformedSession();
+    await insertEstimate(db);
+    await expect(insertEstimate(db, { set_position: 0 })).rejects.toThrow(/UNIQUE constraint failed/);
+    await insertEstimate(db, { lift: 'squat' });
+  });
+
+  it('constrains the values to valid estimates', async () => {
+    const db = await withPerformedSession();
+    const bad: Record<string, string | number | null>[] = [
+      { lift: 'curl' },
+      { formula: 'epley' },
+      { value_kg: 0 },
+      { weight_kg: 0 },
+      { reps: 0 },
+      { rir: 4.5 },
+      { rir: -1 },
+      { set_position: -1 },
+    ];
+    for (const overrides of bad) {
+      await expect(insertEstimate(db, overrides)).rejects.toThrow(/CHECK constraint failed/);
+    }
+    await expect(insertEstimate(db, { performed_session_id: 9 })).rejects.toThrow(/FOREIGN KEY constraint failed/);
+    await expect(insertEstimate(db, { profile_id: 9 })).rejects.toThrow(/FOREIGN KEY constraint failed/);
+  });
+
+  it('deletes estimates with their session and with the profile', async () => {
+    const db = await withPerformedSession();
+    await insertEstimate(db);
+    await db.runAsync('DELETE FROM performed_sessions WHERE id = 1', []);
+    expect(await db.getAllAsync('SELECT * FROM e1rm_history', [])).toEqual([]);
+    const again = await withPerformedSession();
+    await insertEstimate(again);
+    await again.runAsync('DELETE FROM profiles WHERE id = 1', []);
+    expect(await again.getAllAsync('SELECT * FROM e1rm_history', [])).toEqual([]);
   });
 });

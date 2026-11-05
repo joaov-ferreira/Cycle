@@ -6,6 +6,7 @@ import type { GeneratedSession } from '@/domain/periodization';
 import type { PerformanceSnapshot, SetRecord } from '@/domain/performance';
 
 import {
+  E1rmAlreadyRecordedError,
   InvalidIncrementError,
   PerformedSessionCompletedError,
   PerformedSessionNotFoundError,
@@ -91,6 +92,7 @@ export function describeRepositoriesContract(name: string, factory: Repositories
           language: 'system',
           theme: 'dark',
           onboardingCompleted: false,
+          e1rmFormula: 'rts',
         });
       });
 
@@ -102,6 +104,7 @@ export function describeRepositoriesContract(name: string, factory: Repositories
           language: 'pt-BR',
           theme: 'dark',
           onboardingCompleted: false,
+          e1rmFormula: 'rts',
         });
         await repos.settings.update(p.id, { theme: 'light' });
         expect(await repos.settings.get(p.id)).toEqual({
@@ -109,6 +112,7 @@ export function describeRepositoriesContract(name: string, factory: Repositories
           language: 'pt-BR',
           theme: 'light',
           onboardingCompleted: false,
+          e1rmFormula: 'rts',
         });
       });
 
@@ -128,6 +132,19 @@ export function describeRepositoriesContract(name: string, factory: Repositories
         expect(updated.onboardingCompleted).toBe(true);
         expect((await repos.settings.get(a.id)).onboardingCompleted).toBe(true);
         expect((await repos.settings.get(b.id)).onboardingCompleted).toBe(false);
+      });
+
+      it('stores the e1RM formula per profile (RTS by default) and rejects unknown formulas', async () => {
+        const repos = await factory(fixedClock);
+        const a = await repos.profiles.create({ name: 'Ana' });
+        const b = await repos.profiles.create({ name: 'Bruno' });
+        expect((await repos.settings.update(a.id, { e1rmFormula: 'epley-rir' })).e1rmFormula).toBe('epley-rir');
+        expect((await repos.settings.get(a.id)).e1rmFormula).toBe('epley-rir');
+        expect((await repos.settings.get(b.id)).e1rmFormula).toBe('rts');
+        await expect(
+          repos.settings.update(a.id, { e1rmFormula: 'epley' as unknown as 'rts' }),
+        ).rejects.toThrow(RangeError);
+        expect((await repos.settings.get(a.id)).e1rmFormula).toBe('epley-rir');
       });
 
       it('accepts an empty patch', async () => {
@@ -822,6 +839,162 @@ export function describeRepositoriesContract(name: string, factory: Repositories
         const stored = await repos.performances.get(p.id, periodization.id, '1-w1');
         expect(stored?.sets[0].weightKg).toBe(80);
         expect(stored?.snapshot).toEqual(snapshot(periodization.id));
+      });
+    });
+
+    describe('e1RM history', () => {
+      const generated: GeneratedSession = {
+        key: '1-w1',
+        slotId: 1,
+        sessionNumber: 1,
+        blockWeek: 1,
+        programWeek: 1,
+        lift: 'bench',
+        templateId: 'cycle-531-custom',
+        templateName: '5/3/1 (custom)',
+        templateVersion: 'v',
+        verification: 'verified',
+        programDay: 1,
+        daysPerWeek: 1,
+        items: [],
+        otherItems: [],
+        volume: { tonnageKg: 0, totalReps: 0 },
+        volumeByLift: {},
+        warnings: [],
+      };
+      const config = {
+        slots: [{ id: 1, lift: 'bench' as const, templateId: 'cycle-531-custom', programDay: 1, startWeek: 1 }],
+        oneRms: { bench: 100 },
+        rounding: { incrementKg: 2.5, mode: 'nearest' as const, liftIncrementsKg: {} },
+        params: {},
+      };
+      const set: SetRecord = {
+        prescribedIndex: 0,
+        prescribedWeightKg: 75,
+        prescribedReps: 5,
+        weightKg: 80,
+        reps: 5,
+        rir: 1,
+        rpe: 9,
+        notes: '',
+      };
+
+      async function setup() {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        const periodization = await repos.periodizations.create({
+          profileId: p.id,
+          startDate: '2026-11-09',
+          config,
+          sessions: [generated],
+        });
+        const performed = async (sessionKey: string) =>
+          repos.performances.saveDraft({
+            profileId: p.id,
+            periodizationId: periodization.id,
+            sessionKey,
+            sessionNumber: 1,
+            blockWeek: 1,
+            lift: 'bench',
+            templateId: 'cycle-531-custom',
+            templateName: '5/3/1 (custom)',
+            notes: '',
+            sets: [set, set, set],
+          });
+        return { repos, p, performed };
+      }
+
+      const estimate = (profileId: number, performedSessionId: number, overrides = {}) => ({
+        profileId,
+        lift: 'bench' as const,
+        performedSessionId,
+        setPosition: 2,
+        recordedAt: '2026-11-09T18:00:00.000Z',
+        valueKg: 95.6,
+        formula: 'rts' as const,
+        weightKg: 80,
+        reps: 5,
+        rir: 1,
+        ...overrides,
+      });
+
+      it('starts empty', async () => {
+        const { repos, p } = await setup();
+        expect(await repos.e1rmHistory.list(p.id)).toEqual([]);
+      });
+
+      it('appends an estimate with its formula and source set', async () => {
+        const { repos, p, performed } = await setup();
+        const session = await performed('1-w1');
+        const saved = await repos.e1rmHistory.record(estimate(p.id, session.id));
+        expect(saved).toEqual({ id: 1, ...estimate(p.id, session.id) });
+        expect(await repos.e1rmHistory.list(p.id)).toEqual([saved]);
+        expect(await repos.e1rmHistory.list(p.id, 'bench')).toEqual([saved]);
+        expect(await repos.e1rmHistory.list(p.id, 'squat')).toEqual([]);
+      });
+
+      it('keeps a single estimate per lift and performed session', async () => {
+        const { repos, p, performed } = await setup();
+        const session = await performed('1-w1');
+        await repos.e1rmHistory.record(estimate(p.id, session.id));
+        await expect(
+          repos.e1rmHistory.record(estimate(p.id, session.id, { setPosition: 0, valueKg: 90 })),
+        ).rejects.toThrow(E1rmAlreadyRecordedError);
+        await repos.e1rmHistory.record(estimate(p.id, session.id, { lift: 'squat', valueKg: 150 }));
+        expect((await repos.e1rmHistory.list(p.id)).map((r) => [r.lift, r.valueKg])).toEqual([
+          ['squat', 150],
+          ['bench', 95.6],
+        ]);
+      });
+
+      it('lists newest first by date, then by insertion', async () => {
+        const { repos, p, performed } = await setup();
+        const first = await performed('1-w1');
+        const second = await performed('1-w2');
+        const third = await performed('1-w3');
+        const late = await repos.e1rmHistory.record(estimate(p.id, first.id, { recordedAt: '2026-11-20T10:00:00.000Z' }));
+        const early = await repos.e1rmHistory.record(estimate(p.id, second.id, { recordedAt: '2026-11-10T10:00:00.000Z' }));
+        const sameDay = await repos.e1rmHistory.record(estimate(p.id, third.id, { recordedAt: '2026-11-20T10:00:00.000Z' }));
+        expect((await repos.e1rmHistory.list(p.id)).map((r) => r.id)).toEqual([sameDay.id, late.id, early.id]);
+      });
+
+      it('rejects invalid estimates and sessions of another profile, storing nothing', async () => {
+        const { repos, p, performed } = await setup();
+        const other = await repos.profiles.create({ name: 'Bruno' });
+        const session = await performed('1-w1');
+        const invalid = [
+          { valueKg: 0 },
+          { valueKg: Number.NaN },
+          { weightKg: 0 },
+          { reps: 0 },
+          { reps: 2.5 },
+          { rir: 4.5 },
+          { rir: -1 },
+          { setPosition: -1 },
+          { formula: 'epley' },
+          { lift: 'curl' },
+          { recordedAt: '' },
+        ];
+        for (const overrides of invalid) {
+          await expect(repos.e1rmHistory.record(estimate(p.id, session.id, overrides) as never)).rejects.toThrow(RangeError);
+        }
+        await expect(repos.e1rmHistory.record(estimate(p.id, 99))).rejects.toThrow(PerformedSessionNotFoundError);
+        await expect(repos.e1rmHistory.record(estimate(other.id, session.id))).rejects.toThrow(
+          PerformedSessionNotFoundError,
+        );
+        await expect(repos.e1rmHistory.record(estimate(99, session.id))).rejects.toThrow(ProfileNotFoundError);
+        await expect(repos.e1rmHistory.list(99)).rejects.toThrow(ProfileNotFoundError);
+        expect(await repos.e1rmHistory.list(p.id)).toEqual([]);
+        expect(await repos.e1rmHistory.list(other.id)).toEqual([]);
+      });
+
+      it('returns copies', async () => {
+        const { repos, p, performed } = await setup();
+        const session = await performed('1-w1');
+        const saved = await repos.e1rmHistory.record(estimate(p.id, session.id));
+        saved.valueKg = 1;
+        (await repos.e1rmHistory.list(p.id))[0].valueKg = 2;
+        expect((await repos.e1rmHistory.list(p.id))[0].valueKg).toBe(95.6);
       });
     });
   });

@@ -72,7 +72,15 @@ half points allowed; `5+` is accepted as RIR) and notes, plus extra sets and ses
 change is saved as a draft at once; "Complete session" records the date and a snapshot of the
 prescription and the 1RM, shows prescribed vs. actual per set (Δ kg, Δ reps) and per session (Δ
 tonnage) and makes the session read-only. The Training tab lists the sessions in progress and the
-next pending session. Features
+next pending session. Stage 11 adds the estimated 1RM: as soon as a logged set has weight, reps and
+RIR/RPE it shows its e1RM (`e1RM ≈ 95.6 kg (estimate)`), or "low confidence" when RIR is above 4 or
+the set is more than 12 reps from failure, and the session card shows one estimate per lift from its
+representative set (the fewest reps to failure; ties go to the heaviest weight, then the lowest RIR,
+then the first set) with Δ kg and Δ % against the previous e1RM. Completing the session stores that
+estimate with the formula used; the summary offers "Use as new reference 1RM", which after a
+confirmation adds a 1RM record with origin "From e1RM". The formula is chosen in Settings: the RTS
+chart (default; the widely circulated Tuchscherer chart, whose only disputed cell, 12 reps @ RPE 6,
+is unverified and gives no estimate), Epley (RIR) or Brzycki (RIR); changing it never rewrites stored estimates. Features
 are built stage by stage; the current state of each stage is in the status table of
 [`docs/PLAN.md`](docs/PLAN.md).
 
@@ -144,7 +152,13 @@ snapshot) and `generated_sessions` (one JSON snapshot per session). The session 
 where performance is logged (SPEC §7). RIR ↔ RPE conversions and the logging rules (field validation,
 prescribed-vs-actual, the completion snapshot) are pure code in `src/domain/rpe.ts` and
 `src/domain/performance.ts`; drafts and completed sessions are stored in `performed_sessions` and
-`performed_sets` (migration 007).
+`performed_sets` (migration 007). The e1RM engine (SPEC §8) is pure code in `src/domain/e1rm/`:
+`rts-table.ts` (the RTS RPE chart, reps 1–12 × RPE 10–6, transcribed with its sources; the one cell
+the sources disagree on is `unverified`, and the later RTS TRAC table's differences are kept as a note), `estimate.ts` (`rts`: `w / pct(reps, RPE)`, `epley-rir`: `w × (1 + n/30)`,
+`brzycki-rir`: `w × 36 / (37 − n)`, with `n = reps + RIR`, rounded to 0.1 kg; validity: at least one
+rep, RIR ≤ 4, `n ≤ 12`) and `session.ts` (one estimate per lift from the representative set,
+comparison with the previous one). Session estimates are stored in `e1rm_history` (migration 008),
+and the formula for new estimates is a per-profile setting.
 
 Supporting folders: `src/constants/theme.ts` (design tokens) and `src/test-utils/`
 (test-only helpers). Each layer has a `README.md` describing its contents and dependency

@@ -15,7 +15,10 @@ Connects persistence (`src/data/`) and the math engine (`src/domain/`) to the UI
   activated periodization (`activatePeriodization(startDate)`, a snapshot in the repository).
   Also the activated sessions (`activeSessions`) and the performed sessions (`performedSessions`):
   `savePerformedDraft` (serialized, so the last edit wins), `completePerformedSession` (validates,
-  stores the date and the snapshot) and `loadSnapshotSession`.
+  stores the date and the snapshot, then the session e1RM of each lift with the formula in effect)
+  and `loadSnapshotSession`. The e1RM history (`e1rmHistory`), `setE1rmFormula` and
+  `adoptE1rmAsReference` ("Use as new reference 1RM", origin `from_e1rm`).
+- `e1rm-selectors.ts` — `selectE1rmFormula`, `selectSessionE1rms` and `selectPreviousE1rm`.
 - `performance-selectors.ts` — `selectTrainingQueue` (sessions in progress and the next pending
   session of the active periodization) and `selectPerformedSession`.
 - `periodization-selectors.ts` — `selectPeriodization` (the live three-week periodization,

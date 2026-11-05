@@ -613,3 +613,112 @@ the reference shipped with the installed package
   `/session/p<id>-<key>`. The placeholder text `screens.training.placeholder` was removed.
 - **Not in this stage.** e1RM display after a set (Stage 11), history list and editing completed
   sessions (Stage 13). The Dashboard still shows its placeholder.
+
+## 2026-11-05 — Stage 11: e1RM engine + session estimate
+
+- **RTS chart sources (all accessed 2026-11-05).** The original chart of M. Tuchscherer, *The Reactive
+  Training Manual* (2008), was not retrieved: the elitefts.com excerpt of chapter 2
+  (https://elitefts.com/blogs/training/rate-of-perceived-exertion-rpe) refers to the chart without its
+  values, and the "Beginning RTS" documents on Scribd did not render. Two published versions were
+  compared cell by cell (reps 1–12 × RPE 10, 9.5 … 6):
+  - **Circulated chart:** SensAI (https://www.sensai.fit/tools/rpe), AIFitHub
+    (https://aifithub-monorepo.pages.dev/methodology/rpe-to-percentage-converter/) and Fitness Volt
+    (https://fitnessvolt.com/rpe-training/; reps 1–10 × RPE 10–6.5 also on
+    https://fitnessvolt.com/rpe-training/guides/tuchscherer-chart-explained) give the same 108 cells,
+    except 12 reps @ RPE 6: 57.2 % (SensAI, AIFitHub) vs 57.4 % (Fitness Volt).
+  - **RTS TRAC table:** the `strength` R package 0.1.0.9000, data set `rpe_tab_rts`, documented as
+    "pulled from the TRAC system on Reactive Training Systems in Dec 2025"
+    (https://alexpaynter.r-universe.dev/strength, https://github.com/alexpaynter/strength). The `.rda`
+    file was read programmatically.
+  - Seen, not adopted: the Fitness Volt RPE calculator (https://fitnessvolt.com/rpe-calculator/) shows a
+    third curve beyond 10 reps to failure (e.g. 72.8 / 71.7 / 70.7 …), inconsistent with the site's own
+    chart page.
+- **Transcription rule.** A cell carries a percentage only where both versions agree (64 cells). The
+  other 44 cells are `'unverified'` and produce no RTS estimate (SPEC §3.1 rule 6 applied to the
+  chart); both readings are kept in `RTS_UNVERIFIED`. Disagreements: 93.9 vs 93.8 (n = 2.5: 1 @ 8.5,
+  2 @ 9.5), 79.9 vs 79.8 (n = 7.5: 4 @ 6.5, 5 @ 7.5, 6 @ 8.5, 7 @ 9.5), and every cell with
+  `n = reps + RIR ≥ 10.5`, where TRAC is flatter (e.g. 12 @ 10: 68.0 vs 70.7). In practice the RTS
+  formula estimates sets up to 10 reps to failure; Epley/Brzycki still go to n = 12. A data test checks
+  every cell, the list of unverified cells with both readings, and the chart diagonal
+  (`pct(r, RPE) = pct(r + 1, RPE + 1)`). SPEC §8.1 "half points interpolated": the chart already has
+  half-point columns, so nothing is interpolated; an RPE outside 6–10 in half points is outside the chart.
+- **SPEC §8.1 acceptance example (80 kg × 5 @ RIR 1).** `rts`: 80 / 0.837 = 95.579… → **95.6 kg**;
+  `epley-rir` 96.0 kg; `brzycki-rir` 92.9 kg.
+- **Arithmetic and rounding.** Integers only: weight in centikilograms, `n` in half reps, percentages in
+  tenths; the e1RM is rounded to 0.1 kg (halves up) and stored and displayed with one decimal. RIR
+  comes from the logged RIR, else `10 − RPE`; half points (RPE 8.5 → RIR 1.5) are supported. Epley with
+  `n = 1` returns the weight (SPEC); Brzycki has no value from `n ≥ 37`. Δ % against the previous
+  estimate is rounded to 0.1 (halves away from zero).
+- **Validity (SPEC §8.2).** `estimateSet` returns `valid` (reps ≥ 1, RIR ≤ 4, n ≤ 12, RTS cell verified),
+  `lowConfidence` (`rirAbove4` before `beyondRepLimit`; a value is shown when the formula has one, never
+  stored — the RTS formula never has one there, because RPE < 6 is off the chart and n > 12 is in the
+  unverified region), `unverified` (valid set on a disputed RTS cell: no estimate) or `none` (no weight,
+  0 reps / failure, or no RIR and no RPE: nothing is shown).
+- **Representative set (SPEC §8.3).** Per lift: valid sets only; smallest n, then heaviest weight, then
+  lowest RIR, then first set. Sets of a named variation (`exercise`, e.g. "Deadlift from boxes") are not
+  the competition lift and are left out; extra sets count for the session lift. Per-set estimates are
+  shown for information, in the logger and in the completed summary (with the formula of the stored
+  estimate).
+- **Storage (migration 008).** `settings.e1rm_formula` (`CHECK` on the three ids, default `rts`; a column,
+  like `onboarding_completed`) and `e1rm_history(profile_id, lift, performed_session_id, set_position,
+  recorded_at, value_kg, formula, weight_kg, reps, rir, UNIQUE(performed_session_id, lift))` with CHECKs
+  matching validity (reps ≥ 1, 0 ≤ RIR ≤ 4) and cascades from the profile and the performed session.
+  `recorded_at` is the session's completion time. The repository is append-only (`record`, `list`); a
+  second estimate for the same session and lift raises `E1rmAlreadyRecordedError`. Stage 13 (editing a
+  past session recomputes its e1RM) will need a replace operation for that one row.
+- **When it is written.** `completePerformedSession` completes the record, then stores one estimate per
+  lift with the formula in effect. The two writes are not one transaction (the repositories have no
+  shared transaction API); a failure between them leaves a completed session without an estimate, which
+  Stage 13's recompute can fill.
+- **Formula changes do not rewrite history.** Each record keeps its formula and the source set (weight,
+  reps, RIR), so another formula is a view (`estimateSet(record, formula)`), tested in the store; only
+  new sessions use the new formula. The comparison shows the previous stored value as stored, even if it
+  used another formula.
+- **Previous e1RM.** The stored estimate of the same lift just before this one in history order (date,
+  then insertion); for a session not completed yet, the latest one of the lift. Shown as
+  `Previous e1RM: 92.9 kg · Δ +2.7 kg (+2.9%)`, or "First e1RM for this lift."
+- **"Use as new reference 1RM".** In the completed summary, per stored estimate; it opens an inline
+  confirmation (lift, value, current reference) with Confirm / Cancel — never automatic. Confirming
+  appends a `reference_1rm_history` record (origin `from_e1rm`, effective now) through the store; the
+  value is validated with the SPEC §2 rules first, so an e1RM above 600 kg shows "Must be at most 600"
+  and nothing is recorded. The live periodization recalculates from the new current 1RM; activated
+  snapshots and completed sessions do not change.
+- **Settings.** "Estimated 1RM (e1RM)" section with a three-option segmented control (RTS chart /
+  Epley (RIR) / Brzycki (RIR)) and a note that stored estimates keep their formula.
+
+### Stage 11 — revised RTS chart adoption (orchestrator review)
+
+- **Change.** The adoption rule above ("a cell is a number only where the circulated chart and the RTS
+  TRAC table agree") is replaced. SPEC §8.1 names Tuchscherer's chart from *The Reactive Training
+  Manual* (2008) as the source; the TRAC table (`strength` R package, Dec 2025) is a later, revised
+  RTS version, not a competing transcription of that chart, so disagreeing with it does not make a
+  cell unverified.
+- **Source of record.** The widely circulated Tuchscherer chart, as given identically by SensAI,
+  AIFitHub and Fitness Volt (URLs above, accessed 2026-11-05). Every cell where those sources agree is
+  adopted: 107 of 108 cells.
+- **Unverified (1 cell).** 12 reps @ RPE 6: 57.2 % (SensAI, AIFitHub) vs 57.4 % (Fitness Volt). It
+  produces no estimate (`RTS_UNVERIFIED`). Every other cell is given by all readable sources; Fitness
+  Volt's chart-explained page covers reps 1–10 × RPE 10–6.5 and agrees.
+- **Discrepancy note: RTS TRAC.** TRAC differs in 44 cells, kept as `RTS_TRAC_DIFFERENCES`
+  (`[chart, TRAC]`) and not used for estimates: 93.9 vs 93.8 at 1 @ 8.5 and 2 @ 9.5; 79.9 vs 79.8 at
+  4 @ 6.5, 5 @ 7.5, 6 @ 8.5 and 7 @ 9.5; and every cell with `n = reps + RIR ≥ 10.5` (7 @ 6.5, 7 @ 6;
+  8 @ 7.5–6; 9 @ 8.5–6; 10 @ 9.5–6; all of 11 and 12 reps), where TRAC is flatter (e.g. 12 @ 10:
+  68.0 vs 70.7; 12 @ 6: TRAC 65.0). The Fitness Volt RPE calculator page, with its own curve beyond 10
+  reps to failure, also stays a note.
+- **Effects.** 1 @ RPE 8.5 and the other cells listed above produce RTS estimates again (e.g.
+  100 × 1 @ RPE 8.5 → 100 / 0.939 = 106.5 kg); the RTS formula now covers up to n = 12 like Epley and
+  Brzycki, and RTS low-confidence sets with n > 12 within the chart show a value (60 × 10 @ RIR 3 →
+  60 / 0.653 = 91.9 kg, not stored). The `unverified` estimate status remains for the one disputed
+  cell; it is reachable only as a low-confidence set (12 reps @ RIR 4 is n = 16). The SPEC §8.1
+  example is unchanged (5 @ RPE 9 = 83.7 % → 95.6 kg).
+
+### Stage 11 — review and audit notes (orchestrator)
+
+- Review decision: the RTS TRAC table (2025) is a later revision of RTS's chart, not a
+  transcription of the 2008 Tuchscherer chart named by SPEC §8.1, so it is kept as a
+  discrepancy note only; the circulated Tuchscherer chart is the source of record.
+- An independent reviewer compared all 108 cells against sensai.fit, AIFitHub and Fitness
+  Volt (accessed 2026-11-05): 107 match all three exactly; 12 reps @ RPE 6 (57.2 vs 57.4)
+  is the only unverified cell. The table also follows the chart's known single-sequence
+  diagonal structure. Formulas, validity, rounding and the representative-set rule match
+  SPEC §8: verdict ACCEPT.

@@ -6,6 +6,7 @@ import { migration004Rounding } from './004_rounding';
 import { migration005ProgramParams } from './005_program_params';
 import { migration006Periodization } from './006_periodization';
 import { migration007Performance } from './007_performance';
+import { migration008E1rm } from './008_e1rm';
 
 /** Every schema migration, in order. Append new files as `NNN_<name>.ts`; never edit old ones. */
 export const migrations: readonly Migration[] = [
@@ -16,4 +17,5 @@ export const migrations: readonly Migration[] = [
   migration005ProgramParams,
   migration006Periodization,
   migration007Performance,
+  migration008E1rm,
 ];
