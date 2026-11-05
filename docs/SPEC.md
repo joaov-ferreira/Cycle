@@ -465,7 +465,20 @@ src/
 - Input validation on every form (clear, localized messages).
 - UI tests run in both locales for screens with formatted numbers.
 
-### 12.4 Reactivity
+### 12.4 Build and distribution
+
+- An Android APK is built automatically from every push to `main` by a GitHub Actions
+  workflow that runs the build **inside a Docker container** (reproducible toolchain:
+  JDK, Android SDK/NDK, Node). Native projects are generated in the container with
+  `npx expo prebuild` (CNG) — never committed.
+- The APK is published as a workflow artifact and attached to a rolling `latest-main`
+  pre-release. Release signing uses repository secrets when present; otherwise the
+  build is debug-key signed and labeled as such.
+- The same Docker image/script can build the APK locally. EAS Build remains a
+  supported alternative.
+- The project `README.md` explains what CYCLE is, how to run it and how to build the APK.
+
+### 12.5 Reactivity
 
 Changing exercise, program, session, 1RM, increment, configurable parameters or language
 must automatically update the visible periodization (memoized selectors derived from

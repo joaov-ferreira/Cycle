@@ -47,7 +47,9 @@ make sure CI is green, merge it, and update the stage status in PLAN.md within t
 | 11 | Strength progression dashboard + charts | sonnet | `feat/11-progress` | ⬜ |
 | 12 | Training history | sonnet | `feat/12-history` | ⬜ |
 | 13 | Home dashboard + desktop responsiveness + i18n audit | sonnet | `feat/13-dashboard` | ⬜ |
-| 14 | Final review, E2E and documentation | opus | `chore/14-final-review` | ⬜ |
+| 14 | Final review and E2E | opus | `chore/14-final-review` | ⬜ |
+| 15 | Android APK pipeline (GitHub Actions + Docker) | sonnet | `ci/15-android-apk` | ⬜ |
+| 16 | Project README | haiku | `docs/16-readme` | ⬜ |
 
 Legend: ⬜ pending · 🟨 in progress · ✅ merged
 
@@ -322,12 +324,87 @@ fully usable in both languages.
 
 ---
 
-## Stage 14 — Final review, E2E and documentation · **opus**
+## Stage 14 — Final review and E2E · **opus**
 
 Scope: integration test covering the whole SPEC §13 flow (in-memory repositories +
 screens, including the language switch); critical review of mathematical accuracy and
-program-data fidelity against the recorded sources; `npx expo-doctor`; README (in
-English) with setup, architecture, program sources, i18n guide (how to add strings) and
-limitations (`unverified` data); fix any discrepancies found (in small PRs if needed).
+program-data fidelity against the recorded sources; `npx expo-doctor`; fix any
+discrepancies found (in small PRs if needed).
 
-Acceptance: E2E flow green in CI; every stage ✅ in the status table.
+Acceptance: E2E flow green in CI; stages 0–13 ✅ in the status table.
+
+---
+
+## Stage 15 — Android APK pipeline (GitHub Actions + Docker) · **sonnet**
+
+**Goal:** every push to `main` produces an installable APK, built inside a Docker
+container in GitHub Actions (SPEC §12.4). No EAS account or local Android Studio needed.
+
+Scope:
+1. Read the Expo SDK 58 docs for the required toolchain (JDK, Android SDK platform /
+   build-tools, NDK, Node versions) and for local builds via `npx expo prebuild`
+   (Continuous Native Generation — `android/` is generated inside the container, never
+   committed).
+2. `docker/android/Dockerfile`: pinned base image with the JDK, Node (matching
+   `package.json`/`.nvmrc`), Android SDK command-line tools, accepted licenses, platform,
+   build-tools and NDK at the versions from step 1. Non-root user. No secrets baked in.
+3. `scripts/build-apk.sh` (runs inside the container): `npm ci` →
+   `npx expo prebuild --platform android --clean --no-install` →
+   `cd android && ./gradlew assembleRelease` → copy the APK to `dist/` as
+   `cycle-<version>-<short-sha>.apk`. Same script works locally:
+   `docker build -t cycle-android docker/android && docker run --rm -v "$PWD":/app cycle-android`.
+4. Signing: if repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
+   `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` are present, sign the release with them
+   (configured through a config plugin or Gradle properties passed at build time — never
+   by editing generated native files by hand); otherwise sign with the debug keystore and
+   name the file `…-unsigned-debugkey.apk` so it is clearly an initial/test build.
+5. `.github/workflows/android-apk.yml`: triggers on `push` to `main` and
+   `workflow_dispatch`; steps: checkout → Docker Buildx with GitHub Actions layer cache →
+   build the image → run the container with the workspace mounted (Gradle and npm caches
+   mounted from `actions/cache`) → upload `dist/*.apk` with `actions/upload-artifact`
+   (retention 30 days) → publish/update a pre-release `latest-main` with the APK
+   attached. `concurrency` group cancels superseded runs. Minimal `permissions`
+   (`contents: write` only for the release step).
+6. Optional PR job (`workflow_dispatch` or label `build-apk`) to build without
+   publishing, so the pipeline itself can be verified in this stage's PR.
+7. Record toolchain versions and signing approach in `docs/DECISIONS.md`.
+
+Tests/verification (TDD where applicable): shellcheck on `scripts/build-apk.sh`;
+`actionlint` on the workflow (add both to CI); a successful pipeline run on the PR via
+the manual/label trigger, with the APK artifact downloadable; the APK installs and opens
+on an Android emulator or device (record how it was verified in the PR).
+
+Acceptance: after merge, the `main` run is green and the `latest-main` pre-release
+contains the APK.
+
+---
+
+## Stage 16 — Project README · **haiku**
+
+**Goal:** a complete `README.md` (in English) written at the end, when everything it
+describes exists. Read the code, SPEC, PLAN, DECISIONS and the workflows — document
+what is actually implemented, not what was planned.
+
+Sections:
+1. **What is CYCLE** — purpose, audience, main features (periodization generator,
+   supported programs and their sources/verification status, performance tracking,
+   e1RM, progression, history, bilingual UI), a few screenshots (`docs/images/`).
+2. **Tech stack and architecture** — Expo SDK 58, Expo Router, expo-sqlite; the layer
+   diagram from SPEC §12.1 and the dependency rules.
+3. **Running the app** — prerequisites (Node version, npm), `npm ci`,
+   `npx expo start` (Expo Go vs. development build, web), running tests, lint and
+   typecheck.
+4. **Building the APK** — (a) download from the `latest-main` pre-release or the
+   Actions artifact; (b) build locally with Docker (exact `docker build` / `docker run`
+   commands from Stage 15); (c) alternative with EAS
+   (`npx eas-cli@latest build -p android --profile preview`); release signing secrets
+   and how to install the APK on a device.
+5. **Internationalization** — how to add/translate strings.
+6. **Contributing** — link to AGENTS.md (TDD, branch/PR workflow), docs/ index.
+7. **Limitations** — `unverified` program data, e1RM is an estimate, out-of-scope items
+   (SPEC §14). License.
+
+Verification: every command in the README is executed once (except the EAS one) and
+works as written; links resolve.
+
+Acceptance: README merged; stages 0–16 ✅ in the status table.
