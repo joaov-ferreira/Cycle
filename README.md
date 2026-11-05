@@ -8,104 +8,94 @@ CYCLE helps intermediate and advanced powerlifters plan training periods and tra
 their strength changes over time. It is a mobile-first app for iOS, Android and the web,
 built with Expo.
 
-Planned features (see [`docs/SPEC.md`](docs/SPEC.md) for the full specification):
+Features (see [`docs/SPEC.md`](docs/SPEC.md) for the full specification):
 
-- Reference 1RMs per lift, with history and multiple profiles per device.
-- Automatic periodization generator with a three-week table and a calendar view.
-- Program database: custom 5/3/1, Smolov Jr., Smolov and Sheiko. Values are transcribed
-  from cited sources; anything that cannot be verified is marked `unverified` and produces
-  no load.
-- Load increments and rounding rules.
-- Session logging with RIR/RPE, prescribed vs. actual comparison.
-- Estimated 1RM (e1RM) per session, with the RTS chart as default formula.
-- Dashboard (home): the current week of the active block, the next session, the latest e1RM and the
-  reference 1RM of each lift, and shortcuts.
-- Strength progression dashboard with e1RM / reference 1RM charts and a period filter.
-- Training history: completed sessions with filters, prescribed vs. actual, comparison with equivalent
-  previous sessions, and correction of what was logged.
-- Bilingual interface: English and Brazilian Portuguese.
+- **Reference 1RMs** per lift (onboarding on first run, editable in Settings), stored as an
+  append-only history; several local profiles per device.
+- **Program database**: the custom 5/3/1 (editable percentages), Smolov Jr., the full 13-week
+  Smolov squat program and five numbered Sheiko routines (#29, #30, #31, #32, #37). Each template
+  shows its version, source and verification status; the Programs screen browses the whole
+  original structure. Values are transcribed from cited sources (`docs/DECISIONS.md`); anything
+  that cannot be verified is marked "Unverified data" and gets no load.
+- **Periodization generator**: configure each session of the week (lift, program, program day,
+  block start week, program parameters such as the Smolov Jr. increment), reorder, duplicate or
+  remove sessions, "Add all days of this program". The three-week table (exact → rounded load,
+  volume per session, week and lift, warnings) and the calendar update instantly on every change.
+  "Activate periodization" freezes a snapshot with a start date.
+- **Load increments and rounding**: 1 / 1.25 / 1.5 / 2 / 2.5 kg or custom (0.1–25 kg), per-lift
+  override, nearest (ties down) / always down / always up, computed on integer micrograms.
+- **Performance logging** against the activated snapshot: weight, reps, RIR / RPE (kept in sync,
+  `5+` accepted), notes, extra sets, autosaved drafts, prescribed vs. actual (Δ kg, Δ reps,
+  Δ tonnage), "Complete session".
+- **Estimated 1RM (e1RM)**: RTS chart (default), RIR-adjusted Epley or Brzycki; per-set estimates
+  while logging, one estimate per lift and session from the representative set, comparison with
+  the previous estimate, "Use as new reference 1RM" with confirmation.
+- **Dashboard**: current block week, next session, latest e1RM and reference 1RM per lift,
+  shortcuts.
+- **Progress**: per lift, current reference 1RM, latest / previous / highest e1RM, improvement over
+  the baseline of the period, and a chart (e1RM line + reference 1RM steps) with a period filter
+  and tappable points.
+- **Training history**: completed sessions with lift / program / period filters, set-by-set
+  detail, comparison with equivalent previous sessions, and correction of a completed session
+  (its e1RM is recomputed as a new revision; nothing else changes).
+- **Bilingual interface** (English / Brazilian Portuguese, locale-aware number and date
+  formatting), dark theme by default (light option), bottom tabs on phones and a sidebar at
+  widths ≥ 900 px.
 
-**Status:** under development. The foundation is in place (Stage 1): test infrastructure,
-CYCLE dark theme and base components, bilingual i18n layer, five-tab navigation (sidebar on
-wide screens) with placeholder screens (all replaced by Stage 14), and local SQLite persistence with migrations and a
-default profile. Stage 2 adds profiles and reference 1RMs: a first-run onboarding for the
-Bench, Squat and Deadlift 1RMs, and Settings (More → Settings) to switch, create and
-rename profiles, edit the 1RMs (every change appends a record; the history is shown per
-lift) and choose the language (System / English / Português). Stage 3 adds load increments
-and rounding to Settings: the rounding mode, the default increment (a preset or a custom
-value), a per-lift increment override, and a live example (`96.25 kg → 95.0 kg`). Stage 4
-adds the program database and the Programs screen (More → Programs): each template with
-its version, source, duration, frequency and verification badge, and a detail view with the
-full original structure week by week. The first template is the custom 5/3/1 (3 sets of
-5 / 3 / 1 reps at 75 / 85 / 95 % by default); its three percentages can be edited per
-profile (30–105 % in 0.5 % steps). Stage 5 adds the periodization generator (Periodization
-tab): build the week's sessions (add, duplicate, remove, reorder with ↑/↓; choose the lift,
-the program, the program day and the block's starting week), and the three-week table shows
-every set as `sets × reps @ %` with the exact and the rounded load (`119.0 kg → 120.0 kg`),
-volume (tonnage and reps) per session, week and lift, and warnings (missing 1RM, incomplete
-program frequency, unverified data, invalid sessions). Any change to sessions, 1RMs, increments
-or program percentages updates the table immediately. "Activate periodization" saves a
-snapshot with a start date; later edits do not change it. Stage 6 adds a Table | Calendar toggle to
-the Periodization tab: the calendar is a week × session grid of cards (lift, program and a set
-summary with the rounded load), and tapping a card opens the session detail (`/session/[id]`) with
-every set (`exact → rounded` load), volume, accessories, warnings and the program's version and
-source. Both views read the same selector, so they always agree. Stage 7 adds Smolov Jr. for the
-bench press or the squat: four days a week for three weeks (6 × 6 @ 70 %, 7 × 5 @ 75 %, 8 × 4 @ 80 %,
-10 × 3 @ 85 %), with a weekly increment added in week 2 and twice in week 3. The increment is chosen
-per profile inside the range of the sources (2.5–5 kg, default 2.5 kg) from the session editor or the
-program detail; other values are rejected. "Add all days of this program" creates the missing
-program days at once, and a warning shows while a configuration covers fewer days than the program
-prescribes. Stage 8 adds the full Smolov squat program (13 weeks: introductory microcycle, base
-mesocycle with fixed +10 kg / +15 kg increments and a 1RM test, switching phase, intense mesocycle,
-taper and test). The session editor's block start week browses any three-week block (weeks 1–11);
-weeks with three sessions show a rest day in the fourth day slot, 1RM tests are shown as text, and
-the switching phase and two sets on which the sources disagree are flagged "Unverified data" with no
-load. Stage 9 adds five numbered Sheiko routines (#29, #30, #31, #32 and #37: one month each, three
-days a week, squat, bench press and deadlift work on the same days), transcribed from Lift Vault's
-spreadsheet collection and checked set by set against a second transcription. The session editor
-lists Sheiko once among the programs, with a second selector for the routine, and the Programs screen
-groups the routines under "Sheiko". On these multi-lift days only the session's lift is calculated;
-the day's other lifts are shown as information without loads, and a warning appears when the chosen
-day has no work for the session's lift. Variations such as "Deadlift from boxes" use the competition
-lift's 1RM, accessories are listed with sets and reps only, and the #32 max attempts (the sources give
-2–3 singles at 100–105%) are flagged "Unverified data" with no load. Stage 10 adds performance
-tracking: from a live session in the calendar, "Log this session" opens the matching session of the
-**activated** periodization (`/session/p<periodizationId>-<slotId>-w<week>`), where each prescribed
-set has weight (pre-filled with the prescribed load), reps, RIR, RPE (kept in sync as RPE = 10 − RIR,
-half points allowed; `5+` is accepted as RIR) and notes, plus extra sets and session notes. Every
-change is saved as a draft at once; "Complete session" records the date and a snapshot of the
-prescription and the 1RM, shows prescribed vs. actual per set (Δ kg, Δ reps) and per session (Δ
-tonnage) and makes the session read-only. The Training tab lists the sessions in progress and the
-next pending session. Stage 11 adds the estimated 1RM: as soon as a logged set has weight, reps and
-RIR/RPE it shows its e1RM (`e1RM ≈ 95.6 kg (estimate)`), or "low confidence" when RIR is above 4 or
-the set is more than 12 reps from failure, and the session card shows one estimate per lift from its
-representative set (the fewest reps to failure; ties go to the heaviest weight, then the lowest RIR,
-then the first set) with Δ kg and Δ % against the previous e1RM. Completing the session stores that
-estimate with the formula used; the summary offers "Use as new reference 1RM", which after a
-confirmation adds a 1RM record with origin "From e1RM". The formula is chosen in Settings: the RTS
-chart (default; the widely circulated Tuchscherer chart, whose only disputed cell, 12 reps @ RPE 6,
-is unverified and gives no estimate), Epley (RIR) or Brzycki (RIR); changing it never rewrites stored estimates. Stage 12 fills the Progress tab (SPEC §9): per lift
-(Bench, Squat, Deadlift) it shows the current reference 1RM, the latest, previous and highest e1RM and
-the improvement (Δ kg and Δ %) of the latest e1RM over the baseline, which is the reference 1RM in
-effect at the start of the selected period (the first record for "All"), plus a chart of the e1RM line
-and the reference 1RM as steps. A period filter (4 weeks, 3 months, 6 months, 1 year, All) limits the
-chart and sets the baseline; tapping or hovering a point shows its date, value and originating
-session. Lifts without an e1RM show an empty state. Stage 13 adds the training history (SPEC §10),
-opened from the More tab: the completed sessions newest first, filterable by lift, program and period
-(same periods as Progress). Each item shows the date, lift, program and version, session, the prescribed
-sets (`3×5 @ 75.0 kg`), the performed sets with RIR/RPE, the tonnage and the e1RM. The detail shows
-every set against its prescription, the stored e1RM with its comparison, and the *equivalent previous
-sessions*: earlier sessions of the same lift, program and program day (the 3 most recent), with the
-change in tonnage and e1RM. A history entry reads only the completion snapshot, so changing programs,
-1RMs or settings never alters it. "Edit session" corrects the sets and notes of a completed session;
-only that session's e1RM is recomputed, as a new revision that replaces the old one in reads (the old
-rows are kept). Stage 14 fills the Dashboard (the current block week, the next session with a Start
-button, the latest e1RM and reference 1RM per lift, shortcuts), shows the sidebar on every route at
-widths ≥ 900 px with all eight sections (Dashboard, Periodization, Programs, Calendar, Training,
-Progress, History, Settings), and audits accessibility and i18n (a test fails when a UI string is not
-translated). Features
-are built stage by stage; the current state of each stage is in the status table of
-[`docs/PLAN.md`](docs/PLAN.md).
+**Status:** feature-complete for v1 (stages 0–15 of [`docs/PLAN.md`](docs/PLAN.md)); the CI and
+Android APK pipeline is the remaining stage. The SPEC §13 acceptance flow is covered by an
+end-to-end test (`src/e2e/spec-flow.test.tsx`).
+
+### Screenshots
+
+Taken from the web build (`npx expo start --web`) with the SPEC §13 data (Bench 100, Squat 140,
+Deadlift 180 kg; Bench / 5/3/1, Bench / Smolov Jr. day 1, Squat / 5/3/1, Deadlift / Sheiko #29
+day 2).
+
+| Dashboard | Three-week table | Calendar |
+|---|---|---|
+| ![Dashboard](docs/images/dashboard.png) | ![Three-week table](docs/images/periodization-table.png) | ![Calendar](docs/images/calendar.png) |
+| **Logging a session** | **Completed session with e1RM** | **Progress** |
+| ![Logging a session](docs/images/session-logging.png) | ![Session e1RM](docs/images/session-e1rm.png) | ![Progress](docs/images/progress.png) |
+| **History** | **Programs** | **Program structure (Sheiko #29)** |
+| ![History](docs/images/history.png) | ![Programs](docs/images/programs.png) | ![Program detail](docs/images/program-detail.png) |
+| **Settings** | **Onboarding** | **Português** |
+| ![Settings](docs/images/settings.png) | ![Onboarding](docs/images/onboarding.png) | ![Table in Portuguese](docs/images/periodization-table-pt-BR.png) |
+
+Wide screens (sidebar):
+
+![Periodization on a wide screen](docs/images/desktop-periodization.png)
+
+![Dashboard on a wide screen](docs/images/desktop-dashboard.png)
+
+### Limitations
+
+- **No primary sources for Smolov, Smolov Jr. and Sheiko.** The originals by S. Smolov and
+  B. Sheiko could not be retrieved, so these templates are transcribed from consistent secondary
+  sources and marked `partial` (details and URLs in `docs/DECISIONS.md`, stages 7–9). Only the
+  custom 5/3/1 is `verified` (its source is this project's SPEC).
+- **Smolov Jr. increments**: one range (2.5–5 kg per week) applies to bench and squat, because no
+  source gives separate upper- and lower-body ranges; week 3 is fixed at twice the weekly
+  increment (the sources let the athlete choose the week-3 jump). Not offered for the deadlift.
+- **Smolov**: the switching phase (weeks 7–8) has no consistent prescription in the sources, so it
+  is shown as unverified text with no load; two disputed sets (week 9 day 1 and week 12 day 3, last
+  set) have no percentage. Weeks with three sessions show a rest day in the fourth slot, 1RM tests
+  are text, the intense mesocycle uses the current reference 1RM (update it after the week-6
+  test), and the non-squat introductory work (e.g. lunges) is not transcribed.
+- **Sheiko**: only #29, #30, #31, #32 and #37 are shipped (#39 and #40 had a single readable
+  transcription). The #32 max attempts ("2–3 singles at 100–105%") are unverified text with no
+  load. Accessories are listed with sets × reps only (never calculated), and on multi-lift days a
+  session calculates only its own lift; variations (e.g. deadlift from boxes) use the competition
+  lift's 1RM and do not produce an e1RM.
+- **RTS chart**: the 2008 printing of *The Reactive Training Manual* was not retrieved; the widely
+  circulated Tuchscherer chart is used. Its one disputed cell, 12 reps @ RPE 6 (57.2 % vs 57.4 %),
+  is unverified and gives no RTS estimate. The later RTS TRAC table is not used.
+- **e1RM validity**: sets with RIR above 4, more than 12 reps to failure or no RIR/RPE are not
+  stored (low-confidence values are shown only). RIR `5+` is stored as 5.
+- **No session deletion**, no editing of an activated periodization's prescription (activate
+  again instead), one record per session of a periodization, and no native date picker (the start
+  date is typed as `YYYY-MM-DD`).
+- Everything is stored locally (SQLite; WebAssembly on the web): no sync, backup or export; kg only.
 
 ## Tech stack and architecture
 

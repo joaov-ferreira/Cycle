@@ -849,3 +849,49 @@ the reference shipped with the installed package
   (`PlaceholderScreen`, `common.comingSoon`, `screens.dashboard.placeholder`) was removed: no placeholder screen is left.
 - **Desktop review.** The three-week table (weeks side by side at ≥ 900 px, week toggle below) and the Screen max width (960 px,
   centered) were kept; the Dashboard is two columns at ≥ 900 px and stacked below (tested at 375 and 1280 px).
+
+## Stage 15 — Final review and E2E
+
+- **E2E test.** `src/e2e/spec-flow.test.tsx` runs the whole SPEC §13 flow through the real root
+  layout (onboarding gate, app shell, stack and tabs) and every real route, with the store over
+  in-memory repositories (the SQLite opener is mocked, as in `root-layout.test.tsx`) and a fixed
+  repository clock. Session 4 is Deadlift / Sheiko #29 day 2, the reference configuration of Stage 9.
+  Expected values are hand-computed in the file header (75 / 85 / 95 kg; Smolov Jr. 70 / 72.5 / 75;
+  Sheiko week 1 tonnage 7,065 kg · 55 reps; logged tonnage 1,150 vs 1,125 kg; RTS e1RM 80 / 0.837 =
+  95.6 kg; after Bench 105: 78.75 → 77.5, 89.25 → 90, 99.75 → 100; Progress improvement −4.4 kg /
+  −4.4 %). The language switch checks Settings, History, Periodization, Progress, Dashboard and the
+  logged session in pt-BR (`75,0 kg`, `78,75 kg → 77,5 kg`) and back to English. The test lives in
+  `src/e2e/` (not in `src/app/`, which holds routes only).
+- **Review of the math and the program data.** Re-read rounding (integer micrograms, ties down),
+  load generation (`1RM × % + addKg`, `times` multiplier), volume aggregation, RIR ↔ RPE, the three
+  e1RM formulas (integer forms re-derived: Epley `centi × (60 + 2n) / 600`, Brzycki
+  `centi × 72 / (10 × (74 − 2n))`, RTS `centi × 100 / tenths-of-%`), validity and the
+  representative-set rule, `compareE1rm`, stats and history. Spot-checked the RTS chart diagonal, the
+  Smolov tables, Smolov Jr. and Sheiko #29 day 2 against the sources recorded in stages 7–11; no
+  transcription discrepancy found (the independent audits of those stages stand).
+- **Bugs found and fixed (each with a failing test first):**
+  1. Progress read the store's newest-first 1RM and e1RM lists as if oldest first. `progressStats`
+     sorts stably, so records sharing an instant kept the reversed order: the card showed the older
+     reference 1RM and swapped latest / previous e1RM (the E2E flow, with a fixed clock, exposed it).
+     The screen now passes both lists oldest first (`progress-screen.test.tsx`, E2E step 6).
+  2. The exact load was shortened to two decimals, so 113.24 × 85 % = 96.254 read
+     "96.25 kg → 97.5 kg", which looks like a tie rounded up (SPEC §5: ties round down). The exact
+     load is now shown with up to six decimals, the generator's microgram scale
+     (`periodization-table.test.tsx`). Rounded loads keep the 1–2 decimal format.
+  3. With "All", a first e1RM minutes after the onboarding 1RM gave a time axis of minutes and three
+     identical tick dates. A span under two days is now widened to one day each side of its centre
+     (`chart-scale.test.ts`; the single-instant rule is the zero-span case).
+  4. The chart's `kg` unit label overlapped the top tick label (found on the screenshots); the plot's
+     top padding now leaves a line for it (`line-chart.test.tsx`).
+- **Observed, not changed.** The slot editor sends the whole slot on every change, so two edits of
+  the same slot faster than a store round trip (seen only with scripted clicks) can let the second
+  overwrite the first. `validateRirRpe` rejects RIR 5 ("5+") with an RPE below 5, although SPEC §7
+  allows RPE ≤ 5 for RIR 5+; the form never produces that pair (editing one field rewrites the
+  other). Both are candidates for a later fix.
+- **expo-doctor** (`npx expo-doctor`, expo-doctor 1.21.6): 20/20 checks passed; nothing to fix.
+- **README.** "Planned features" and the stage-by-stage status were replaced by the implemented
+  feature list, a status line, screenshots (`docs/images/`, taken from `npx expo start --web` with
+  Playwright, Chromium, 390 × 844 and 1280 × 800 at device scale factor 2, SPEC §13 data) and a
+  Limitations section (partial / unverified program data and why, Smolov Jr. single range and
+  week 3 = 2 × increment, Smolov switching phase and disputed sets, Sheiko #32 max attempts and
+  shipped routines, RTS 12 @ RPE 6, e1RM validity, no session deletion, local-only data).

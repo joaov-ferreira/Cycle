@@ -40,6 +40,9 @@ export function useSetLine(): (set: GeneratedSet) => string {
   };
 }
 
+/** Decimals of an exact load: micrograms, the scale `generatePeriodization` computes on. */
+const EXACT_LOAD_DECIMALS = 6;
+
 export function SetLines({ set }: { set: GeneratedSet }) {
   const { t, locale, formatKg } = useI18n();
   const setLine = useSetLine();
@@ -48,7 +51,12 @@ export function SetLines({ set }: { set: GeneratedSet }) {
       <Text tabular>{setLine(set)}</Text>
       {set.exactKg !== null && set.roundedKg !== null ? (
         <Text tabular variant="label">
-          {t('periodization.table.load', { exact: formatKg(set.exactKg), rounded: formatKg(set.roundedKg) })}
+          {t('periodization.table.load', {
+            // the exact load in full (it is computed on integer micrograms): two decimals could show
+            // e.g. 96.254 as the 96.25 tie next to a load rounded up
+            exact: formatKg(set.exactKg, { maximumFractionDigits: EXACT_LOAD_DECIMALS }),
+            rounded: formatKg(set.roundedKg),
+          })}
         </Text>
       ) : (
         <>

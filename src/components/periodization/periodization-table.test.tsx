@@ -194,3 +194,27 @@ describe('PeriodizationTable: programs with unverified data, increments and acce
     expect(within(screen.getByTestId('cell-9-w1')).getByText('Percentual ilegível')).toBeOnTheScreen();
   });
 });
+
+describe('PeriodizationTable: the exact load is shown exactly', () => {
+  const bench = (oneRm: number) =>
+    generatePeriodization(
+      [{ id: 1, lift: 'bench', templateId: 'cycle-531-custom', programDay: 1, startWeek: 1 }],
+      [cycle531Custom],
+      { bench: oneRm },
+      ROUND,
+      {},
+    );
+
+  it('does not shorten it to two decimals (113.24 × 0.85 = 96.254 is above the 96.25 tie → 97.5)', async () => {
+    await renderInApp(<PeriodizationTable periodization={bench(113.24)} />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Week 2' }));
+    // "96.25 kg → 97.5 kg" would contradict the tie-rounds-down rule
+    expect(within(screen.getByTestId('cell-1-w2')).getByText(kg('96.254 kg → 97.5 kg'))).toBeOnTheScreen();
+  });
+
+  it('keeps one decimal at least and uses the locale separator (pt-BR)', async () => {
+    // 100.03 × 0.75 = 75.0225 → 75.0
+    await renderInApp(<PeriodizationTable periodization={bench(100.03)} />, { language: 'pt-BR' });
+    expect(within(await screen.findByTestId('cell-1-w1')).getByText(kg('75,0225 kg → 75,0 kg'))).toBeOnTheScreen();
+  });
+});

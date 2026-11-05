@@ -66,6 +66,25 @@ async function renderScreen(language: 'en' | 'pt-BR' = 'en', seeder: typeof seed
 }
 
 describe('ProgressScreen (en)', () => {
+  it('reads records with the same instant in insertion order (latest record is the current one)', async () => {
+    // a fixed repository clock gives the onboarding 1RM, its correction and two estimates one instant
+    await renderScreen('en', async (repos, profileId) => {
+      const periodization = await seedActivated(repos, profileId, { oneRms: {}, lifts: ['bench'] });
+      periodizationId = periodization.id;
+      await addReference(repos, profileId, 'bench', 100, '2026-11-01', 'onboarding');
+      await addReference(repos, profileId, 'bench', 105, '2026-11-01');
+      await addE1rm(repos, profileId, 'bench', 1, '2026-11-02', 96);
+      await addE1rm(repos, profileId, 'bench', 2, '2026-11-02', 98);
+    });
+    const bench = section('bench');
+    // same rule as the store and the Dashboard: ties go to the latest insertion
+    expectCard(bench, 'Reference 1RM', kg('105.0 kg'));
+    expectCard(bench, 'Latest e1RM', kg('98.0 kg'));
+    expectCard(bench, 'Previous e1RM', kg('96.0 kg'));
+    // baseline for "All" = the first record (100): 98 − 100 = −2.0 kg (−2%)
+    expectCard(bench, 'Improvement', kg('-2.0 kg (-2%) vs. 100.0 kg'));
+  });
+
   it('shows one section per lift in order', async () => {
     await renderScreen();
     const headings = screen.getAllByRole('header').map((h) => h.props.children);

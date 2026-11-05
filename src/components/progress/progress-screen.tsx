@@ -36,11 +36,21 @@ function LiftSection({ lift, period, now }: { lift: Lift; period: Period; now: D
   const performedSessions = useAppStore((s) => s.performedSessions);
 
   const e1rms = useMemo<ChartE1rm[]>(
-    () => e1rmHistory.filter((record) => record.lift === lift).map((record) => ({ id: record.id, at: record.recordedAt, valueKg: record.valueKg })),
+    // the store lists history newest first; the statistics and the chart expect it oldest first
+    // (records with the same instant then stay in insertion order, the latest one last)
+    () =>
+      e1rmHistory
+        .filter((record) => record.lift === lift)
+        .map((record) => ({ id: record.id, at: record.recordedAt, valueKg: record.valueKg }))
+        .reverse(),
     [e1rmHistory, lift],
   );
   const references = useMemo<Dated[]>(
-    () => oneRmHistory.filter((record) => record.lift === lift).map((record) => ({ at: record.effectiveAt, valueKg: record.value })),
+    () =>
+      oneRmHistory
+        .filter((record) => record.lift === lift)
+        .map((record) => ({ at: record.effectiveAt, valueKg: record.value }))
+        .reverse(),
     [oneRmHistory, lift],
   );
   const sessionLabels = useMemo(() => {

@@ -6,6 +6,8 @@
 import { periodStart, type Dated, type Period } from './stats';
 
 const MS_PER_DAY = 86_400_000;
+/** The shortest time axis: two days. */
+const MIN_X_SPAN_MS = 2 * MS_PER_DAY;
 
 export type NiceTicks = { min: number; max: number; ticks: number[] };
 
@@ -140,9 +142,12 @@ export function buildChartModel({
     start = Math.min(...times);
     end = Math.max(...times);
   }
-  if (start === end) {
-    start -= MS_PER_DAY;
-    end += MS_PER_DAY;
+  // A span shorter than two days (a single instant, or a first session a few minutes after the
+  // onboarding 1RM) is widened to one day each side of its centre, so the time ticks show distinct dates.
+  if (end - start < MIN_X_SPAN_MS) {
+    const centre = (start + end) / 2;
+    start = centre - MIN_X_SPAN_MS / 2;
+    end = centre + MIN_X_SPAN_MS / 2;
   }
 
   const steps = visibleSteps(references, start, end);

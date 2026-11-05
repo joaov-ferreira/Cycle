@@ -29,6 +29,15 @@ async function renderChart(props: Partial<LineChartProps> = {}, language: Langua
 }
 
 describe('LineChart', () => {
+  it('keeps the unit label above the top tick label (no overlap)', async () => {
+    await renderChart();
+    const flat = (node: ReturnType<typeof screen.getByText>) => Object.assign({}, ...[node.props.style].flat(Infinity));
+    const unit = flat(screen.getByText('kg'));
+    const topTick = flat(screen.getByText('91'));
+    // the labels are one line of caption text (14 pt line box)
+    expect(topTick.top - unit.top).toBeGreaterThanOrEqual(14);
+  });
+
   it('labels the y axis with localized numbers (en)', async () => {
     await renderChart();
     for (const label of ['90', '90.2', '90.4', '90.6', '90.8', '91']) {

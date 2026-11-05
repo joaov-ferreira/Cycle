@@ -27,7 +27,8 @@ export type LineChartProps = {
 
 const DEFAULT_WIDTH = 320;
 const DEFAULT_HEIGHT = 220;
-const PADDING = { top: 16, right: 12, bottom: 28, left: 44 };
+// top leaves a line for the unit label (`kg`) above the highest tick label
+const PADDING = { top: 30, right: 12, bottom: 28, left: 44 };
 const ONE_YEAR_MS = 365 * 86_400_000;
 const AXIS_LINE = 14;
 const X_LABEL_WIDTH = 96;

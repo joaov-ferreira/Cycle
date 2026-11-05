@@ -177,4 +177,37 @@ describe('buildChartModel', () => {
     expect(model.referenceSteps).toEqual([]);
     expect(model.yDomain).toEqual([90, 102]);
   });
+
+  it('spans two days at least, so a first session on the onboarding day gets three distinct dates', () => {
+    // onboarding 1RM at 17:50 and the first e1RM at 18:00 the same day: 10 minutes apart
+    const model = buildChartModel({
+      e1rms: [{ id: 1, at: '2026-11-05T18:00:00.000Z', valueKg: 95.6 }],
+      references: [{ at: '2026-11-05T17:50:00.000Z', valueKg: 100 }],
+      period: 'all',
+      now: new Date('2026-11-05T18:05:00.000Z'),
+      layout,
+    });
+    // centred on 17:55, one day each side
+    const start = Date.parse('2026-11-04T17:55:00.000Z');
+    const end = Date.parse('2026-11-06T17:55:00.000Z');
+    expect(model.xDomain).toEqual([start, end]);
+    expect(model.xTicks.map((tick) => new Date(tick.time).toISOString())).toEqual([
+      '2026-11-04T17:55:00.000Z',
+      '2026-11-05T17:55:00.000Z',
+      '2026-11-06T17:55:00.000Z',
+    ]);
+    // the point is 5 minutes right of the centre: 40 + 250 × (1 day + 5 min) / 2 days
+    expect(model.points[0].x).toBeCloseTo(40 + (250 * (1440 + 5)) / 2880, 6);
+  });
+
+  it('keeps a span of two days or more as it is', () => {
+    const model = buildChartModel({
+      e1rms: [{ id: 1, at: at('2026-11-07'), valueKg: 96 }],
+      references: [{ at: at('2026-11-05'), valueKg: 100 }],
+      period: 'all',
+      now: NOW,
+      layout,
+    });
+    expect(model.xDomain).toEqual([Date.parse(at('2026-11-05')), Date.parse(at('2026-11-07'))]);
+  });
 });
