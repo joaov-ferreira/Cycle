@@ -3,8 +3,8 @@ import { findTemplate, listTemplates, templatesForLift } from './registry';
 import { validateTemplate } from './validate';
 
 describe('registry', () => {
-  it('registers the custom 5/3/1 (the only template of Stage 4)', () => {
-    expect(listTemplates().map((t) => t.id)).toEqual(['cycle-531-custom']);
+  it('registers the custom 5/3/1 and Smolov Jr., in display order', () => {
+    expect(listTemplates().map((t) => t.id)).toEqual(['cycle-531-custom', 'smolov-jr']);
   });
 
   it('has unique ids', () => {
@@ -17,13 +17,17 @@ describe('registry', () => {
     expect(findTemplate('nope')).toBeUndefined();
   });
 
-  it.each(['bench', 'squat', 'deadlift'] as const)('offers 5/3/1 for %s', (lift) => {
-    expect(templatesForLift(lift).map((t) => t.id)).toEqual(['cycle-531-custom']);
+  it.each(['bench', 'squat'] as const)('offers 5/3/1 and Smolov Jr. for %s', (lift) => {
+    expect(templatesForLift(lift).map((t) => t.id)).toEqual(['cycle-531-custom', 'smolov-jr']);
+  });
+
+  it('offers only 5/3/1 for the deadlift (Smolov Jr. is a bench or squat program)', () => {
+    expect(templatesForLift('deadlift').map((t) => t.id)).toEqual(['cycle-531-custom']);
   });
 
   it('returns a fresh array each call, so callers cannot reorder the registry', () => {
     listTemplates().pop();
-    expect(listTemplates()).toHaveLength(1);
+    expect(listTemplates()).toHaveLength(2);
   });
 });
 

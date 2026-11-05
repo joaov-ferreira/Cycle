@@ -300,6 +300,33 @@ describe('generatePeriodization — generic multi-day, multi-week templates', ()
     expect(mainItems(sessionsOf(result, 1)[0])[0].sets[1]).toMatchObject({ addKg: 7.5, exactKg: 121.5, roundedKg: 122.5 });
   });
 
+  it('multiplies the addKg parameter by its `times` (2 × 7.5 = 15: 114 + 15 = 129 → 130)', () => {
+    const doubled: ProgramTemplate = {
+      ...fake,
+      id: 'doubled',
+      weeks: fake.weeks.map((week) => ({
+        ...week,
+        days: week.days.map((day) => ({
+          ...day,
+          items: day.items.map((item) =>
+            item.kind === 'main' && item.lift === 'selected'
+              ? { ...item, sets: item.sets.map((set) => (set.addKg ? { ...set, addKg: { param: 'inc', times: 2 } } : set)) }
+              : item,
+          ),
+        })),
+      })),
+    };
+    const result = generatePeriodization(
+      [slot({ lift: 'squat', templateId: 'doubled' })],
+      [doubled],
+      oneRms,
+      ROUND_2_5,
+      { doubled: { inc: 7.5 } },
+    );
+    // 142.5 × 0.8 = 114; 114 + 15 = 129; 129 − 127.5 = 1.5 > 1.25 → 130
+    expect(mainItems(sessionsOf(result, 1)[0])[0].sets[1]).toMatchObject({ addKg: 15, exactKg: 129, roundedKg: 130 });
+  });
+
   it('walks the program weeks of the block (start week 2 → program weeks 2, 3, 4)', () => {
     const result = generatePeriodization(
       [slot({ lift: 'squat', templateId: 'fake-multi', startWeek: 2 })],

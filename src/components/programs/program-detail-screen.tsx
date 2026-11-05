@@ -8,6 +8,7 @@ import { useAppStore } from '@/state/app-store-context';
 
 import { Button, Card, Screen, Text } from '../ui';
 import { SourceCard } from './source-card';
+import { IncrementConfig } from './increment-config';
 import { PercentConfig } from './percent-config';
 import { ProgramStructure } from './program-structure';
 import { VerificationBadge } from './verification-badge';
@@ -52,8 +53,9 @@ export function ProgramDetailScreen({ templateId, onBack }: ProgramDetailScreenP
       </Card>
       <SourceCard source={template.source} />
       <PercentConfig template={template} values={values} />
+      <IncrementConfig template={template} values={values} />
       <Text variant="heading">{t('programs.detail.structure')}</Text>
-      <ProgramStructure template={resolved} />
+      <ProgramStructure template={resolved} values={values} />
     </Screen>
   );
 }

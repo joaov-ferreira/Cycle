@@ -165,7 +165,9 @@ function slotIssue(slot: Omit<SessionSlotConfig, 'id'>, template: ProgramTemplat
 type Context = { oneRms: OneRmMap; rounding: RoundingConfig; values: ParamValues };
 
 function generateSet(set: SetPrescription, lift: Lift, ctx: Context): GeneratedSet {
-  const addKg = set.addKg ? (ctx.values[set.addKg.param] ?? null) : null;
+  const value = set.addKg ? ctx.values[set.addKg.param] : undefined;
+  // `times` multiplies on integer micrograms, so 2 × 2.5 is exactly 5.
+  const addKg = set.addKg && value !== undefined ? (toMicro(value) * (set.addKg.times ?? 1)) / MICRO : null;
   const base = {
     sets: set.repeat ?? 1,
     reps: set.reps,

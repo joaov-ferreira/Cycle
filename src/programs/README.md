@@ -12,6 +12,8 @@ selection.
   `resolveTemplate` (applies the athlete's values to percent-linked sets), `totalSets`.
 - `localized.ts` — `pickLocalized` (English fallback).
 - `data/cycle-531-custom.ts` — SPEC §3.3-A.
+- `data/smolov-jr.ts` — SPEC §3.3-C (sources and transcription notes in `docs/DECISIONS.md`, Stage 7).
+  `addKg: { param, times }` adds `times ×` a `kg` parameter (week 3 = twice the weekly increment).
 
 Dependency rules:
 

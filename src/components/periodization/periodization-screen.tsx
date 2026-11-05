@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 
+import { missingProgramDays } from '@/domain/session-slots';
 import { useT } from '@/i18n';
+import { resolveParamValues } from '@/programs/params';
 import { listTemplates } from '@/programs/registry';
 import { useAppStore } from '@/state/app-store-context';
 import { selectPeriodization } from '@/state/periodization-selectors';
@@ -37,6 +39,13 @@ export function PeriodizationScreen({ onOpenProgram, onOpenSession }: Periodizat
   const duplicateSessionSlot = useAppStore((s) => s.duplicateSessionSlot);
   const removeSessionSlot = useAppStore((s) => s.removeSessionSlot);
   const moveSessionSlot = useAppStore((s) => s.moveSessionSlot);
+  const addMissingProgramDays = useAppStore((s) => s.addMissingProgramDays);
+  const programParams = useAppStore((s) => s.programParams);
+  const setProgramParam = useAppStore((s) => s.setProgramParam);
+  const paramValues = useMemo(
+    () => Object.fromEntries(templates.map((template) => [template.id, resolveParamValues(template, programParams[template.id] ?? {})])),
+    [templates, programParams],
+  );
 
   return (
     <Screen title={t('screens.periodization.title')} testID="screen-periodization">
@@ -56,6 +65,11 @@ export function PeriodizationScreen({ onOpenProgram, onOpenSession }: Periodizat
           onDuplicate={() => void duplicateSessionSlot(slot.id)}
           onRemove={() => void removeSessionSlot(slot.id)}
           onOpenProgram={onOpenProgram}
+          paramValues={paramValues[slot.templateId] ?? {}}
+          onParamChange={(templateId, paramId, value) => void setProgramParam(templateId, paramId, value)}
+          onAddAllDays={
+            missingProgramDays(slots, slot, templates).length > 0 ? () => void addMissingProgramDays(slot.id) : null
+          }
         />
       ))}
       <Button variant="secondary" label={t('periodization.add')} onPress={() => void addSessionSlot('bench')} />

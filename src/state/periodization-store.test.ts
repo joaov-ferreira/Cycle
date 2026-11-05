@@ -89,6 +89,42 @@ describe('app store: session slots', () => {
     expect(store.getState().sessionSlots.map((s) => s.id)).toEqual([1, 3]);
   });
 
+  it('adds the missing days of a slot’s program right below it (SPEC §1.1)', async () => {
+    const { repos, store } = await readyStore();
+    await store.getState().addSessionSlot('bench');
+    await store.getState().addSessionSlot('bench');
+    await store.getState().updateSessionSlot(2, { lift: 'bench', templateId: 'smolov-jr', programDay: 3, startWeek: 1 });
+    await store.getState().addSessionSlot('squat');
+    await store.getState().addMissingProgramDays(2);
+    expect(store.getState().sessionSlots.map((s) => [s.id, s.lift, s.templateId, s.programDay])).toEqual([
+      [1, 'bench', T, 1],
+      [2, 'bench', 'smolov-jr', 3],
+      [4, 'bench', 'smolov-jr', 1],
+      [5, 'bench', 'smolov-jr', 2],
+      [6, 'bench', 'smolov-jr', 4],
+      [3, 'squat', T, 1],
+    ]);
+    expect(await repos.sessionSlots.list(1)).toEqual(store.getState().sessionSlots);
+    // Every day is now covered: no incomplete-frequency warning, and nothing more to add.
+    expect(selectPeriodization(store.getState()).warnings).toEqual([]);
+    await store.getState().addMissingProgramDays(2);
+    expect(store.getState().sessionSlots).toHaveLength(6);
+  });
+
+  it('copies the start week to the added days and rejects an unknown slot', async () => {
+    const { store } = await readyStore();
+    await store.getState().addSessionSlot('squat');
+    await store.getState().updateSessionSlot(1, { lift: 'squat', templateId: 'smolov-jr', programDay: 1, startWeek: 1 });
+    await store.getState().addMissingProgramDays(1);
+    expect(store.getState().sessionSlots.map((s) => [s.programDay, s.startWeek])).toEqual([
+      [1, 1],
+      [2, 1],
+      [3, 1],
+      [4, 1],
+    ]);
+    await expect(store.getState().addMissingProgramDays(99)).rejects.toThrow();
+  });
+
   it('keeps slots per profile and across restarts', async () => {
     const { repos, store } = await readyStore();
     await store.getState().addSessionSlot('bench');

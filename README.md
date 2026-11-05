@@ -45,7 +45,13 @@ snapshot with a start date; later edits do not change it. Stage 6 adds a Table |
 the Periodization tab: the calendar is a week × session grid of cards (lift, program and a set
 summary with the rounded load), and tapping a card opens the session detail (`/session/[id]`) with
 every set (`exact → rounded` load), volume, accessories, warnings and the program's version and
-source. Both views read the same selector, so they always agree. Features
+source. Both views read the same selector, so they always agree. Stage 7 adds Smolov Jr. for the
+bench press or the squat: four days a week for three weeks (6 × 6 @ 70 %, 7 × 5 @ 75 %, 8 × 4 @ 80 %,
+10 × 3 @ 85 %), with a weekly increment added in week 2 and twice in week 3. The increment is chosen
+per profile inside the range of the sources (2.5–5 kg, default 2.5 kg) from the session editor or the
+program detail; other values are rejected. "Add all days of this program" creates the missing
+program days at once, and a warning shows while a configuration covers fewer days than the program
+prescribes. Features
 are built stage by stage; the current state of each stage is in the status table of
 [`docs/PLAN.md`](docs/PLAN.md).
 
@@ -93,7 +99,9 @@ one omits its source or version), the `registry.ts` (list, find by id, filter by
 `blocks.ts` (`getBlock(template, startWeek)`: three consecutive weeks, never compressed,
 fewer at the end of the program) and `params.ts` (configurable parameters such as the 5/3/1
 percentages, with their allowed range). Parameter values chosen by the athlete are stored
-per profile in `program_params`; the template defaults apply until one is saved.
+per profile in `program_params`; the template defaults apply until one is saved. Templates so far:
+the custom 5/3/1 (`data/cycle-531-custom.ts`) and Smolov Jr. (`data/smolov-jr.ts`, transcribed from
+the sources listed in `docs/DECISIONS.md`, verification `partial`).
 
 The periodization generator (SPEC §4) is `generatePeriodization(slots, templates, 1RMs,
 rounding, params)` in `src/domain/periodization.ts`: pure and synchronous (a test checks that 10 sessions take

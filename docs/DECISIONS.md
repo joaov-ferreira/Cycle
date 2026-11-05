@@ -305,3 +305,72 @@ the reference shipped with the installed package
   prescription (every set with exact → rounded load, notes, AMRAP, unverified sets as "—"),
   accessories, volume (plus per-lift volume when the session spans several lifts), session
   warning codes translated, and the program source. Performance logging entry points are Stage 10.
+
+## 2026-11-05 — Stage 7: Smolov Jr.
+
+- **Sources consulted (all accessed 2026-11-05).** No primary text by Sergey Smolov describing
+  "Smolov Jr." was located (searches in English and Russian); Liftosaur says the program was
+  introduced to Western lifters by Pavel Tsatsouline in a 2001 *Powerlifting USA* article, but that
+  article could not be retrieved. The transcription therefore rests on secondary sources that agree
+  with each other:
+  - **Adopted reference:** smolovjr.com, "Smolov Jr. Program" (© HeavyDuty.com, 2017),
+    https://www.smolovjr.com/smolov-squat-program — the day table and the week 2–3 increments.
+  - Cross-checks: Lift Vault (https://liftvault.com/programs/powerlifting/smolov/, citing
+    PowerliftingToWin); FitnessVolt, V. Saini, 2021 (https://fitnessvolt.com/smolov-jr-program/);
+    Legion Athletics, M. Matthews (https://legionathletics.com/smolov-jr-calculator/); Liftosaur
+    (https://www.liftosaur.com/programs/smolov-jr); NORMA Athletics
+    (https://www.norma-athletics.at/guides/smolov-jr/); Lift5x5
+    (https://lift5x5.app/blog/smolov-jr); a Sugden Barbell forum post (2022). Muscle & Strength,
+    PowerliftingToWin and BarBend could not be read (HTTP 403 / empty / not found).
+- **Transcription.** Every source gives the same four days, repeated each week: day 1 6 × 6 @ 70 %,
+  day 2 7 × 5 @ 75 %, day 3 8 × 4 @ 80 %, day 4 10 × 3 @ 85 % (Monday / Wednesday / Friday /
+  Saturday, kept as day labels). Week 2 = week 1 + 5–10 lb, week 3 = week 1 + 10–20 lb
+  (smolovjr.com, Lift Vault, FitnessVolt, Legion); NORMA Athletics and Lift5x5 state it in kg as
+  2.5–5 kg per week, cumulative (week 3 = week 1 + 5–10 kg). Weekdays, sets, reps and percentages
+  match the SPEC §3.3-C sanity values.
+- **Discrepancies.** Liftosaur suggests +10–15 lb per week for the squat (and +10 lb default); one
+  article (workoutsupplementreviews.com, seen only in search results) gives +10–20 lb in week 2 and
+  +5–10 lb more in week 3; a calculator uses a flat +5 lb. These are outliers or app defaults and
+  were not adopted. **SPEC §3.3-C says the original range differs between upper- and lower-body
+  lifts; no source consulted states separate ranges** (they give one range and only remark that
+  bench lifters "use smaller jumps" without numbers). Inventing a lower-body range is not allowed,
+  so a single range applies to bench and squat; the gap is recorded in the template notes.
+- **Model.** One `kg` parameter `weeklyIncrementKg` (2.5–5 kg, default 2.5 kg — the lower end, which
+  Lift5x5 recommends unless week 1 felt easy). Week 2 sets carry `addKg: { param }`, week 3 sets
+  `addKg: { param, times: 2 }`, which reproduces "+5–10 lb / +10–20 lb" exactly and guarantees
+  week 3 ≥ week 2. `ParamRef` gains `times` (positive integer, validated as
+  `invalidParamMultiplier`); the generator multiplies on integer micrograms, as the Stage 5 note
+  anticipated. Alternative considered: two independent parameters (week 2 total, week 3 total),
+  rejected because it allows week 3 below week 2 and doubles the choice the sources describe as one
+  increment. The 0.5 kg step is an input granularity of CYCLE (not in the sources); plate rounding
+  still applies to the final load.
+- **Verification `partial`.** All sets, reps and percentages are confirmed by several sources and
+  produce loads; the status is `partial` because no primary source was found and the upper/lower
+  split could not be confirmed.
+- **Lifts.** `allowedLifts: ['bench', 'squat']`: the sources present Smolov Jr. for the squat or the
+  bench press; none gives deadlift guidance beyond a search-result remark that it is not generally
+  advised for the deadlift.
+- **Parameter UI.** The slot editor shows each `kg` parameter of the slot's program (label "Weekly
+  increment for session N", the range and the note that the value is shared by every session of
+  that program, since parameters are per profile and template). `NumberInput` rejects values outside
+  the range or off the step with a localized message and nothing is saved; the store validates
+  again. The program detail has the same field and shows week 2–3 sets as `6 × 6 @ 70% + 2.5 kg`.
+  Editors in other slots keep the text they were mounted with until re-rendered (no remount while
+  typing, which would steal focus).
+- **"Add all days of this program".** `missingProgramDays` (domain) lists the days of the slot's
+  program not covered by any slot with the same program and lift; `addMissingProgramDays` (store)
+  inserts one slot per missing day, in day order, right below the slot, copying its lift and start
+  week. The button is shown only while a day is missing. The existing `incompleteFrequency` warning
+  (Stage 5) covers the fidelity warning; it disappears once all four days are configured.
+
+### Stage 7 — independent audit notes (orchestrator)
+
+- An independent reviewer re-checked the Smolov Jr. transcription against smolovjr.com,
+  Lift Vault, FitnessVolt, Legion, NORMA Athletics, Lift5x5, Liftosaur and BeanAnimal
+  (accessed 2026-11-05): verdict ACCEPT, nothing invented.
+- Clarification of the upper/lower-body note above: no source gives a *smaller* range for
+  bench/upper body. Liftosaur (an app, not the original) suggests *larger* squat jumps
+  (10–15 lb/week); not adopted. One range (2.5–5 kg) applies to bench and squat.
+- Known modelling limitation: week 3 is fixed at 2 × the weekly increment, while sources
+  let the athlete pick the week-3 jump based on week 2 (and keep the weight after failed
+  sets). Candidate future improvement; not a transcription error.

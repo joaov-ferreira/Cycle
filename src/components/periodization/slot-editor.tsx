@@ -4,11 +4,13 @@ import { spacing } from '@/constants/theme';
 import { LIFTS, type Lift } from '@/domain/lifts';
 import type { SessionSlotConfig } from '@/domain/periodization';
 import { changeSlotLift, changeSlotTemplate, type SessionSlotInput } from '@/domain/session-slots';
-import { useT } from '@/i18n';
+import { useI18n } from '@/i18n';
 import { maxBlockStartWeek } from '@/programs/blocks';
-import type { ProgramTemplate } from '@/programs/schema';
+import { pickLocalized } from '@/programs/localized';
+import type { ParamValues } from '@/programs/params';
+import type { ConfigurableParam, ProgramTemplate } from '@/programs/schema';
 
-import { Button, Card, SegmentedControl, Text } from '../ui';
+import { Button, Card, NumberInput, SegmentedControl, Text } from '../ui';
 
 export type SlotEditorProps = {
   slot: SessionSlotConfig;
@@ -23,6 +25,12 @@ export type SlotEditorProps = {
   onDuplicate: () => void;
   onRemove: () => void;
   onOpenProgram: (templateId: string) => void;
+  /** Values in effect for the slot program's parameters (shared by every slot of that program). */
+  paramValues: ParamValues;
+  /** Called only with values inside the parameter's range and step. */
+  onParamChange: (templateId: string, paramId: string, value: number) => void;
+  /** "Add all days of this program"; null when every day of the program is already covered. */
+  onAddAllDays: (() => void) | null;
 };
 
 /**
@@ -41,12 +49,23 @@ export function SlotEditor({
   onDuplicate,
   onRemove,
   onOpenProgram,
+  paramValues,
+  onParamChange,
+  onAddAllDays,
 }: SlotEditorProps) {
-  const t = useT();
+  const { t, locale, formatKg } = useI18n();
   const { id: _id, ...input } = slot;
   const template = templates.find((candidate) => candidate.id === slot.templateId);
   const forLift = templates.filter((candidate) => candidate.allowedLifts.includes(slot.lift));
   const maxStart = template ? maxBlockStartWeek(template) : 1;
+  const kgParams = (template?.configurable ?? []).filter((param) => param.unit === 'kg');
+  const kgRules = (param: ConfigurableParam) => ({
+    required: true,
+    min: param.min,
+    max: param.max,
+    step: param.step,
+    maxDecimals: 2,
+  });
 
   return (
     <Card testID={`slot-${slot.id}`}>
@@ -95,6 +114,37 @@ export function SlotEditor({
           />
         </View>
       ) : null}
+      {template
+        ? kgParams.map((param) => (
+            <View key={param.id} style={styles.param}>
+              <NumberInput
+                label={t('periodization.slot.param', { param: pickLocalized(param.label, locale), number })}
+                unit={t('periodization.slot.paramUnit')}
+                value={paramValues[param.id] ?? param.default}
+                rules={kgRules(param)}
+                onChange={(change) => {
+                  if (change.value !== null) onParamChange(template.id, param.id, change.value);
+                }}
+              />
+              <Text variant="caption" tone="secondary">
+                {t('periodization.slot.paramRange', {
+                  min: formatKg(param.min),
+                  max: formatKg(param.max),
+                  step: formatKg(param.step ?? 0),
+                  program: template.name,
+                })}
+              </Text>
+            </View>
+          ))
+        : null}
+      {template && onAddAllDays ? (
+        <Button
+          variant="secondary"
+          label={t('periodization.slot.addAllDays')}
+          accessibilityLabel={t('periodization.slot.addAllDaysFor', { program: template.name, number })}
+          onPress={onAddAllDays}
+        />
+      ) : null}
       <View style={styles.actions}>
         {template?.configurable?.length ? (
           <Button
@@ -139,4 +189,5 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   grow: { flex: 1, textAlign: 'center' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  param: { gap: spacing.xs },
 });

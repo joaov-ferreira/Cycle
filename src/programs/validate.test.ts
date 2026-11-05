@@ -280,6 +280,17 @@ describe('validateTemplate', () => {
       ]);
     });
 
+    it('accepts a positive integer multiple of a kg parameter and rejects any other multiplier', () => {
+      const kg = { ...param, unit: 'kg' as const, min: 2.5, max: 5, step: 0.25, default: 2.5 };
+      const path = 'weeks[0].days[0].items[0].sets[0]';
+      expect(validateTemplate(withParam(kg, { reps: 5, percent: 0.7, addKg: { param: 'p', times: 2 } }))).toEqual([]);
+      for (const times of [0, -1, 1.5, Number.NaN]) {
+        expect(validateTemplate(withParam(kg, { reps: 5, percent: 0.7, addKg: { param: 'p', times } }))).toEqual([
+          { code: 'invalidParamMultiplier', path },
+        ]);
+      }
+    });
+
     it('requires a percent-linked set to carry the parameter default as its percent', () => {
       expect(validateTemplate(withParam(param, { reps: 5, percent: 0.75, percentParam: 'p' }))).toEqual([
         { code: 'percentDefaultMismatch', path: 'weeks[0].days[0].items[0].sets[0]' },

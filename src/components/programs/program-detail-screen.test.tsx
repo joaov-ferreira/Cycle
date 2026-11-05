@@ -107,3 +107,61 @@ describe('ProgramDetailScreen (pt-BR)', () => {
     expect(screen.getByRole('button', { name: 'Restaurar percentuais padrão' })).toBeOnTheScreen();
   });
 });
+
+describe('ProgramDetailScreen — Smolov Jr.', () => {
+  const S = 'smolov-jr';
+  const NBSP = ' ';
+  const kg = (text: string) => text.replace(/ kg/g, `${NBSP}kg`);
+
+  it('shows the 4 days of every week with the increment added in weeks 2 and 3 (en)', async () => {
+    await renderInApp(<ProgramDetailScreen templateId={S} onBack={() => {}} />);
+    expect(await screen.findByRole('header', { name: 'Smolov Jr.' })).toBeOnTheScreen();
+    expect(screen.getByText('Partially verified')).toBeOnTheScreen();
+    expect(screen.getByText('Link: https://www.smolovjr.com/smolov-squat-program')).toBeOnTheScreen();
+    expect(screen.getByText('Lifts: Bench Press, Squat')).toBeOnTheScreen();
+    expect(screen.getAllByRole('header', { name: 'Day 1 — Monday' })).toHaveLength(3);
+    expect(screen.getAllByRole('header', { name: 'Day 4 — Saturday' })).toHaveLength(3);
+    for (const line of ['6 × 6 @ 70%', '7 × 5 @ 75%', '8 × 4 @ 80%', '10 × 3 @ 85%']) {
+      expect(screen.getByText(line)).toBeOnTheScreen();
+      expect(screen.getByText(kg(`${line} + 2.5 kg`))).toBeOnTheScreen();
+      expect(screen.getByText(kg(`${line} + 5.0 kg`))).toBeOnTheScreen();
+    }
+  });
+
+  it('edits the weekly increment inside 2.5–5 kg and rejects other values', async () => {
+    const { repos, profileId } = await renderInApp(<ProgramDetailScreen templateId={S} onBack={() => {}} />);
+    const field = await screen.findByLabelText('Weekly increment');
+    expect(screen.getByText(kg('From 2.5 kg to 5.0 kg in steps of 0.5 kg (the range of the original program).'))).toBeOnTheScreen();
+    await fireEvent.changeText(field, '6');
+    expect(await screen.findByText('Must be at most 5')).toBeOnTheScreen();
+    await fireEvent.changeText(field, '2');
+    expect(await screen.findByText('Must be at least 2.5')).toBeOnTheScreen();
+    expect(await repos.programParams.getAll(profileId)).toEqual({});
+
+    await fireEvent.changeText(field, '4');
+    expect(await screen.findByText(kg('6 × 6 @ 70% + 8.0 kg'))).toBeOnTheScreen();
+    expect(screen.getByText(kg('10 × 3 @ 85% + 4.0 kg'))).toBeOnTheScreen();
+    expect(await repos.programParams.getAll(profileId)).toEqual({ [S]: { weeklyIncrementKg: 4 } });
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Restore default increment' }));
+    expect(await screen.findByText(kg('6 × 6 @ 70% + 5.0 kg'))).toBeOnTheScreen();
+    expect(screen.getByLabelText('Weekly increment').props.value).toBe('2.5');
+    expect(await repos.programParams.getAll(profileId)).toEqual({});
+  });
+
+  it('is localized (pt-BR)', async () => {
+    const { repos, profileId } = await renderInApp(<ProgramDetailScreen templateId={S} onBack={() => {}} />, {
+      language: 'pt-BR',
+    });
+    expect(await screen.findByText('Parcialmente verificado')).toBeOnTheScreen();
+    expect(screen.getAllByRole('header', { name: 'Dia 1 — Segunda-feira' })).toHaveLength(3);
+    expect(screen.getByText(kg('6 × 6 @ 70% + 2,5 kg'))).toBeOnTheScreen();
+    expect(
+      screen.getByText(kg('De 2,5 kg a 5,0 kg em passos de 0,5 kg (a faixa do programa original).')),
+    ).toBeOnTheScreen();
+    await fireEvent.changeText(screen.getByLabelText('Incremento semanal'), '3,5');
+    expect(await screen.findByText(kg('6 × 6 @ 70% + 7,0 kg'))).toBeOnTheScreen();
+    expect(await repos.programParams.getAll(profileId)).toEqual({ [S]: { weeklyIncrementKg: 3.5 } });
+    expect(screen.getByRole('button', { name: 'Restaurar incremento padrão' })).toBeOnTheScreen();
+  });
+});

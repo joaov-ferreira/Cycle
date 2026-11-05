@@ -3,19 +3,27 @@ import { View } from 'react-native';
 import { spacing } from '@/constants/theme';
 import { useI18n } from '@/i18n';
 import { pickLocalized } from '@/programs/localized';
+import type { ParamValues } from '@/programs/params';
 import type { MainItem, ProgramTemplate, SetPrescription } from '@/programs/schema';
 
 import { Card, Text } from '../ui';
 
 const NO_PERCENT = '—';
 
-function SetLine({ set }: { set: SetPrescription }) {
-  const { t, locale, formatPercent } = useI18n();
-  const base = t('programs.set', {
+function SetLine({ set, values }: { set: SetPrescription; values: ParamValues }) {
+  const { t, locale, formatPercent, formatKg } = useI18n();
+  const params = {
     sets: set.repeat ?? 1,
     reps: set.reps,
     percent: set.percent === undefined ? NO_PERCENT : formatPercent(set.percent),
-  });
+  };
+  const added = set.addKg ? values[set.addKg.param] : undefined;
+  const base = set.addKg
+    ? t('programs.setWithAdd', {
+        ...params,
+        add: added === undefined ? NO_PERCENT : formatKg((Math.round(added * 1e6) * (set.addKg.times ?? 1)) / 1e6),
+      })
+    : t('programs.set', params);
   return (
     <View style={{ gap: spacing.xs }}>
       <Text tabular>{set.amrap ? `${base} — ${t('programs.amrap')}` : base}</Text>
@@ -29,13 +37,13 @@ function SetLine({ set }: { set: SetPrescription }) {
   );
 }
 
-function MainBlock({ item }: { item: MainItem }) {
+function MainBlock({ item, values }: { item: MainItem; values: ParamValues }) {
   const { t, locale } = useI18n();
   return (
     <View style={{ gap: spacing.xs }}>
       <Text variant="label">{item.lift === 'selected' ? t('programs.detail.selectedLift') : t(`lifts.${item.lift}`)}</Text>
       {item.sets.map((set, index) => (
-        <SetLine key={index} set={set} />
+        <SetLine key={index} set={set} values={values} />
       ))}
       {item.note ? <Text tone="secondary">{pickLocalized(item.note, locale)}</Text> : null}
     </View>
@@ -45,9 +53,9 @@ function MainBlock({ item }: { item: MainItem }) {
 /**
  * The original structure of a template, week by week (SPEC §3.5): sets, reps and percentages,
  * accessories as text. No loads are calculated. Percent-linked sets must already carry the
- * values to show (see `resolveTemplate`).
+ * values to show (see `resolveTemplate`); absolute increments (`addKg`) are read from `values`.
  */
-export function ProgramStructure({ template }: { template: ProgramTemplate }) {
+export function ProgramStructure({ template, values = {} }: { template: ProgramTemplate; values?: ParamValues }) {
   const { t, locale } = useI18n();
   return (
     <View style={{ gap: spacing.lg }}>
@@ -63,7 +71,7 @@ export function ProgramStructure({ template }: { template: ProgramTemplate }) {
                   <Text variant="heading">{`${t('programs.detail.day', { day: day.day })}${label}`}</Text>
                   {day.items.map((item, index) =>
                     item.kind === 'main' ? (
-                      <MainBlock key={index} item={item} />
+                      <MainBlock key={index} item={item} values={values} />
                     ) : (
                       <View key={index} style={{ gap: spacing.xs }}>
                         <Text>

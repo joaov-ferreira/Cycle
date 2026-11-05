@@ -10,7 +10,8 @@ Connects persistence (`src/data/`) and the math engine (`src/domain/`) to the UI
   settings (`setIncrementKg`, `setRoundingMode`, `setLiftIncrementKg`) and the program parameters
   (`setProgramParam`, `resetProgramParams`; values are checked against the template's range),
   the session slots (`addSessionSlot`, `updateSessionSlot`, `duplicateSessionSlot`,
-  `removeSessionSlot`, `moveSessionSlot`; slots are checked against their program) and the
+  `removeSessionSlot`, `moveSessionSlot`, `addMissingProgramDays`; slots are checked against their
+  program) and the
   activated periodization (`activatePeriodization(startDate)`, a snapshot in the repository).
 - `periodization-selectors.ts` — `selectPeriodization` (the live three-week periodization,
   memoized on the slots, 1RM history, rounding settings and program parameters) and

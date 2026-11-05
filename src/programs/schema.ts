@@ -36,8 +36,11 @@ export type ConfigurableParam = {
   source: string;
 };
 
-/** Reference to a configurable parameter by id. */
-export type ParamRef = { param: string };
+/**
+ * Reference to a configurable parameter by id. `times` (a positive integer, default 1)
+ * multiplies its value, e.g. Smolov Jr. week 3 = twice the weekly increment.
+ */
+export type ParamRef = { param: string; times?: number };
 
 export type SetPrescription = {
   reps: number;

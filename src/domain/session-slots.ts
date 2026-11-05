@@ -59,3 +59,21 @@ export function moveItem<T>(list: readonly T[], index: number, offset: -1 | 1): 
   [copy[index], copy[target]] = [copy[target], copy[index]];
   return copy;
 }
+
+/**
+ * The days of `slot`'s program that no slot of the same program and lift covers yet, in day
+ * order (SPEC §1.1 "Add all days of this program"). Empty for unknown or one-day programs.
+ */
+export function missingProgramDays(
+  slots: readonly SessionSlotInput[],
+  slot: SessionSlotInput,
+  templates: readonly ProgramTemplate[],
+): number[] {
+  const template = templates.find((candidate) => candidate.id === slot.templateId);
+  if (!template) return [];
+  const covered = new Set(
+    slots.filter((other) => other.templateId === slot.templateId && other.lift === slot.lift).map((other) => other.programDay),
+  );
+  covered.add(slot.programDay);
+  return Array.from({ length: template.daysPerWeek }, (_, i) => i + 1).filter((day) => !covered.has(day));
+}

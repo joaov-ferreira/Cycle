@@ -221,3 +221,64 @@ describe('PeriodizationScreen — Table | Calendar', () => {
     expect(screen.getByRole('button', { name: 'Semana 1, sessão 1: Supino, 5/3/1 (custom)' })).toBeOnTheScreen();
   });
 });
+
+describe('PeriodizationScreen — Smolov Jr. (Stage 7)', () => {
+  async function smolovBenchSession2(language: 'en' | 'pt-BR' = 'en') {
+    await renderInApp(<PeriodizationScreen onOpenProgram={() => {}} onOpenSession={() => {}} />, {
+      seed: seedOneRms(SPEC_1RMS),
+      language,
+    });
+    const en = language === 'en';
+    await fireEvent.press(await screen.findByRole('button', { name: en ? 'Add session' : 'Adicionar sessão' }));
+    await fireEvent.press(screen.getByRole('button', { name: en ? 'Add session' : 'Adicionar sessão' }));
+    const group = await screen.findByLabelText(en ? 'Program for session 2' : 'Programa da sessão 2');
+    await fireEvent.press(within(group).getByRole('button', { name: 'Smolov Jr.' }));
+  }
+
+  it('SPEC §13: Session 2 = Bench / Smolov Jr. day 1 → 70.0 / 72.5 / 75.0 kg, and the increment updates it', async () => {
+    await smolovBenchSession2();
+    expect(await screen.findByText('6 × 6 @ 70%')).toBeOnTheScreen();
+    expect(screen.getByText(kg('70.0 kg → 70.0 kg'))).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Week 2' }));
+    expect(screen.getByText(kg('6 × 6 @ 70% + 2.5 kg'))).toBeOnTheScreen();
+    expect(screen.getByText(kg('72.5 kg → 72.5 kg'))).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Week 3' }));
+    expect(screen.getByText(kg('6 × 6 @ 70% + 5.0 kg'))).toBeOnTheScreen();
+    expect(screen.getByText(kg('75.0 kg → 75.0 kg'))).toBeOnTheScreen();
+
+    // 5 kg per week: week 3 = 70 + 10 = 80
+    await fireEvent.changeText(screen.getByLabelText('Weekly increment for session 2'), '5');
+    expect(await screen.findByText(kg('80.0 kg → 80.0 kg'))).toBeOnTheScreen();
+    // Out of the original range: rejected, the loads keep the last valid value
+    await fireEvent.changeText(screen.getByLabelText('Weekly increment for session 2'), '7.5');
+    expect(screen.getByText('Must be at most 5')).toBeOnTheScreen();
+    expect(screen.getByText(kg('80.0 kg → 80.0 kg'))).toBeOnTheScreen();
+  });
+
+  it('warns about the incomplete frequency until all days are added', async () => {
+    await smolovBenchSession2();
+    expect(
+      await screen.findByText('Smolov Jr. (Bench Press) prescribes 4 sessions per week; your configuration uses 1.'),
+    ).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Add the missing days of Smolov Jr. after session 2' }));
+    expect(await screen.findByRole('header', { name: 'Session 5' })).toBeOnTheScreen();
+    expect(screen.queryByText(/prescribes 4 sessions per week/)).toBeNull();
+    expect(screen.queryByText('Add all days of this program')).toBeNull();
+    for (const number of [3, 4, 5]) {
+      const days = screen.getByLabelText(`Program day for session ${number}`);
+      expect(within(days).getByRole('button', { name: `Day ${number - 1}` })).toBeSelected();
+    }
+  });
+
+  it('renders the Smolov Jr. loads, the increment and the warning in Portuguese', async () => {
+    await smolovBenchSession2('pt-BR');
+    expect(await screen.findByText(kg('70,0 kg → 70,0 kg'))).toBeOnTheScreen();
+    expect(screen.getByLabelText('Incremento semanal da sessão 2')).toHaveDisplayValue('2,5');
+    expect(
+      screen.getByText('Smolov Jr. (Supino) prescreve 4 sessões por semana; sua configuração usa 1.'),
+    ).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Semana 2' }));
+    expect(screen.getByText(kg('6 × 6 @ 70% + 2,5 kg'))).toBeOnTheScreen();
+    expect(screen.getByText(kg('72,5 kg → 72,5 kg'))).toBeOnTheScreen();
+  });
+});

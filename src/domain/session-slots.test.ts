@@ -1,6 +1,6 @@
 import type { ProgramTemplate } from '@/programs/schema';
 
-import { changeSlotLift, changeSlotTemplate, defaultSlotInput, moveItem } from './session-slots';
+import { changeSlotLift, changeSlotTemplate, defaultSlotInput, missingProgramDays, moveItem } from './session-slots';
 
 const template = (id: string, overrides: Partial<ProgramTemplate>): ProgramTemplate => ({
   id,
@@ -88,5 +88,33 @@ describe('moveItem', () => {
     expect(moveItem(list, 2, 1)).toEqual([1, 2, 3]);
     expect(moveItem(list, 5, 1)).toEqual([1, 2, 3]);
     expect(moveItem(list, 0, -1)).not.toBe(list);
+  });
+});
+
+describe('missingProgramDays', () => {
+  const slot = (programDay: number, overrides: Partial<{ lift: 'bench' | 'squat'; templateId: string; startWeek: number }> = {}) => ({
+    lift: 'squat' as const,
+    templateId: 'long',
+    programDay,
+    startWeek: 1,
+    ...overrides,
+  });
+
+  it('lists the days of the program not covered by slots with the same program and lift', () => {
+    expect(missingProgramDays([slot(1)], slot(1), TEMPLATES)).toEqual([2, 3, 4]);
+    expect(missingProgramDays([slot(3), slot(1)], slot(3), TEMPLATES)).toEqual([2, 4]);
+  });
+
+  it('ignores slots of other programs or lifts', () => {
+    const others = [slot(2, { templateId: 'all-lifts' }), slot(3, { lift: 'bench' })];
+    expect(missingProgramDays([slot(1), ...others], slot(1), TEMPLATES)).toEqual([2, 3, 4]);
+  });
+
+  it('is empty when every day is covered, for one-day programs and for unknown programs', () => {
+    expect(missingProgramDays([slot(1), slot(2), slot(3), slot(4)], slot(2), TEMPLATES)).toEqual([]);
+    const single = slot(1, { lift: 'bench', templateId: 'all-lifts' });
+    expect(missingProgramDays([single], single, TEMPLATES)).toEqual([]);
+    const unknown = slot(1, { templateId: 'nope' });
+    expect(missingProgramDays([unknown], unknown, TEMPLATES)).toEqual([]);
   });
 });

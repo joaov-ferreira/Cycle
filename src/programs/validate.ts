@@ -37,6 +37,7 @@ export type TemplateIssueCode =
   | 'invalidParam'
   | 'unknownParam'
   | 'paramUnitMismatch'
+  | 'invalidParamMultiplier'
   | 'percentDefaultMismatch';
 
 export type TemplateIssue = { code: TemplateIssueCode; path: string };
@@ -137,6 +138,8 @@ export function validateTemplate(template: ProgramTemplate): TemplateIssue[] {
       if (!set.note || blank(set.note.en)) add('unverifiedWithoutNote', path);
       if (template.verification === 'verified') add('verifiedWithUnverifiedData', path);
     }
+    const times = set.addKg?.times;
+    if (times !== undefined && !(Number.isInteger(times) && times >= 1)) add('invalidParamMultiplier', path);
     for (const [ref, unit] of [
       [set.percentParam, 'fraction'],
       [set.addKg?.param, 'kg'],

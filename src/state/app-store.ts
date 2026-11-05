@@ -33,7 +33,7 @@ import {
   type RoundingConfig,
   type SlotIssue,
 } from '@/domain/periodization';
-import { defaultSlotInput, moveItem, type SessionSlotInput } from '@/domain/session-slots';
+import { defaultSlotInput, missingProgramDays, moveItem, type SessionSlotInput } from '@/domain/session-slots';
 import {
   validateIsoDate,
   validateProfileName,
@@ -142,6 +142,11 @@ export type AppState = {
   /** Inserts a copy right below the slot. */
   duplicateSessionSlot: (id: number) => Promise<void>;
   removeSessionSlot: (id: number) => Promise<void>;
+  /**
+   * "Add all days of this program" (SPEC §1.1): adds, right below the slot, one slot per day of
+   * its program that no slot with the same program and lift covers yet (same start week).
+   */
+  addMissingProgramDays: (id: number) => Promise<void>;
   /** Moves a slot one position up (−1) or down (+1); no-op at the edges. */
   moveSessionSlot: (id: number, offset: -1 | 1) => Promise<void>;
   /** The latest activated periodization (snapshot), or null. */
@@ -321,6 +326,16 @@ export function createAppStore(repos: Repositories): AppStore {
         const profile = requireReady();
         const { index, input } = slotInput(id);
         set({ sessionSlots: await repos.sessionSlots.add(profile.id, input, index + 1) });
+      },
+      async addMissingProgramDays(id) {
+        const profile = requireReady();
+        const { index, input } = slotInput(id);
+        const days = missingProgramDays(get().sessionSlots, input, listTemplates());
+        let slots = get().sessionSlots;
+        for (const [offset, programDay] of days.entries()) {
+          slots = await repos.sessionSlots.add(profile.id, checkedSlot({ ...input, programDay }), index + 1 + offset);
+        }
+        set({ sessionSlots: slots });
       },
       async removeSessionSlot(id) {
         const profile = requireReady();
