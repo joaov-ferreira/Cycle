@@ -39,6 +39,11 @@ export type ExerciseRowProps = {
   onLoadInvalid: (invalid: boolean) => void;
   /** Starts with the targets open (an exercise that was just added). */
   startExpanded?: boolean;
+  /**
+   * Called when the row opens or closes. The parent remembers it so that the row keeps its state
+   * when it is remounted under another parent (linking or unlinking a superset).
+   */
+  onExpandedChange?: (expanded: boolean) => void;
   /** "Link with next"; omitted for the last exercise and for one already linked to the next. */
   link?: { disabled: boolean; onLink: () => void };
   /** "Unlink"; present on a superset member other than the first. */
@@ -70,11 +75,16 @@ export function ExerciseRow({
   onRemove,
   onLoadInvalid,
   startExpanded = false,
+  onExpandedChange,
   link,
   onUnlink,
 }: ExerciseRowProps) {
   const { t, formatNumber } = useI18n();
-  const [expanded, setExpanded] = useState(startExpanded);
+  const [expanded, setExpandedState] = useState(startExpanded);
+  const setExpanded = (next: boolean) => {
+    setExpandedState(next);
+    onExpandedChange?.(next);
+  };
 
   const error = (field: string) => errors[`${path}.${field}`] ?? null;
   const hasIssue = Object.keys(errors).some((key) => key === path || key.startsWith(`${path}.`));
@@ -83,7 +93,10 @@ export function ExerciseRow({
   const [sawIssue, setSawIssue] = useState(hasIssue);
   if (hasIssue !== sawIssue) {
     setSawIssue(hasIssue);
-    if (hasIssue) setExpanded(true);
+    if (hasIssue) {
+      setExpandedState(true);
+      onExpandedChange?.(true);
+    }
   }
   const repsError = error('repMin') ?? error('repMax');
   const summary = [
@@ -114,7 +127,7 @@ export function ExerciseRow({
           accessibilityRole="button"
           accessibilityLabel={t('planEditor.editTargets', { exercise: name })}
           accessibilityState={{ expanded }}
-          onPress={() => setExpanded((open) => !open)}
+          onPress={() => setExpanded(!expanded)}
           style={styles.title}>
           <Text variant="label">{name}</Text>
           <Text tone="secondary" tabular>

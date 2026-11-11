@@ -61,6 +61,19 @@ async function saveAndRead(ctx: Awaited<ReturnType<typeof setup>>) {
 }
 
 describe('PlanEditScreen: supersets', () => {
+  it('keeps an expanded row expanded across linking and unlinking', async () => {
+    await setup(samplePlanContent());
+    await press(`Edit ${PULLDOWN} targets`);
+    expect(screen.getByRole('button', { name: `Edit ${PULLDOWN} targets`, expanded: true })).toBeOnTheScreen();
+
+    await press(`Link ${BENCH} with the next exercise`);
+    expect(screen.getByRole('button', { name: `Edit ${PULLDOWN} targets`, expanded: true })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: `Edit ${BENCH} targets`, expanded: false })).toBeOnTheScreen();
+
+    await press(`Unlink ${PULLDOWN} from the previous exercise`);
+    expect(screen.getByRole('button', { name: `Edit ${PULLDOWN} targets`, expanded: true })).toBeOnTheScreen();
+  });
+
   it('offers Link with next on every exercise of a workout but the last', async () => {
     await setup(samplePlanContent());
     expect(await screen.findByRole('button', { name: `Link ${BENCH} with the next exercise` })).toBeOnTheScreen();
