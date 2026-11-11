@@ -13,10 +13,21 @@ export type PlanScreenProps = {
   onOpenPlans: () => void;
   onEditPlan: (id: number) => void;
   onExportPlan: (id: number) => void;
+  /** Opens the Review with AI screen of the plan. */
+  onReviewWithAi?: (planId: number) => void;
+  /** Opens the report of one cycle of the plan. */
+  onOpenCycle?: (planId: number, cycleNumber: number) => void;
 };
 
 /** The Plan tab: the active plan in full, or an empty state that explains what a plan is. */
-export function PlanScreen({ onNewPlan, onOpenPlans, onEditPlan, onExportPlan }: PlanScreenProps) {
+export function PlanScreen({
+  onNewPlan,
+  onOpenPlans,
+  onEditPlan,
+  onExportPlan,
+  onReviewWithAi,
+  onOpenCycle,
+}: PlanScreenProps) {
   const { t } = useI18n();
   const plan = useAppStore(selectActivePlan);
   const hasPlans = useAppStore((s) => s.plans.length > 0);
@@ -24,7 +35,13 @@ export function PlanScreen({ onNewPlan, onOpenPlans, onEditPlan, onExportPlan }:
     <Screen title={t('plan.title')} testID="screen-plan">
       {plan ? (
         <>
-          <PlanDetailContent plan={plan} onEditPlan={onEditPlan} onExportPlan={onExportPlan} />
+          <PlanDetailContent
+            plan={plan}
+            onEditPlan={onEditPlan}
+            onExportPlan={onExportPlan}
+            onReviewWithAi={onReviewWithAi}
+            onOpenCycle={onOpenCycle}
+          />
           <View style={styles.actions}>
             <Button variant="secondary" label={t('plan.allPlans')} onPress={onOpenPlans} />
             <Button label={t('plan.newPlan')} onPress={onNewPlan} />

@@ -13,10 +13,23 @@ export type PlanDetailScreenProps = {
   onDeleted: () => void;
   /** Called with the id of a duplicate right after it is created. */
   onOpenPlan?: (id: number) => void;
+  /** Opens the Review with AI screen of the plan. */
+  onReviewWithAi?: (planId: number) => void;
+  /** Opens the report of one cycle of the plan. */
+  onOpenCycle?: (planId: number, cycleNumber: number) => void;
 };
 
 /** One plan: header and actions, cycle card (status, timeline, advice, settings) and workouts. */
-export function PlanDetailScreen({ planId, onBack, onEditPlan, onExportPlan, onDeleted, onOpenPlan }: PlanDetailScreenProps) {
+export function PlanDetailScreen({
+  planId,
+  onBack,
+  onEditPlan,
+  onExportPlan,
+  onDeleted,
+  onOpenPlan,
+  onReviewWithAi,
+  onOpenCycle,
+}: PlanDetailScreenProps) {
   const { t } = useI18n();
   const plan = useAppStore((s) => s.plans.find((p) => p.id === planId));
   return (
@@ -29,6 +42,8 @@ export function PlanDetailScreen({ planId, onBack, onEditPlan, onExportPlan, onD
           onExportPlan={onExportPlan}
           onDeleted={onDeleted}
           onOpenPlan={onOpenPlan}
+          onReviewWithAi={onReviewWithAi}
+          onOpenCycle={onOpenCycle}
         />
       ) : (
         <EmptyState

@@ -6,6 +6,7 @@ import { PLAN_LIMITS, type PlanExercise } from '@/domain/plan';
 import { useI18n } from '@/i18n';
 
 import { Stepper } from '../../shared';
+import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { NumberInput } from '../../ui/NumberInput';
 import { Text } from '../../ui/Text';
@@ -38,6 +39,10 @@ export type ExerciseRowProps = {
   onLoadInvalid: (invalid: boolean) => void;
   /** Starts with the targets open (an exercise that was just added). */
   startExpanded?: boolean;
+  /** "Link with next"; omitted for the last exercise and for one already linked to the next. */
+  link?: { disabled: boolean; onLink: () => void };
+  /** "Unlink"; present on a superset member other than the first. */
+  onUnlink?: () => void;
 };
 
 /** Removes `key` from an exercise instead of leaving an `undefined` behind. */
@@ -65,6 +70,8 @@ export function ExerciseRow({
   onRemove,
   onLoadInvalid,
   startExpanded = false,
+  link,
+  onUnlink,
 }: ExerciseRowProps) {
   const { t, formatNumber } = useI18n();
   const [expanded, setExpanded] = useState(startExpanded);
@@ -128,6 +135,28 @@ export function ExerciseRow({
         />
         <IconButton glyph="✕" label={t('planEditor.removeExercise', { exercise: name })} onPress={onRemove} />
       </View>
+      {link || onUnlink ? (
+        <View style={styles.linkRow}>
+          {onUnlink ? (
+            <Button
+              variant="secondary"
+              label={t('planEditor.unlink')}
+              accessibilityLabel={t('planEditor.unlinkOf', { exercise: name })}
+              onPress={onUnlink}
+            />
+          ) : null}
+          {link ? (
+            <Button
+              variant="secondary"
+              label={t('planEditor.linkNext')}
+              accessibilityLabel={t('planEditor.linkNextOf', { exercise: name })}
+              hint={link.disabled ? t('planEditor.linkLimit') : undefined}
+              disabled={link.disabled}
+              onPress={link.onLink}
+            />
+          ) : null}
+        </View>
+      ) : null}
       {error('exerciseId') ? (
         <Text variant="caption" tone="danger">
           {error('exerciseId')}
@@ -268,6 +297,7 @@ function LoadField({ label, value, onChange, onInvalid, error }: LoadFieldProps)
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   title: { flex: 1, gap: spacing.xs, minHeight: layout.minTouchTarget, justifyContent: 'center' },
+  linkRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   targets: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   target: { gap: spacing.xs },
   options: { gap: spacing.md },
