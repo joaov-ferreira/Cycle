@@ -12,6 +12,8 @@ export default function PlanRoute() {
       onExportPlan={(id) => router.push(`/plans/${id}/export` as Href)}
       onReviewWithAi={(id) => router.push(`/plans/${id}/review` as Href)}
       onOpenCycle={(id, cycle) => router.push(`/plans/${id}/cycles/${cycle}` as Href)}
+      onOpenPeriodization={(id) => router.push(`/plans/${id}/periodization` as Href)}
+      onOpenMax={(exerciseId) => router.push(`/maxes/${exerciseId}` as Href)}
     />
   );
 }
