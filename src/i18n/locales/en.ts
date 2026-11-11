@@ -12,6 +12,7 @@ import { common } from './en/common';
 import { home } from './en/home';
 import { plan } from './en/plan';
 import { planImport } from './en/planImport';
+import { planEditor } from './en/planEditor';
 import { workout } from './en/workout';
 import { history } from './en/history';
 import { progress } from './en/progress';
@@ -30,6 +31,7 @@ export const en = {
   home,
   plan,
   planImport,
+  planEditor,
   workout,
   history,
   progress,

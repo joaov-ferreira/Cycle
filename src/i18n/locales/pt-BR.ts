@@ -6,6 +6,7 @@ import { common } from './pt-BR/common';
 import { home } from './pt-BR/home';
 import { plan } from './pt-BR/plan';
 import { planImport } from './pt-BR/planImport';
+import { planEditor } from './pt-BR/planEditor';
 import { workout } from './pt-BR/workout';
 import { history } from './pt-BR/history';
 import { progress } from './pt-BR/progress';
@@ -25,6 +26,7 @@ export const ptBR: Catalog = {
   home,
   plan,
   planImport,
+  planEditor,
   workout,
   history,
   progress,
