@@ -45,6 +45,18 @@ export const workout = {
   startMissingMax: 'Set the 1RM of {{exercises}} once the workout starts to get its loads.',
   restDayBadge: 'Rest day',
   markRestDone: 'Mark rest day as done',
+  // ---- Strength part of the summary (SPEC-v4 §7) ----
+  strengthTitle: 'Strength',
+  sessionE1rm: 'Session e1RM {{kg}}',
+  e1rmDelta: 'Previous {{previous}} · {{kg}} ({{percent}})',
+  tonnageLine: 'Tonnage: prescribed {{prescribed}} · actual {{actual}} ({{delta}})',
+  deltaPlus: '+{{value}}',
+  deltaMinus: '−{{value}}',
+  useAsMax: 'Use as new 1RM ({{kg}})',
+  useAsMaxTitle: 'Use as new 1RM?',
+  useAsMaxMessage: '{{exercise}}: the reference 1RM becomes {{kg}}. The previous value stays in the history.',
+  useAsMaxConfirm: 'Use as 1RM',
+  useAsMaxDone: '1RM of {{exercise}} set to {{kg}}',
   // ---- Workout in progress ----
   started: 'Started {{time}}',
   exerciseOptions: 'Exercise options',

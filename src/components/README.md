@@ -4,7 +4,7 @@ One folder per feature; screens read and write only through the store (`src/stat
 
 - `ui/` — base components: `Screen`, `Text`, `Card`, `Button`, `NumberInput`, `SegmentedControl`, `TextField`.
 - `shared/` — reusable feature-neutral pieces: `ExercisePicker` and `ExerciseSelectModal` (search, filters,
-  create a custom exercise), `SetRow`, `Stepper`, `Chip`, `FilterChips`, `ConfirmDialog`, `EmptyState`,
+  create a custom exercise), `SetRow` (half-point effort input, RIR/RPE scale, `% → kg` line, AMRAP / unverified / extra marks, e1RM line), `Tag`, `Stepper`, `Chip`, `FilterChips`, `ConfirmDialog`, `EmptyState`,
   `CustomExerciseForm`, name/label helpers (`labels.ts`).
 - `theme-provider.tsx`, `app-providers.tsx` — theme tokens (`src/constants/theme.ts`) and the boot gate
   (opens persistence, boots the store, provides locale and theme).
@@ -16,8 +16,13 @@ One folder per feature; screens read and write only through the store (`src/stat
   cycle wording shared with Home), and `editor/` (plan editor: compact expandable exercise rows).
 - `plan-import/` — new-plan chooser, template gallery, import (paste / file / Create with AI, preview with
   unresolved-exercise resolution) and export.
-- `workout/` — start view (previews the week's RIR target), logger (exercise cards, superset cards, set
-  rows with warm-up and drop sets, the rest timer bar, plates, notes in the exercise menu), summary.
+- `workout/` — start view (previews the week's target, or the compact prescription `3×5 @ 75 kg` of percent
+  exercises and program blocks, with the program week/day line, the missing-1RM notice and the rest day with
+  "Mark rest day as done"), logger (exercise cards with the prescription header — origin, 1RM used, program
+  notes, the inline "Set the 1RM" form —, superset cards, set rows with warm-up and drop sets, the rest timer
+  bar, plates, notes in the exercise menu), summary (plus the strength part: session e1RM, change, prescribed
+  vs actual tonnage and the confirmed "Use as new 1RM"). With `settings.effortScale === 'rpe'` every effort
+  label, input and target shows RPE; the stored value stays RIR (`shared/effort.ts`).
 - `cycle-report/`, `ai-review/` — the cycle report and Review with AI screens; `plan-import/` also owns the
   "Update plan" choice of the import preview.
 - `backup/` — the Settings → Data section (export, restore, CSV); `body/` — body tracking.

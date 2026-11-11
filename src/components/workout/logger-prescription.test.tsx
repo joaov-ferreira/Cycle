@@ -160,6 +160,24 @@ describe('logger: exercise with a prescription', () => {
   });
 });
 
+describe('logger: warm-ups on a prescription', () => {
+  it('adds warm-ups from the prescribed work load without shifting the prescribed sets', async () => {
+    const { store } = await renderWorkout({
+      planContent: planOf([percentExercise('pe-bench', BENCH, [{ reps: 5, percent: 80, repeat: 2 }])]),
+      prepare: async ({ store: s }) => {
+        await seedReferenceMax(s, BENCH, 100);
+        await startX({ store: s } as WorkoutContext);
+      },
+    });
+    await fireEvent.press(await card(0).findByRole('button', { name: 'Add warm-up' }));
+    await screen.findAllByText('W');
+    const sets = exerciseOf(store, 0).sets;
+    expect(sets[0].kind).toBe('warmup');
+    expect(sets.filter((set) => set.kind === 'working').map((set) => set.weightKg)).toEqual([80, 80]);
+    expect(card(0).getAllByText(nbsp('80% → 80 kg'))).toHaveLength(2);
+  });
+});
+
 describe('logger: missing 1RM', () => {
   const missing = () =>
     planOf([percentExercise('pe-dl', DEADLIFT, [{ reps: 5, percent: 80, repeat: 2 }])]);
