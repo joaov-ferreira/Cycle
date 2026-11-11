@@ -42,4 +42,17 @@ export const exercises: typeof enExercises = {
   inUse:
     'Este exercício é usado por uma periodização ou por um treino, então não pode ser excluído. Arquive-o em vez disso.',
   saveFailed: 'Algo deu errado. Tente novamente.',
+  noteTitle: 'Nota do exercício',
+  noteHint: 'A nota aparece toda vez que este exercício for registrado.',
+  noNote: 'Nenhuma nota ainda.',
+  editNote: 'Editar nota',
+  noteLabel: 'Nota do exercício',
+  noteTooLong: 'Use no máximo {{max}} caracteres',
+  barTitle: 'Peso da barra',
+  barLabel: 'peso da barra',
+  resetBar: 'Usar o padrão ({{value}})',
+  similarTitle: 'Exercícios similares',
+  similarItem: '{{name}} · {{equipment}}',
+  openSimilar: 'Abrir {{name}}',
+  howTo: 'Como fazer',
 };

@@ -127,23 +127,31 @@ export function ExerciseDetailBlock({
         </View>
       ) : (
         <View style={styles.sets}>
-          {exercise.sets.map((set, setIndex) => (
-            <View key={setIndex} style={styles.setLine}>
-              <Text tabular>
-                {t('history.setLine', { weight: kg(set.weightKg ?? 0), reps: set.reps ?? 0 })}
-              </Text>
-              {set.rir !== null ? (
-                <Text tone="secondary" tabular>
-                  {t('history.rir', { rir: set.rir })}
+          {exercise.sets.map((set, setIndex) =>
+            set.kind === 'drop' ? (
+              <View key={setIndex} style={styles.dropLine}>
+                <Text tabular>
+                  {t('history.dropSetLine', { weight: kg(set.weightKg ?? 0), reps: set.reps ?? 0 })}
                 </Text>
-              ) : null}
-              {set.kind === 'warmup' ? (
-                <Text tone="accent" variant="label">
-                  {t('common.warmupSet')}
+              </View>
+            ) : (
+              <View key={setIndex} style={styles.setLine}>
+                <Text tabular>
+                  {t('history.setLine', { weight: kg(set.weightKg ?? 0), reps: set.reps ?? 0 })}
                 </Text>
-              ) : null}
-            </View>
-          ))}
+                {set.rir !== null ? (
+                  <Text tone="secondary" tabular>
+                    {t('history.rir', { rir: set.rir })}
+                  </Text>
+                ) : null}
+                {set.kind === 'warmup' ? (
+                  <Text tone="accent" variant="label">
+                    {t('common.warmupSet')}
+                  </Text>
+                ) : null}
+              </View>
+            ),
+          )}
           {exercise.note ? (
             <Text tone="secondary">{t('history.exerciseNote', { note: exercise.note })}</Text>
           ) : null}
@@ -192,6 +200,7 @@ const styles = StyleSheet.create({
   editing: { gap: spacing.md },
   sets: { gap: spacing.xs },
   setLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.md },
+  dropLine: { flexDirection: 'row', flexWrap: 'wrap', paddingLeft: spacing.lg },
   stats: { gap: spacing.xs },
   records: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
 });

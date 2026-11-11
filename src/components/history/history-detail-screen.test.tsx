@@ -44,6 +44,7 @@ function detail(workoutId: number, cb: Callbacks = {}) {
       onBack={cb.onBack ?? jest.fn()}
       onOpenExercise={cb.onOpenExercise ?? jest.fn()}
       onDeleted={cb.onDeleted ?? jest.fn()}
+      onRepeated={jest.fn()}
     />
   );
 }

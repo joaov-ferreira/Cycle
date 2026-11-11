@@ -1,9 +1,13 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { layout, radius, spacing } from '@/constants/theme';
-import { ExerciseInUseError } from '@/data/repositories';
+import {
+  DEFAULT_SETTINGS,
+  EXERCISE_NOTE_MAX_LENGTH,
+  ExerciseInUseError,
+} from '@/data/repositories';
 import {
   DEFAULT_INCREMENT_KG,
   INCREMENT_OVERRIDE_LIMITS,
@@ -11,16 +15,20 @@ import {
 } from '@/domain/exercise';
 import type { CustomExerciseErrors } from '@/domain/exercise-match';
 import { countedSets } from '@/domain/metrics';
+import { BAR_LIMITS } from '@/domain/plates';
 import type { ExerciseSession } from '@/domain/workout';
 import { useI18n } from '@/i18n';
 import { useAppStore } from '@/state/app-store-context';
-import { CustomExerciseValidationError } from '@/state/errors';
+import { CustomExerciseValidationError, NoteValidationError } from '@/state/errors';
 import {
+  selectBarKg,
   selectExerciseById,
+  selectExerciseNote,
   selectExerciseSessions,
   selectIncrement,
   selectPersonalRecords,
 } from '@/state/selectors';
+import { selectSimilarExercises } from '@/state/selectors-v3';
 
 import {
   ConfirmDialog,
@@ -42,9 +50,23 @@ export type ExerciseDetailScreenProps = {
   onBack: () => void;
   onOpenProgress: (exerciseId: string) => void;
   onOpenWorkout: (workoutId: number) => void;
+  /** Opens another exercise's detail (similar exercises). */
+  onOpenExercise: (exerciseId: string) => void;
+  /** Opens a URL; defaults to the system browser. */
+  openUrl?: (url: string) => void;
 };
 
 type Message = 'inUse' | 'saveFailed';
+
+/** Video search of an exercise name, the "How to do it" link (SPEC-v3 §11). */
+export function videoSearchUrl(name: string): string {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(name)}`;
+}
+
+/** Opens a URL in the browser; a failure to open is ignored (nothing else depends on it). */
+function openExternalUrl(url: string): void {
+  void Linking.openURL(url).catch(() => undefined);
+}
 
 /** Counted sets grouped by weight, in order of first appearance: `[[40, [12, 12, 11]]]`. */
 function groupByWeight(session: ExerciseSession): [number, number[]][] {
@@ -63,11 +85,22 @@ export function ExerciseDetailScreen({
   onBack,
   onOpenProgress,
   onOpenWorkout,
+  onOpenExercise,
+  openUrl = openExternalUrl,
 }: ExerciseDetailScreenProps) {
   const { colors } = useTheme();
   const { t, locale, formatKg, formatDate } = useI18n();
 
   const exercise = useAppStore((s) => selectExerciseById(s, exerciseId));
+  const note = useAppStore((s) => selectExerciseNote(s, exerciseId));
+  const barKg = useAppStore((s) => selectBarKg(s, exerciseId));
+  const hasOwnBar = useAppStore((s) => s.exerciseSettings[exerciseId]?.barKg !== undefined);
+  const defaultBarKg = useAppStore((s) => s.settings?.barKg ?? DEFAULT_SETTINGS.barKg);
+  const similar = useAppStore((s) => selectSimilarExercises(s, exerciseId));
+  const setExerciseSettingsNote = useAppStore((s) => s.setExerciseSettingsNote);
+  const setExerciseBar = useAppStore((s) => s.setExerciseBar);
+  const [noteDraft, setNoteDraft] = useState<string | null>(null);
+  const [noteMessage, setNoteMessage] = useState<string | null>(null);
   const increment = useAppStore((s) => selectIncrement(s, exerciseId));
   const hasOverride = useAppStore((s) => s.incrementOverrides[exerciseId] !== undefined);
   const sessions = useAppStore((s) => selectExerciseSessions(s, exerciseId));
@@ -233,6 +266,93 @@ export function ExerciseDetailScreen({
         ) : null}
       </Card>
 
+      <Card testID="exercise-note">
+        <Text variant="heading">{t('exercises.noteTitle')}</Text>
+        <Text variant="caption" tone="secondary">
+          {t('exercises.noteHint')}
+        </Text>
+        {noteDraft === null ? (
+          <>
+            <Text>{note === '' ? t('exercises.noNote') : note}</Text>
+            <Button
+              variant="secondary"
+              label={t('exercises.editNote')}
+              onPress={() => {
+                setNoteMessage(null);
+                setNoteDraft(note);
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <TextInput
+              accessibilityLabel={t('exercises.noteLabel')}
+              multiline
+              value={noteDraft}
+              onChangeText={setNoteDraft}
+              style={[
+                styles.noteInput,
+                { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            />
+            {noteMessage ? (
+              <Text tone="danger" accessibilityRole="alert">
+                {noteMessage}
+              </Text>
+            ) : null}
+            <View style={styles.actions}>
+              <Button
+                label={t('common.save')}
+                onPress={async () => {
+                  const text = noteDraft.trim();
+                  setNoteMessage(null);
+                  try {
+                    await setExerciseSettingsNote(exercise.id, text === '' ? null : text);
+                    setNoteDraft(null);
+                  } catch (error) {
+                    setNoteMessage(
+                      error instanceof NoteValidationError
+                        ? t('exercises.noteTooLong', { max: EXERCISE_NOTE_MAX_LENGTH })
+                        : t('exercises.saveFailed'),
+                    );
+                  }
+                }}
+              />
+              <Button
+                variant="secondary"
+                label={t('common.cancel')}
+                onPress={() => {
+                  setNoteDraft(null);
+                  setNoteMessage(null);
+                }}
+              />
+            </View>
+          </>
+        )}
+      </Card>
+
+      {exercise.equipment === 'barbell' ? (
+        <Card testID="exercise-bar">
+          <Text variant="heading">{t('exercises.barTitle')}</Text>
+          <Stepper
+            value={barKg}
+            min={BAR_LIMITS.min}
+            max={BAR_LIMITS.max}
+            step={BAR_LIMITS.step}
+            label={t('exercises.barLabel')}
+            format={kg}
+            onChange={(value) => void run(() => setExerciseBar(exercise.id, value))}
+          />
+          {hasOwnBar ? (
+            <Button
+              variant="secondary"
+              label={t('exercises.resetBar', { value: kg(defaultBarKg) })}
+              onPress={() => void run(() => setExerciseBar(exercise.id, null))}
+            />
+          ) : null}
+        </Card>
+      ) : null}
+
       <Card testID="exercise-records">
         <Text variant="heading">{t('exercises.recordsTitle')}</Text>
         {!weightRecord && !records.e1rm ? (
@@ -305,7 +425,36 @@ export function ExerciseDetailScreen({
         })}
       </View>
 
+      {similar.length > 0 ? (
+        <Card testID="exercise-similar">
+          <Text variant="heading">{t('exercises.similarTitle')}</Text>
+          {similar.map((item) => {
+            const itemName = exerciseName(item, locale);
+            return (
+              <Pressable
+                key={item.id}
+                accessibilityRole="button"
+                accessibilityLabel={t('exercises.openSimilar', { name: itemName })}
+                onPress={() => onOpenExercise(item.id)}
+                style={styles.similarRow}>
+                <Text variant="label">
+                  {t('exercises.similarItem', {
+                    name: itemName,
+                    equipment: t(equipmentLabelKey(item.equipment)),
+                  })}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </Card>
+      ) : null}
+
       <Button label={t('exercises.seeProgress')} onPress={() => onOpenProgress(exercise.id)} />
+      <Button
+        variant="secondary"
+        label={t('exercises.howTo')}
+        onPress={() => openUrl(videoSearchUrl(name))}
+      />
 
       {exercise.custom ? (
         <View style={styles.actions}>
@@ -387,4 +536,16 @@ const styles = StyleSheet.create({
   sessionHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   pressed: { opacity: 0.6 },
+  noteInput: {
+    minHeight: 88,
+    padding: spacing.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.md,
+    textAlignVertical: 'top',
+  },
+  similarRow: {
+    minHeight: layout.minTouchTarget,
+    justifyContent: 'center',
+    gap: spacing.xs / 2,
+  },
 });

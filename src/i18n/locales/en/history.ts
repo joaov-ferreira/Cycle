@@ -45,4 +45,15 @@ export const history = {
   deleteTitle: 'Delete this workout?',
   deleteMessage: 'It is removed from your history and progress. The plan cycle is not changed.',
   deleteConfirm: 'Delete workout',
+  dropSetLine: 'Drop set · {{weight}} × {{reps}}',
+  dropSets: {
+    one: '{{count}} drop set',
+    other: '{{count}} drop sets',
+  },
+  supersetTwo: 'Superset',
+  supersetThree: 'Tri-set',
+  supersetFour: 'Giant set',
+  repeatWorkout: 'Repeat workout',
+  repeatFailed: 'Could not start the workout. Try again.',
+  workoutInProgress: 'Finish or discard the workout in progress first',
 };

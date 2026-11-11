@@ -13,6 +13,7 @@ export default function HistoryDetailRoute() {
         router.push({ pathname: '/exercises/[id]', params: { id: exerciseId } })
       }
       onDeleted={() => router.back()}
+      onRepeated={() => router.navigate('/workout')}
     />
   );
 }
