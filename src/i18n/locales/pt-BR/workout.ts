@@ -36,6 +36,11 @@ export const workout: typeof enWorkout = {
     outOfRange: 'Use um valor de até {{max}} kg',
     tooManyDecimals: 'Use no máximo {{max}} casas decimais',
   },
+  previewSets: '{{sets}}×{{reps}}',
+  previewAt: '{{sets}} @ {{load}}',
+  startMissingMax: 'Informe o 1RM de {{exercises}} depois de iniciar o treino para obter as cargas.',
+  restDayBadge: 'Dia de descanso',
+  markRestDone: 'Marcar dia de descanso como feito',
   // ---- Workout in progress ----
   started: 'Iniciado às {{time}}',
   exerciseOptions: 'Opções do exercício',

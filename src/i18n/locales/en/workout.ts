@@ -39,6 +39,12 @@ export const workout = {
     outOfRange: 'Use a value up to {{max}} kg',
     tooManyDecimals: 'Use at most {{max}} decimal places',
   },
+  // ---- Start view of a percent workout and rest days ----
+  previewSets: '{{sets}}×{{reps}}',
+  previewAt: '{{sets}} @ {{load}}',
+  startMissingMax: 'Set the 1RM of {{exercises}} once the workout starts to get its loads.',
+  restDayBadge: 'Rest day',
+  markRestDone: 'Mark rest day as done',
   // ---- Workout in progress ----
   started: 'Started {{time}}',
   exerciseOptions: 'Exercise options',
