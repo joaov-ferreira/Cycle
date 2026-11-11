@@ -4,7 +4,13 @@ import { createMemoryRepositories } from '@/data/memory/memory-repositories';
 import { parseBackup } from '@/domain/backup';
 import { createClock, DAY_MS } from '@/test-utils/clock';
 import { renderInApp } from '@/test-utils/render-app';
-import { createTestStore, seedCompletedWorkout, seedPlan } from '@/test-utils/seed';
+import {
+  createTestStore,
+  seedBodyMetrics,
+  seedCompletedWorkout,
+  seedPlan,
+  v3PlanContent,
+} from '@/test-utils/seed';
 
 import { SettingsScreen } from '../settings/settings-screen';
 
@@ -276,5 +282,62 @@ describe('Settings → Data: restore', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Restaurar' }));
     expect(await screen.findByText('Restaurado. Você agora está usando o perfil "Ana (restaurado)".')).toBeOnTheScreen();
     expect(store.getState().profile?.name).toBe('Ana (restaurado)');
+  });
+});
+
+describe('Settings → Data: the v3 features survive a backup round trip', () => {
+  it('restores the superset, the RIR ramp, a drop set, an exercise note, a bar weight and the body metrics', async () => {
+    const clock = createClock();
+    const repos = createMemoryRepositories({ clock });
+    const { store } = await createTestStore({ clock, repos, profileName: 'Ana', appVersion: '3.0.0' });
+    await seedPlan(store, v3PlanContent());
+    await seedCompletedWorkout(store, {
+      planWorkoutId: 'w-a',
+      logs: {
+        'barbell-bench-press': { weightKg: 40, reps: [12, 12, 12], rir: 2, drop: { reps: 8 } },
+        'lat-pulldown': { weightKg: 50, reps: [10, 10, 10] },
+      },
+    });
+    await store.getState().setExerciseSettingsNote('barbell-bench-press', 'Seat on position 4');
+    await store.getState().setExerciseBar('barbell-bench-press', 15);
+    await seedBodyMetrics(store);
+
+    // Export through the screen, then restore the produced file through the same screen.
+    const saveFile = jest.fn().mockResolvedValue(true);
+    let pickedText = '';
+    const pickFile = async () => ({ name: 'backup.json', text: pickedText, size: pickedText.length });
+    await renderInApp(<SettingsScreen saveFile={saveFile} pickFile={pickFile} now={clock} />, { store, repos });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Export backup' }));
+    expect(await screen.findByText('Backup exported.')).toBeOnTheScreen();
+    pickedText = saveFile.mock.calls[0][0].text;
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Restore backup' }));
+    expect(await screen.findByText('Body entries: 4')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Restore' }));
+    expect(await screen.findByText('Restored. You are now using the profile "Ana (restored)".')).toBeOnTheScreen();
+
+    const restored = store.getState();
+    expect(restored.profile?.name).toBe('Ana (restored)');
+
+    const [plan] = restored.plans;
+    expect(plan.workouts[0].exercises.map((e) => [e.id, e.supersetGroup])).toEqual([
+      ['pe-bench', 'A'],
+      ['pe-pulldown', 'A'],
+    ]);
+    expect(plan.cycle.rirRamp).toEqual({ start: 3, end: 0 });
+
+    const [workout] = restored.workouts;
+    const bench = workout.exercises.find((e) => e.exerciseId === 'barbell-bench-press')!;
+    expect(bench.sets.map((s) => s.kind)).toEqual(['working', 'working', 'working', 'drop']);
+    expect(bench.sets[3]).toMatchObject({ weightKg: 32.5, reps: 8, done: true });
+    expect(bench.target?.targetRir).toBe(3);
+
+    expect(restored.exerciseSettings['barbell-bench-press']).toMatchObject({ note: 'Seat on position 4', barKg: 15 });
+    expect(restored.bodyMetrics.map((m) => [m.date, m.kind, m.value])).toEqual([
+      ['2026-01-31', 'weight', 80],
+      ['2026-02-19', 'weight', 79.4],
+      ['2026-02-28', 'weight', 79],
+      ['2026-03-01', 'weight', 78.6],
+    ]);
   });
 });
