@@ -1063,3 +1063,27 @@ Decisions taken while the v2 stages were implemented and reviewed (stage ids as 
 - **Not verified:** behavior on a physical device (notifications, keep-awake, share sheet, file
   writing); verified by tests, on web, and by the APK build in CI.
 
+
+## 2026-11-11 — v4: strength mode
+
+- **Why.** v2 removed the powerlifting features; the owner asked for them back, without the three
+  lifts as the app's axis, so that one app serves general training and powerlifting. Spec:
+  `docs/SPEC-v4.md` (user journeys first, §1); plan: `docs/PLAN.md` (v4; the v3 plan moved to
+  `docs/archive/PLAN-v3.md`).
+- **Model.** Reference 1RMs are per exercise. Percent work enters a plan in two ways: a *percent
+  scheme* on a plan exercise (weeks of sets × reps @ % of 1RM; also the form an AI chatbot writes) and
+  a *program block* on a plan workout (a day of a built-in program, generated week by week with a
+  role → exercise mapping). Blocks are generated rather than materialized because Sheiko and Smolov
+  change the items and their order from week to week; a generated day keeps the original order.
+- **The cycle is the block.** The v1 three-week generator becomes the plan's cycle: cycle week 1 is
+  the block's start week; a program plan created by the wizard has a cycle as long as the program and
+  no deload.
+- **Roles, not lifts.** Program templates name roles (`lift`, `squat`, `bench`, `deadlift`) that the
+  user maps to any exercise; the app has no lift enumeration, no total, no Wilks/DOTS.
+- **e1RM.** Formula setting (`epley` default, `brzycki`, `rts`); history is derived from the logbook,
+  never stored. Charts and records keep the v2 selection so nothing a user saw changes; strength
+  surfaces use normal-confidence sets only (v1 §8.2 validity). v1's "smallest n" representative-set
+  rule is not restored: one selection rule per surface is easier to explain.
+- **Effort.** Logged RIR accepts half points and can be shown as RPE; plan targets stay integers.
+- **Program data** is the v1 transcription moved without changing a number (pinned by a snapshot
+  test); variations and accessories now point to library exercises.
