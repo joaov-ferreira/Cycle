@@ -9,7 +9,7 @@ import { DEFAULT_EXPERIENCE } from '@/domain/cycle';
 import { DEFAULT_E1RM_FORMULA, type E1rmFormula } from '@/domain/e1rm';
 import { DEFAULT_EFFORT_SCALE, type EffortScale } from '@/domain/effort';
 import { DEFAULT_TRAINING_FOCUS, type TrainingFocus } from '@/domain/focus';
-import type { ReferenceMax, ReferenceMaxOrigin } from '@/domain/reference-max';
+import type { ReferenceMax } from '@/domain/reference-max';
 import { DEFAULT_ROUNDING_MODE, type RoundingMode } from '@/domain/rounding';
 import { DEFAULT_BAR_KG, DEFAULT_PLATES_KG } from '@/domain/plates';
 import { DEFAULT_REST_SECONDS } from '@/domain/rest-timer';

@@ -112,7 +112,7 @@ describe('logbookCsv', () => {
 });
 
 describe('logbookCsv prescriptions and half-point RIR (SPEC-v4 §11.2)', () => {
-  const prescribed = (sets: Array<{ reps: number; percent: number | null; kg: number | null }>) => ({
+  const prescribed = (sets: { reps: number; percent: number | null; kg: number | null }[]) => ({
     basisExerciseId: 'bench-press',
     basisKg: 100,
     sets: sets.map((s) => ({
