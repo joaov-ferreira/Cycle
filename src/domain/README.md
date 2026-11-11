@@ -1,19 +1,20 @@
 # `src/domain/` — pure logic
 
-Rounding, chart scales and input validation rules (the v2 training-domain modules are added in later
-stages).
+Everything that decides something, with no framework in sight.
 
-Contents: `number-validation.ts` (generic decimal rules, incl. the `step` rule), `validation.ts`
-(profile name and ISO date rules), `rounding.ts` (load increments, rounding modes and `roundLoad`),
-`period.ts` (the period filter of the progress charts) and `chart-scale.ts` (nice axis ticks, linear
-scales and `buildChartModel`, the pixel coordinates of a line chart for a dated value series).
+- `exercise.ts` (model, muscle groups, equipment, load increments), `exercise-match.ts` (name normalization,
+  matching, suggestions, custom-exercise validation).
+- `plan.ts` (plan model, limits, `validatePlanContent`), `plan-import.ts` (text and JSON parsers, import draft,
+  resolution), `plan-export.ts`.
+- `cycle.ts` (cycle state machine, deload prescription and advice, `suggestCycle`, timeline),
+  `progression.ts` (double progression, stall detection), `metrics.ts` (e1RM, volume, work load, session score).
+- `workout.ts` (logged workout model and validation), `workout-builder.ts` (draft from a plan workout),
+  `stats.ts` (chart series, personal records, weekly muscle sets), `period.ts`, `chart-scale.ts`.
+- `rounding.ts`, `number-validation.ts`, `validation.ts` — generic helpers.
 
 Dependency rules:
 
-- Pure TypeScript only. **No imports** of React, React Native, Expo, `src/data/`,
-  `src/i18n/`, `src/state/` or `src/components/`.
-- No I/O, no clocks, no randomness: pass dates and values in as arguments.
-- Return error/warning **codes** (e.g. `'aboveMax'`), never display strings. The UI maps
-  codes to localized messages.
-- Coverage must stay ≥ 95 % lines (enforced by `jest.config.js`, together with `src/library/`).
-  Tests use exact, hand-computed expected values.
+- Pure TypeScript only: **no imports** of React, React Native, Expo, `src/data/`, `src/i18n/`, `src/state/`,
+  `src/components/`. No I/O, clocks or randomness: pass dates and values in.
+- Return error/warning **codes**, never display strings; the UI maps them to localized messages.
+- Coverage stays ≥ 95 % lines (with `src/library/`); tests use exact, hand-computed values.

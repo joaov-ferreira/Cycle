@@ -14,7 +14,8 @@
 - `locale.ts` — `resolveLocale` (`pt*` → `pt-BR`, else `en`), `effectiveLocale`
   (setting `system` | `en` | `pt-BR`).
 - `device-locale.ts` — device locale via `expo-localization`.
-- `format.ts` — `formatNumber`, `formatKg`, `formatPercent`, `formatDate` (`Intl`).
+- `format.ts` — `formatNumber`, `formatKg`, `formatPercent`, `formatDate`, `formatTime` (`Intl`; the one
+  formatter for every clock time: `6:42 AM` / `06:42`).
 - `decimal-input.ts` — parse what the user typed (`,` or `.` in pt-BR).
 - `I18nProvider.tsx` — `I18nProvider`, `useT()`, `useI18n()`.
 

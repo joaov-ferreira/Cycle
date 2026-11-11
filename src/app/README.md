@@ -1,20 +1,16 @@
 # `src/app/` — Expo Router routes
 
-Every `.tsx` file here is a screen and every `_layout.tsx` a navigator. Keep only routes
-and layouts here: components, hooks and utilities live in the other `src/` layers. Each route
-file only renders a screen component from `src/components/<feature>/`, so a feature stage
-replaces the component without touching navigation.
+Every `.tsx` file here is a screen and every `_layout.tsx` a navigator. Keep only routes and layouts here:
+each route file renders one screen component from `src/components/<feature>/` and wires its callbacks to the
+router, so components never import the router themselves.
 
-- `_layout.tsx` — root: `AppProviders` (SQLite repositories, store, locale, theme),
-  `OnboardingGate` (a pass-through for now) and a stack.
-- `(tabs)/_layout.tsx` — main navigation (`src/components/navigation/app-tabs.tsx`).
-- `(tabs)/index|plan|workout|progress|more.tsx` — the five tabs: Home, Plan, Workout, Progress, More
-  (the More tab lists Exercises, History and Settings).
-- `plans/index|new|templates|import.tsx`, `plans/[id]/index.tsx`, `plans/[id]/edit.tsx` — plan list,
-  new plan, template gallery, import, plan detail and plan editor.
-- `exercises/index|new.tsx`, `exercises/[id].tsx` — exercise library, new exercise, exercise detail.
-- `history/index.tsx`, `history/[id].tsx` — workout history and workout detail.
-- `settings.tsx` — Settings (profile, theme, language).
-
-All routes of SPEC §12 exist; except Settings and More they are placeholders that show only a
-localized title.
+- `_layout.tsx` — root: `AppProviders` (SQLite repositories, store, locale, theme), `OnboardingGate` +
+  `OnboardingNavigation`, `AppShell` (sidebar at ≥ 900 px) and a stack.
+- `(tabs)/_layout.tsx` — the bottom tabs (`navigation/app-tabs.tsx`).
+- `(tabs)/index|plan|workout|progress|more.tsx` — Home, Plan, Workout, Progress (accepts `?exerciseId=`) and
+  More (links to Exercises, History, Settings).
+- `plans/index|new|templates|import.tsx`, `plans/[id]/index|edit|export.tsx` — plan list, new plan, template
+  gallery, import, detail, editor and export. `/plans/scratch/edit` (the literal id `scratch`) creates a plan.
+- `exercises/index|new.tsx`, `exercises/[id].tsx` — library, new exercise, detail.
+- `history/index.tsx`, `history/[id].tsx` — history list and workout detail.
+- `settings.tsx` — Settings.
