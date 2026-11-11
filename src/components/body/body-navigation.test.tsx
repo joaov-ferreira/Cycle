@@ -3,7 +3,7 @@
  * `/body`, and the route renders the screen with a Back button.
  */
 import * as Localization from 'expo-localization';
-import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
+import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import type { ReactNode } from 'react';
 
 import { createMemoryRepositories } from '@/data/memory/memory-repositories';
@@ -54,13 +54,20 @@ async function open(url: string, { width = 390, language = 'en' as LanguageSetti
   return renderRouter(appRoutes, { initialUrl: url, wrapper });
 }
 
+/** Presses a control and waits for the navigation it starts, so no update leaks into the next test. */
+async function tap(node: ReturnType<typeof screen.getByRole>) {
+  await act(async () => {
+    fireEvent.press(node);
+  });
+}
+
 beforeEach(() => setDeviceLocale('en'));
 
 describe('More links to Body', () => {
   it('lists Body after History with a short description, and opens the screen', async () => {
     const router = await open('/more');
     expect(await screen.findByText('Weight, body fat and measurements.')).toBeOnTheScreen();
-    fireEvent.press(await screen.findByRole('button', { name: 'Body' }));
+    await tap(await screen.findByRole('button', { name: 'Body' }));
     expect(await screen.findByRole('header', { name: 'Body' })).toBeOnTheScreen();
     expect(screen.getByTestId('screen-body')).toBeOnTheScreen();
     expect(router.getPathname()).toBe('/body');
@@ -76,7 +83,7 @@ describe('More links to Body', () => {
 describe('sidebar link to Body', () => {
   it('opens the screen from the wide-screen sidebar', async () => {
     const router = await open('/', { width: 1280 });
-    fireEvent.press(await screen.findByTestId('sidebar-item-body'));
+    await tap(await screen.findByTestId('sidebar-item-body'));
     expect(await screen.findByRole('header', { name: 'Body' })).toBeOnTheScreen();
     expect(router.getPathname()).toBe('/body');
     expect(screen.getByTestId('sidebar-item-body')).toBeSelected();

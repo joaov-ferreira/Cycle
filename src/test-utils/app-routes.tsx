@@ -12,6 +12,7 @@ import PlanTabRoute from '@/app/(tabs)/plan';
 import ProgressRoute from '@/app/(tabs)/progress';
 import WorkoutRoute from '@/app/(tabs)/workout';
 import ExerciseDetailRoute from '@/app/exercises/[id]';
+import BodyRoute from '@/app/body';
 import ExercisesRoute from '@/app/exercises/index';
 import ExerciseNewRoute from '@/app/exercises/new';
 import HistoryDetailRoute from '@/app/history/[id]';
@@ -51,4 +52,5 @@ export const appRoutes = {
   'history/index': HistoryRoute,
   'history/[id]': HistoryDetailRoute,
   settings: SettingsRoute,
+  body: BodyRoute,
 };

@@ -6,6 +6,7 @@ export const navigation: typeof enNavigation = {
   moreDescriptions: {
     exercises: 'Consulte e crie exercícios.',
     history: 'Revise os treinos concluídos.',
+    body: 'Peso, gordura corporal e medidas.',
     settings: 'Perfil, tema e idioma.',
   },
 };
