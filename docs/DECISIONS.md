@@ -1127,3 +1127,30 @@ Decisions taken while the v4 stages were implemented and reviewed (stage ids as 
   that day reads as a rest day; the test can be logged as a free workout.
 - **1c — set notes.** A program set's note is not part of the generated `SchemeSet`; the notes of a
   main item's sets are collected on the generated item.
+- **2a — percent groups without a percentage** are allowed in the JSON format (a group with no
+  `percent` has no load), so that export → import is lossless for program data with unverified sets.
+  In a program block of the JSON, `startWeek` defaults to 1 and `accessories` to false.
+- **2a — hybrid template.** `hybrid-531` carries its own cycle (3 load weeks + 1 deload); the gallery
+  lists it after the six general templates.
+- **2b — settings columns.** Migrations 004 and 008 (v1) already used `e1rm_formula` and a rounding
+  table with other value sets, so migration 012 adds `strength_e1rm_formula` and
+  `strength_rounding_mode`; the v1 columns stay unread. `percent` and `programs` live inside the
+  plan's JSON content; the prescription snapshot is a JSON column of the workout exercise. Logged RIR
+  keeps its column: SQLite stores 1.5 as a real despite the integer affinity (pinned by a test).
+- **2b — deleting a custom exercise** also deletes its reference 1RMs; an exercise used as a scheme
+  basis, a role target or a prescription basis counts as in use and cannot be deleted.
+- **3 — one core for "what is trained this week".** The logger's builder, the plan screen, Home and
+  the periodization table read the same memoized effective-workout selector, so they cannot disagree.
+  The cycle report's program rows are derived from the logged prescription snapshots, so they stay
+  true for past cycles after the blocks advance.
+- **3 — missing 1RM during a workout.** Saving the 1RM recomputes the prescription from the plan and
+  fills only sets that are not done and have no weight.
+- **4c — start wizard.** Every role of the program must be mapped in the wizard (a full program);
+  mapping a subset of roles is done with a program block in the plan editor.
+- **4e — Strength tab.** First when the focus is strength; last when the focus is general but the
+  profile has a reference 1RM; absent otherwise.
+- **5 — headers.** Screens draw their own localized title (the stack has no header), and routes that
+  can be opened directly fall back to their parent when there is nothing to go back to.
+- **Formula scope.** The e1RM formula setting drives charts, records, strength estimates and the
+  cycle report; the progression rules (session score) keep Epley so that a display preference never
+  changes a load suggestion.
