@@ -1,6 +1,4 @@
-import { catalogs, type MessageKey } from '@/i18n';
-import type { AppLocale } from '@/i18n';
-import { translate, type TranslationParams } from '@/i18n';
+import { catalogs, translate, type AppLocale, type MessageKey, type TranslationParams } from '@/i18n';
 import type { PlanIssueCode } from '@/domain/plan';
 
 import { issueMessage, parseIssuePath } from './issues';
