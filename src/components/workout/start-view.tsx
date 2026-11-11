@@ -171,6 +171,11 @@ function PlanWorkoutCard({ plan, workoutId, isSuggested, onSelect, onStart, onRe
           return (
             <View key={pe.id} testID={`preview-${pe.id}`} style={styles.exercise}>
               <Text variant="label">{exercise ? exerciseLabel(exercise) : pe.exerciseId}</Text>
+              {prescription?.source.kind === 'scheme' ? (
+                <Text variant="caption" tone="secondary">
+                  {t('workout.rxOriginScheme', { week: prescription.source.schemeWeek })}
+                </Text>
+              ) : null}
               {free ? (
                 <>
                   {pe.generated?.note ? <Text>{localizedText(pe.generated.note, locale)}</Text> : null}

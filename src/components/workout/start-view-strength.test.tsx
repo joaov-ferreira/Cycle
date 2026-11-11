@@ -59,6 +59,33 @@ describe('WorkoutScreen start view: strength', () => {
     ).toBeOnTheScreen();
   });
 
+  it('names the origin of a percent scheme under the exercise, in both languages', async () => {
+    await renderWorkout({
+      planContent: schemePlan([{ reps: 5, percent: 72.5, repeat: 3 }]),
+      prepare: async ({ store }) => void (await seedReferenceMax(store, SQUAT, 140)),
+    });
+    expect(
+      await within(await screen.findByTestId('preview-pe-squat')).findByText('Percent of 1RM · week 1'),
+    ).toBeOnTheScreen();
+  });
+
+  it('names the origin of a percent scheme in Portuguese', async () => {
+    await renderWorkout({
+      language: 'pt-BR',
+      planContent: schemePlan([{ reps: 5, percent: 72.5, repeat: 3 }]),
+      prepare: async ({ store }) => void (await seedReferenceMax(store, SQUAT, 140)),
+    });
+    expect(
+      await within(await screen.findByTestId('preview-pe-squat')).findByText('Percentual do 1RM · semana 1'),
+    ).toBeOnTheScreen();
+  });
+
+  it('does not repeat the program origin under the exercises of a program block', async () => {
+    await renderWorkout({ planContent: v4PlanContent(), prepare: ({ store }) => seedStrengthProfile(store) });
+    const bench = within(await screen.findByTestId('preview-p531:0'));
+    expect(bench.queryByText(/week 1/)).toBeNull();
+  });
+
   it('formats the preview in Portuguese', async () => {
     await renderWorkout({
       language: 'pt-BR',
