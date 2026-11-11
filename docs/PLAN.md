@@ -44,7 +44,7 @@ Same method as v2 and v3:
 | 3 | 3 | State store: reference maxes, settings, effective workouts and prescriptions, logging rules, rest days, block advance, strength selectors, cycle-report additions | sonnet | ✅ |
 | 4a | 4 | Logger and summary: prescriptions, tick-to-confirm reps, AMRAP, e1RM line, missing-1RM dialog, rest day, effort scale input, "Use as new 1RM" | sonnet | ⬜ |
 | 4b | 4 | Plan editor and plan screen: program blocks, percent editor, fidelity warnings, periodization table | sonnet | ⬜ |
-| 4c | 4 | Programs: list, detail, start wizard; import preview additions | sonnet | ⬜ |
+| 4c | 4 | Programs: list, detail, start wizard; import preview additions | sonnet | ✅ |
 | 4d | 4 | 1RMs screens, 1RM calculator, Settings "Strength" section, onboarding focus and lifts steps, More and sidebar entries | sonnet | ⬜ |
 | 4e | 4 | Progress Strength tab, Home (program week, rest day, missing 1RMs), cycle report "Programs and 1RMs", history prescribed vs actual | sonnet | ✅ |
 | 5 | 5 | Integration: E2E v4 flow, audits, docs (IMPORT_FORMAT, schema, AI prompts, BACKUP_FORMAT, README), screenshots, version 4.0.0 | sonnet | ⬜ |
