@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { spacing, layout } from '@/constants/theme';
+import { supersetLayout } from '@/domain/plan';
 import { WORKOUT_LIMITS, workoutSummary, type SetErrors, type Workout, type WorkoutExercise } from '@/domain/workout';
-import { useI18n } from '@/i18n';
-import { WorkoutValidationError, useAppStore } from '@/state';
+import { useI18n, type MessageKey } from '@/i18n';
+import { WorkoutInProgressError, WorkoutValidationError, useAppStore } from '@/state';
 
 import { ConfirmDialog, EmptyState } from '../shared';
 import { Button, Card, Screen, Text, TextField } from '../ui';
@@ -17,6 +18,15 @@ export type HistoryDetailScreenProps = {
   onOpenExercise: (exerciseId: string) => void;
   /** Called after the workout was deleted. */
   onDeleted: () => void;
+  /** Called after "Repeat workout" started the new workout in progress. */
+  onRepeated: () => void;
+};
+
+/** Heading of a superset by its number of exercises (SPEC-v3 §4.1). */
+const SUPERSET_HEADINGS: Record<2 | 3 | 4, MessageKey> = {
+  2: 'history.supersetTwo',
+  3: 'history.supersetThree',
+  4: 'history.supersetFour',
 };
 
 /** Workout detail (SPEC §8): sets, notes, comparison with the previous session, edit and delete. */
@@ -25,6 +35,7 @@ export function HistoryDetailScreen({
   onBack,
   onOpenExercise,
   onDeleted,
+  onRepeated,
 }: HistoryDetailScreenProps) {
   const { t } = useI18n();
   const workout = useAppStore((s) => s.workouts.find((w) => w.id === workoutId));
@@ -48,6 +59,7 @@ export function HistoryDetailScreen({
       onBack={onBack}
       onOpenExercise={onOpenExercise}
       onDeleted={onDeleted}
+      onRepeated={onRepeated}
     />
   );
 }
@@ -71,6 +83,7 @@ function LoadedDetail({
   onBack,
   onOpenExercise,
   onDeleted,
+  onRepeated,
 }: Omit<HistoryDetailScreenProps, 'workoutId'> & { workout: Workout }) {
   const { t, formatDate, formatKg, formatTime } = useI18n();
   const planName = useAppStore((s) =>
@@ -78,6 +91,7 @@ function LoadedDetail({
   );
   const amendWorkout = useAppStore((s) => s.amendWorkout);
   const deleteWorkout = useAppStore((s) => s.deleteWorkout);
+  const repeatWorkout = useAppStore((s) => s.repeatWorkout);
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [errors, setErrors] = useState<DraftErrors>(NO_ERRORS);
@@ -142,6 +156,20 @@ function LoadedDetail({
     }
   };
 
+  const repeat = async () => {
+    setMessage(null);
+    try {
+      await repeatWorkout(workout.id);
+      onRepeated();
+    } catch (error) {
+      setMessage(
+        error instanceof WorkoutInProgressError
+          ? t('history.workoutInProgress')
+          : t('history.repeatFailed'),
+      );
+    }
+  };
+
   const confirmDelete = async () => {
     setConfirmingDelete(false);
     try {
@@ -166,11 +194,11 @@ function LoadedDetail({
       noteError: errors.notes.includes(exerciseIndex) ? noteTooLong : undefined,
       onChangeSet: (setIndex, change) => changeSet(exerciseIndex, setIndex, (s) => ({ ...s, ...change })),
       onToggleDone: (setIndex) => changeSet(exerciseIndex, setIndex, (s) => ({ ...s, done: !s.done })),
+      // Drop sets keep their kind: only working sets and warm-ups switch between each other.
       onToggleKind: (setIndex) =>
-        changeSet(exerciseIndex, setIndex, (s) => ({
-          ...s,
-          kind: s.kind === 'warmup' ? 'working' : 'warmup',
-        })),
+        changeSet(exerciseIndex, setIndex, (s) =>
+          s.kind === 'drop' ? s : { ...s, kind: s.kind === 'warmup' ? 'working' : 'warmup' },
+        ),
       onRemoveSet: (setIndex) => {
         changeExercise(exerciseIndex, (e) => ({ ...e, sets: e.sets.filter((_, i) => i !== setIndex) }));
         setErrors((current) => ({ ...current, sets: {} }));
@@ -235,6 +263,9 @@ function LoadedDetail({
         ) : null}
         <View style={styles.totals}>
           <Text tabular>{t('history.workingSets', { count: summary.workingSets })}</Text>
+          {summary.dropSets > 0 ? (
+            <Text tabular>{t('history.dropSets', { count: summary.dropSets })}</Text>
+          ) : null}
           <Text tabular>
             {t('history.volume', { volume: formatKg(summary.volumeKg, { minimumFractionDigits: 0 }) })}
           </Text>
@@ -254,15 +285,27 @@ function LoadedDetail({
         ) : null}
       </Card>
 
-      {workout.exercises.map((exercise, index) => (
-        <ExerciseDetailBlock
-          key={index}
-          workout={workout}
-          exercise={exercise}
-          editing={editingFor(index)}
-          onOpenExercise={onOpenExercise}
-        />
-      ))}
+      {supersetLayout(workout.exercises).map((block) => {
+        const cards = block.indices.map((index) => (
+          <ExerciseDetailBlock
+            key={index}
+            workout={workout}
+            exercise={workout.exercises[index]}
+            editing={editingFor(index)}
+            onOpenExercise={onOpenExercise}
+          />
+        ));
+        if (block.label === null) return <Fragment key={block.indices[0]}>{cards}</Fragment>;
+        const size = Math.min(4, Math.max(2, block.indices.length)) as 2 | 3 | 4;
+        return (
+          <View key={`superset-${block.indices[0]}`} style={styles.superset}>
+            <Text variant="label" tone="accent" accessibilityRole="header">
+              {t(SUPERSET_HEADINGS[size])}
+            </Text>
+            {cards}
+          </View>
+        );
+      })}
 
       {message ? (
         <Text tone="danger" accessibilityLiveRegion="polite">
@@ -279,6 +322,7 @@ function LoadedDetail({
         ) : (
           <>
             <Button label={t('common.edit')} onPress={startEditing} />
+            <Button variant="secondary" label={t('history.repeatWorkout')} onPress={repeat} />
             <Button
               variant="secondary"
               label={t('common.delete')}
@@ -304,6 +348,7 @@ function LoadedDetail({
 const styles = StyleSheet.create({
   badges: { flexDirection: 'row', gap: spacing.sm },
   totals: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg },
+  superset: { gap: spacing.md },
   actions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
