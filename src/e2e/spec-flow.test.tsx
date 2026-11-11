@@ -298,7 +298,7 @@ describe('SPEC §13 acceptance flow', () => {
     // 7. The cycle enters deload week 1 and Home announces it.
     await goToTab('Home');
     expect(await screen.findByText('Cycle 1 · Deload week 1 of 1')).toBeOnTheScreen();
-    expect(screen.getByText('Deload week: fewer sets and lighter loads.')).toBeOnTheScreen();
+    expect(screen.getByText('Deload week: lighter sets and loads so you recover.')).toBeOnTheScreen();
     expect(screen.getByText('Sessions this week: 0/2')).toBeOnTheScreen();
     expect(store.getState().plans[0].cycleState).toMatchObject({ cycleNumber: 1, phase: 'deload', week: 1 });
     expect(within(screen.getByTestId('next-workout-card')).getByText('Deload')).toBeOnTheScreen();
