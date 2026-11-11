@@ -38,6 +38,16 @@ export const INITIAL_CYCLE_STATE: CycleState = {
   nextWorkoutIndex: 0,
 };
 
+/** Training experience, asked in onboarding; drives the suggested cycle (SPEC §5.1). */
+export const EXPERIENCE_LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
+export type Experience = (typeof EXPERIENCE_LEVELS)[number];
+
+export const DEFAULT_EXPERIENCE: Experience = 'intermediate';
+
+export function isExperience(value: unknown): value is Experience {
+  return typeof value === 'string' && (EXPERIENCE_LEVELS as readonly string[]).includes(value);
+}
+
 export const DEFAULT_CYCLE: CycleConfig = {
   loadWeeks: 6,
   deloadWeeks: 1,
