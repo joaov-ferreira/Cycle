@@ -173,8 +173,8 @@ describe('BodyScreen: chart', () => {
 
   it('filters the points with the period control', async () => {
     await render(await fixture(SPEC_WEIGHTS()));
-    await press('4 weeks');
-    expect(screen.getByRole('button', { name: '4 weeks', selected: true })).toBeOnTheScreen();
+    await press('4 wks');
+    expect(screen.getByRole('button', { name: '4 wks', selected: true })).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: `Jan 31, 2026: 80${NBSP}kg` })).toBeNull();
     expect(screen.getByRole('button', { name: `Feb 19, 2026: 79.4${NBSP}kg` })).toBeOnTheScreen();
   });

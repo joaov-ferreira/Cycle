@@ -14,10 +14,10 @@ export const body = {
   },
   periodGroup: 'Chart period',
   periods: {
-    '4w': '4 weeks',
-    '3m': '3 months',
-    '6m': '6 months',
-    '1y': '1 year',
+    '4w': '4 wks',
+    '3m': '3 mo',
+    '6m': '6 mo',
+    '1y': '1 yr',
     all: 'All',
   },
   form: {

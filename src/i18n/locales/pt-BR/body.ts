@@ -16,9 +16,9 @@ export const body: typeof en = {
   },
   periodGroup: 'Período do gráfico',
   periods: {
-    '4w': '4 semanas',
-    '3m': '3 meses',
-    '6m': '6 meses',
+    '4w': '4 sem',
+    '3m': '3 m',
+    '6m': '6 m',
     '1y': '1 ano',
     all: 'Tudo',
   },
