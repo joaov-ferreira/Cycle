@@ -1,9 +1,16 @@
 import type { CustomExerciseInput, Exercise } from '@/domain/exercise';
 import type { CycleState, Experience } from '@/domain/cycle';
 import type { Plan, PlanContent } from '@/domain/plan';
+import type { BackupData, BackupDocument } from '@/domain/backup';
+import type { BodyMetric, BodyMetricInput, BodyMetricKind } from '@/domain/body';
 import type { ExerciseSession, Workout, WorkoutExercise } from '@/domain/workout';
 import type { LanguageSetting } from '@/i18n/locale';
 import { DEFAULT_EXPERIENCE } from '@/domain/cycle';
+import { DEFAULT_BAR_KG, DEFAULT_PLATES_KG } from '@/domain/plates';
+import { DEFAULT_REST_SECONDS } from '@/domain/rest-timer';
+
+/** Longest exercise note, in characters (SPEC-v3 §11). */
+export const EXERCISE_NOTE_MAX_LENGTH = 200;
 
 export type ThemeSetting = 'dark' | 'light';
 
@@ -22,6 +29,18 @@ export type Settings = {
   onboardingCompleted: boolean;
   /** Training experience asked in onboarding (SPEC §5.1). */
   experience: Experience;
+  /** Rest in seconds for exercises without their own rest (SPEC-v3 §1.1); 0 turns timers off. */
+  defaultRestSeconds: number;
+  /** Local notification when a rest ends while the app is in the background. */
+  restNotifications: boolean;
+  /** Keep the screen on while a workout is in progress. */
+  keepAwake: boolean;
+  /** Default bar weight in kg (SPEC-v3 §2). */
+  barKg: number;
+  /** Available plates in kg, heaviest first; a non-empty subset of `STANDARD_PLATES_KG`. */
+  platesKg: number[];
+  /** ISO 8601 timestamp of the last backup export, or null when none was made. */
+  lastBackupAt: string | null;
 };
 
 export type SettingsPatch = Partial<Omit<Settings, 'profileId'>>;
@@ -31,6 +50,12 @@ export const DEFAULT_SETTINGS: Omit<Settings, 'profileId'> = {
   theme: 'dark',
   onboardingCompleted: false,
   experience: DEFAULT_EXPERIENCE,
+  defaultRestSeconds: DEFAULT_REST_SECONDS,
+  restNotifications: true,
+  keepAwake: true,
+  barKg: DEFAULT_BAR_KG,
+  platesKg: [...DEFAULT_PLATES_KG],
+  lastBackupAt: null,
 };
 
 export interface ProfileRepository {
@@ -50,8 +75,16 @@ export interface ProfileRepository {
 export interface SettingsRepository {
   /** Settings of an existing profile; throws `ProfileNotFoundError` otherwise. */
   get(profileId: number): Promise<Settings>;
+  /**
+   * Throws `RangeError` (changing nothing) for an unknown experience, a rest outside
+   * `REST_DEFAULT_LIMITS` or off its step, a bar weight outside `BAR_LIMITS` or off its step, or
+   * plates that are empty, duplicated or not standard. Plates are stored heaviest first.
+   */
   update(profileId: number, patch: SettingsPatch): Promise<Settings>;
 }
+
+/** Per-exercise settings of a profile; a field is absent when not set. */
+export type ExerciseSettingsEntry = { incrementKg?: number; note?: string; barKg?: number };
 
 /** Custom exercises (SPEC §2.3) and per-exercise increment overrides (SPEC §2.1). */
 export interface ExerciseRepository {
@@ -73,6 +106,12 @@ export interface ExerciseRepository {
     exerciseId: string,
     incrementKg: number | null,
   ): Promise<Record<string, number>>;
+  /** Exercise id → its increment override, note and bar weight; only exercises with a value. */
+  getExerciseSettings(profileId: number): Promise<Record<string, ExerciseSettingsEntry>>;
+  /** Trimmed; empty or `null` removes it; `RangeError` above `EXERCISE_NOTE_MAX_LENGTH` characters. */
+  setExerciseNote(profileId: number, exerciseId: string, note: string | null): Promise<void>;
+  /** `null` removes the exercise's bar weight; `RangeError` outside `BAR_LIMITS` or off its step. */
+  setExerciseBar(profileId: number, exerciseId: string, barKg: number | null): Promise<void>;
 }
 
 /** Plans (SPEC §3) with their cycle state (SPEC §5.2) and the active plan. */
@@ -130,12 +169,35 @@ export interface WorkoutRepository {
   ): Promise<ExerciseSession[]>;
 }
 
+/** Body measurements (SPEC-v3 §9): one value per profile, date and kind. */
+export interface BodyMetricRepository {
+  /** Oldest date first, then kind; only `kind` when given. */
+  list(profileId: number, kind?: BodyMetricKind): Promise<BodyMetric[]>;
+  /** Saving a date and kind again replaces the value and keeps the id. `RangeError` on bad structure. */
+  save(profileId: number, input: BodyMetricInput): Promise<BodyMetric>;
+  /** Throws `BodyMetricNotFoundError`. */
+  delete(profileId: number, id: number): Promise<void>;
+}
+
+/** Whole-profile export and restore (SPEC-v3 §8). */
+export interface BackupRepository {
+  /** Everything of the profile, in the shapes of `src/domain/backup.ts`. */
+  exportProfile(profileId: number): Promise<BackupData>;
+  /**
+   * Creates a new profile with everything in the backup, remapping ids, in one transaction
+   * (a failure leaves nothing behind). Does not change the active profile.
+   */
+  restoreAsNewProfile(backup: BackupDocument, profileName: string): Promise<Profile>;
+}
+
 export type Repositories = {
   profiles: ProfileRepository;
   settings: SettingsRepository;
   exercises: ExerciseRepository;
   plans: PlanRepository;
   workouts: WorkoutRepository;
+  bodyMetrics: BodyMetricRepository;
+  backup: BackupRepository;
 };
 
 export type Clock = () => Date;
@@ -169,6 +231,14 @@ export class ExerciseInUseError extends Error {
   constructor(readonly exerciseId: string) {
     super(`Exercise ${exerciseId} is referenced by a plan or a workout`);
     this.name = 'ExerciseInUseError';
+  }
+}
+
+export class BodyMetricNotFoundError extends Error {
+  readonly code = 'BODY_METRIC_NOT_FOUND';
+  constructor(readonly metricId: number) {
+    super(`Body metric ${metricId} not found`);
+    this.name = 'BodyMetricNotFoundError';
   }
 }
 

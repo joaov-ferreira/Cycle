@@ -46,9 +46,13 @@ export function createMemoryWorkoutRepository(state: MemoryState): WorkoutReposi
     }
   }
 
+  /** Copies the entries, with a missing superset group stored as null. */
+  const withGroups = (exercises: WorkoutExercise[]): WorkoutExercise[] =>
+    cloneJson(exercises).map((e) => ({ ...e, supersetGroup: e.supersetGroup ?? null }));
+
   const exercisesOf = (exercises: WorkoutExercise[]) => {
     assertValidExercises(exercises);
-    return cloneJson(exercises);
+    return withGroups(exercises);
   };
 
   return {
@@ -66,6 +70,7 @@ export function createMemoryWorkoutRepository(state: MemoryState): WorkoutReposi
       const id = inProgress(profileId)?.id ?? state.nextId.workout++;
       return store({
         ...cloneJson(draft),
+        exercises: withGroups(draft.exercises),
         id,
         profileId,
         status: 'in_progress',
@@ -112,6 +117,8 @@ export function createMemoryWorkoutRepository(state: MemoryState): WorkoutReposi
             phase: w.phase,
             cycleNumber: w.cycleNumber,
             planId: w.planId,
+            targetRir:
+              w.exercises.find((e) => e.exerciseId === exerciseId)?.target?.targetRir ?? null,
             sets: cloneJson(
               w.exercises.filter((e) => e.exerciseId === exerciseId).flatMap((e) => e.sets),
             ),

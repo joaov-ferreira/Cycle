@@ -7,9 +7,11 @@ SQLite (`expo-sqlite`) database, versioned migrations and repositories.
   `PRAGMA user_version`; each migration runs in its own transaction. Append new files and
   register them in `migrations/index.ts`; never edit a released migration.
 - `repositories.ts` — repository **interfaces**, entity types and error classes: `profiles`, `settings`
-  (`language`, `theme`, `onboardingCompleted`, `experience`), `exercises` (custom exercises, increment
-  overrides), `plans` (plan CRUD, archive, active plan, cycle state) and `workouts` (draft, complete,
-  amend, delete, listings, exercise sessions). Repositories check structure and state only; business
+  (`language`, `theme`, `onboardingCompleted`, `experience`, rest/notification/keep-awake, bar and plates,
+  `lastBackupAt`), `exercises` (custom exercises, increment overrides, notes, bar weights), `plans` (plan
+  CRUD, archive, active plan, cycle state), `workouts` (draft, complete, amend, delete, listings, exercise
+  sessions; superset groups and `drop` sets), `bodyMetrics` (one value per date and kind) and `backup`
+  (`exportProfile`, and `restoreAsNewProfile` in one transaction with id remapping; SPEC-v3 §8). Repositories check structure and state only; business
   validation belongs to the caller. v1 tables (migrations 001–009) stay in the database untouched;
   migration 010 copies completed v1 sessions into `workouts` (SPEC §11.3) and no repository reads v1 tables.
 - `memory/` — in-memory implementation (tests).

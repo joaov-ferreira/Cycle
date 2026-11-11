@@ -291,6 +291,95 @@ export function describeWorkoutContract(factory: (clock: Clock) => Promise<Repos
     });
   });
 
+  describe('workouts: supersets, drop sets and target RIR', () => {
+    const superset = () => [
+      entry('barbell-bench-press', [set(60, 8), set(60, 7)], { supersetGroup: 'A' }),
+      entry('seated-cable-row', [set(50, 10), set(50, 9)], { supersetGroup: 'A' }),
+      entry('barbell-back-squat', [set(90, 5)]),
+    ];
+
+    it('round trips the superset group through draft, complete and amend', async () => {
+      const { repos, a } = await setup();
+      const saved = await repos.workouts.saveDraft(a, draft({ exercises: superset() }));
+      expect(saved.exercises.map((e) => e.supersetGroup)).toEqual(['A', 'A', null]);
+      expect((await repos.workouts.getInProgress(a))?.exercises.map((e) => e.supersetGroup)).toEqual(['A', 'A', null]);
+
+      const done = await repos.workouts.complete(a, saved.id, { exercises: superset(), notes: '' });
+      expect(done.exercises.map((e) => e.supersetGroup)).toEqual(['A', 'A', null]);
+
+      const regrouped = [
+        entry('barbell-bench-press', [set(60, 8)], { supersetGroup: null }),
+        entry('seated-cable-row', [set(50, 10)], { supersetGroup: 'B2' }),
+        entry('barbell-back-squat', [set(90, 5)], { supersetGroup: 'B2' }),
+      ];
+      const amended = await repos.workouts.amend(a, done.id, { exercises: regrouped, notes: '' });
+      expect(amended.exercises.map((e) => e.supersetGroup)).toEqual([null, 'B2', 'B2']);
+      expect((await repos.workouts.get(a, done.id))?.exercises.map((e) => e.supersetGroup)).toEqual([null, 'B2', 'B2']);
+      expect((await repos.workouts.listCompleted(a))[0].exercises.map((e) => e.supersetGroup)).toEqual([null, 'B2', 'B2']);
+    });
+
+    it('returns a null superset group for entries saved without one', async () => {
+      const { repos, a } = await setup();
+      const withoutField = { ...entry('barbell-bench-press', [set(60, 8)]) };
+      delete withoutField.supersetGroup;
+      const saved = await repos.workouts.saveDraft(a, draft({ exercises: [withoutField] }));
+      expect(saved.exercises[0].supersetGroup).toBeNull();
+      expect((await repos.workouts.get(a, saved.id))?.exercises[0].supersetGroup).toBeNull();
+    });
+
+    it('accepts drop sets wherever working and warm-up sets are accepted', async () => {
+      const { repos, a } = await setup();
+      const sets = [set(40, 10, { kind: 'warmup' }), set(80, 8), set(64, 8, { kind: 'drop' }), set(50, 10, { kind: 'drop', rir: 0 })];
+      const saved = await repos.workouts.saveDraft(a, draft({ exercises: [entry('barbell-bench-press', sets)] }));
+      expect(saved.exercises[0].sets).toEqual(sets);
+      const done = await repos.workouts.complete(a, saved.id, {
+        exercises: [entry('barbell-bench-press', sets)],
+        notes: '',
+        completedAt: '2026-11-05T11:00:00.000Z',
+      });
+      expect(done.exercises[0].sets).toEqual(sets);
+      const amendedSets = [set(80, 8), set(60, 8, { kind: 'drop' })];
+      const amended = await repos.workouts.amend(a, done.id, {
+        exercises: [entry('barbell-bench-press', amendedSets)],
+        notes: '',
+      });
+      expect(amended.exercises[0].sets).toEqual(amendedSets);
+      expect((await repos.workouts.exerciseSessions(a, 'barbell-bench-press'))[0].sets).toEqual(amendedSets);
+    });
+
+    it('still rejects unknown set kinds', async () => {
+      const { repos, a } = await setup();
+      await expect(
+        repos.workouts.saveDraft(a, draft({ exercises: [entry('x', [set(60, 8, { kind: 'drops' as never })])] })),
+      ).rejects.toThrow(RangeError);
+    });
+
+    it('reports the target RIR of the snapshot in exercise sessions, null without one', async () => {
+      const { repos, a } = await setup();
+      await completed(
+        repos,
+        a,
+        { exercises: [entry('barbell-bench-press', [set(60, 8)], { target: { sets: 3, repMin: 6, repMax: 10, targetRir: 2 } })] },
+        '2026-11-01T10:00:00.000Z',
+      );
+      await completed(
+        repos,
+        a,
+        { exercises: [entry('barbell-bench-press', [set(60, 8)], { target: { sets: 3, repMin: 6, repMax: 10 } })] },
+        '2026-11-02T10:00:00.000Z',
+      );
+      await completed(repos, a, { exercises: [entry('barbell-bench-press', [set(60, 8)])] }, '2026-11-03T10:00:00.000Z');
+      await completed(
+        repos,
+        a,
+        { exercises: [entry('barbell-bench-press', [set(60, 8)], { target: { sets: 3, repMin: 6, repMax: 10, targetRir: 0 } })] },
+        '2026-11-04T10:00:00.000Z',
+      );
+      const sessions = await repos.workouts.exerciseSessions(a, 'barbell-bench-press');
+      expect(sessions.map((s) => s.targetRir)).toEqual([0, null, null, 2]);
+    });
+  });
+
   describe('workouts: queries', () => {
     it('lists completed workouts newest completion first, without drafts', async () => {
       const { repos, a } = await setup();
@@ -377,6 +466,7 @@ export function describeWorkoutContract(factory: (clock: Clock) => Promise<Repos
           phase: 'deload',
           cycleNumber: null,
           planId: null,
+          targetRir: null,
           sets: [set(40, 10, { kind: 'warmup' }), set(55, 8), set(50, 6, { done: false })],
         },
         {
@@ -385,6 +475,7 @@ export function describeWorkoutContract(factory: (clock: Clock) => Promise<Repos
           phase: 'load',
           cycleNumber: 1,
           planId: plan.id,
+          targetRir: null,
           sets: [set(60, 8, { rir: 2 })],
         },
       ]);

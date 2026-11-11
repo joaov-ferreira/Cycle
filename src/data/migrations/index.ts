@@ -9,6 +9,7 @@ import { migration007Performance } from './007_performance';
 import { migration008E1rm } from './008_e1rm';
 import { migration009E1rmRevisions } from './009_e1rm_revisions';
 import { migration010V2Logbook } from './010_v2_logbook';
+import { migration011V3Companion } from './011_v3_companion';
 
 /** Every schema migration, in order. Append new files as `NNN_<name>.ts`; never edit old ones. */
 export const migrations: readonly Migration[] = [
@@ -22,4 +23,5 @@ export const migrations: readonly Migration[] = [
   migration008E1rm,
   migration009E1rmRevisions,
   migration010V2Logbook,
+  migration011V3Companion,
 ];
