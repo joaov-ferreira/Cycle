@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { radius, spacing } from '@/constants/theme';
+import { layout, radius, spacing } from '@/constants/theme';
 import { restClock } from '@/domain/rest-timer';
 import { useI18n } from '@/i18n';
 import { selectRestRemaining, useAppStore } from '@/state';
@@ -97,6 +97,10 @@ export function RestTimerBar({ now, vibrate }: RestTimerBarProps) {
 
 const styles = StyleSheet.create({
   bar: {
+    // Same column as the list above it, so on a wide screen the bar does not stretch past the content.
+    width: '100%',
+    maxWidth: layout.maxContentWidth,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,

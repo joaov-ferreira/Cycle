@@ -1,5 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
+import { layout } from '@/constants/theme';
 import type { PlanContent } from '@/domain/plan';
 import { selectExerciseNote, selectSimilarExercises, type AppStore } from '@/state';
 import { samplePlanContent, v3PlanContent } from '@/test-utils/seed';
@@ -82,6 +84,13 @@ describe('rest timer bar', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Skip rest' }));
     await waitFor(() => expect(screen.queryByTestId('rest-timer-bar')).toBeNull());
+  });
+
+  it('stays within the content column of a wide screen', async () => {
+    await setup();
+    await logSet(0, 1, '40');
+    const style = StyleSheet.flatten((await screen.findByTestId('rest-timer-bar')).props.style);
+    expect(style).toMatchObject({ width: '100%', maxWidth: layout.maxContentWidth, alignSelf: 'center' });
   });
 
   it('shows the visible labels of the controls', async () => {
