@@ -120,6 +120,13 @@ describe('1RM routes', () => {
     expect(router.getPathname()).toBe('/maxes');
   });
 
+  it('Settings → Strength opens the 1RMs', async () => {
+    const { router } = await open('/settings');
+    await press('Open 1RMs');
+    expect(await header('1RMs')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/maxes');
+  });
+
   it('the list opens the calculator', async () => {
     const { router } = await open('/maxes');
     await press('1RM calculator');
