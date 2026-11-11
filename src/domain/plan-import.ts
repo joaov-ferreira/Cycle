@@ -42,6 +42,7 @@ export type ImportErrorCode =
   // plain text (SPEC §4.2)
   | 'missingPlanName'
   | 'exerciseOutsideWorkout'
+  | 'supersetWithoutPrevious'
   | 'invalidExerciseLine'
   | 'invalidDirective'
   | 'emptyWorkout'
@@ -215,6 +216,12 @@ class JsonReader {
     if (text.length === 0) return this.fail(path, 'tooShort');
     if (text.length > max) return this.fail(path, 'tooLong');
     return text;
+  }
+
+  /** Optional text of 1…max characters after trimming (a blank string is `tooShort`). */
+  optionalNonBlankText(path: string, value: unknown, max: number): string | undefined {
+    if (absent(value)) return undefined;
+    return this.requiredText(path, value, max);
   }
 
   /** Optional text of at most `max` characters; returned trimmed. */
@@ -427,6 +434,11 @@ function readExercise(
     else startLoadKg = raw;
   }
   const note = reader.optionalText(`${path}.note`, entry.note, PLAN_LIMITS.note.max);
+  const supersetGroup = reader.optionalNonBlankText(
+    `${path}.superset`,
+    entry.superset,
+    PLAN_LIMITS.supersetGroup.max,
+  );
 
   if (reader.errors.length > before || reference === undefined || sets === undefined || !reps) return undefined;
   const draft: DraftExercise = {
@@ -441,6 +453,7 @@ function readExercise(
   if (restSeconds !== undefined) draft.restSeconds = restSeconds;
   if (startLoadKg !== undefined) draft.startLoadKg = startLoadKg;
   if (note) draft.note = note;
+  if (supersetGroup !== undefined) draft.supersetGroup = supersetGroup;
   return draft;
 }
 
@@ -521,6 +534,8 @@ function parseJsonImport(
 const CYCLE_DIRECTIVE = /^(?:cycle|ciclo)\s*:\s*(.*)$/i;
 const SESSIONS_DIRECTIVE = /^(?:sessions|sessoes|sessões)\s*:\s*(.*)$/i;
 const BULLET = /^(?:[-*•]|\d+\.)\s+/;
+/** A leading `+` joins the previous exercise in a superset (SPEC-v3 §4.1). */
+const SUPERSET_MARK = /^\+\s*/;
 const SETS_FIELD = /^(\d+)\s*[x×]\s*(\d+)(?:\s*[-–]\s*(\d+))?$/i;
 const MODIFIER_FIELD = /^(rir|rest|descanso)(?!\p{L})\s*:?\s*(.*)$/iu;
 
@@ -552,14 +567,14 @@ function parseTextImport(
   const description: string[] = [];
   let descriptionReported = false;
   const workouts: ImportDraft['workouts'] = [];
-  let current: { line: number; lines: number; workout: ImportDraft['workouts'][number] } | null = null;
+  let current: { line: number; lines: number; groups: number; workout: ImportDraft['workouts'][number] } | null = null;
 
   const closeWorkout = () => {
     if (current && current.lines === 0) fail('emptyWorkout', current.line);
   };
 
   const parseExerciseLine = (raw: string, line: number): DraftExercise | undefined => {
-    const [rawName, setsField, ...rest] = raw.replace(BULLET, '').split(/[|;]/).map((field) => field.trim());
+    const [rawName, setsField, ...rest] = raw.split(/[|;]/).map((field) => field.trim());
     const sets = setsField ? SETS_FIELD.exec(setsField) : null;
     if (!rawName || !sets) {
       fail('invalidExerciseLine', line);
@@ -629,17 +644,30 @@ function parseTextImport(
       if (workouts.length === PLAN_LIMITS.workouts.max) fail('tooLong', line);
       const workout = { id: `w${workouts.length + 1}`, name: workoutName, exercises: [] as DraftExercise[] };
       workouts.push(workout);
-      current = { line, lines: 0, workout };
+      current = { line, lines: 0, groups: 0, workout };
       return;
     }
 
     if (current) {
-      const draft = parseExerciseLine(trimmed, line);
+      // `+` may come before or after an optional bullet.
+      let body = trimmed.replace(BULLET, '');
+      const joins = SUPERSET_MARK.test(body);
+      if (joins) body = body.replace(SUPERSET_MARK, '').replace(BULLET, '');
+      const draft = parseExerciseLine(body, line);
       if (current.lines === PLAN_LIMITS.exercisesPerWorkout.max) fail('tooLong', line);
+      const { exercises: siblings } = current.workout;
+      if (joins) {
+        const previous = siblings[siblings.length - 1];
+        if (current.lines === 0) fail('supersetWithoutPrevious', line);
+        else if (draft && previous) {
+          previous.supersetGroup ??= `S${(current.groups += 1)}`;
+          draft.supersetGroup = previous.supersetGroup;
+        }
+      }
       current.lines += 1;
       if (draft) {
-        draft.id = `${current.workout.id}e${current.workout.exercises.length + 1}`;
-        current.workout.exercises.push(draft);
+        draft.id = `${current.workout.id}e${siblings.length + 1}`;
+        siblings.push(draft);
       }
       return;
     }
@@ -780,6 +808,7 @@ function toPlanExercise(draft: DraftExercise, exerciseId: string): PlanExercise 
   if (draft.restSeconds !== undefined) exercise.restSeconds = draft.restSeconds;
   if (draft.startLoadKg !== undefined) exercise.startLoadKg = draft.startLoadKg;
   if (draft.note !== undefined) exercise.note = draft.note;
+  if (draft.supersetGroup !== undefined) exercise.supersetGroup = draft.supersetGroup;
   return exercise;
 }
 

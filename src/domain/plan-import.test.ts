@@ -810,3 +810,106 @@ describe('toKey and uniqueKey', () => {
     expect(key).toHaveLength(60);
   });
 });
+
+describe('parsePlanImport — superset (SPEC-v3 §4.1)', () => {
+  const jsonDoc = (exercises: Record<string, unknown>[]) =>
+    JSON.stringify({
+      format: 'cycle-plan',
+      version: 1,
+      name: 'P',
+      workouts: [{ name: 'A', exercises }],
+    });
+  const pull = (extra: Record<string, unknown> = {}) => ({ exercise: 'pull-up', sets: 3, reps: '8-12', ...extra });
+  const P = 'workouts[0].exercises[0].superset';
+
+  it('JSON: reads "superset" into supersetGroup (trimmed) and leaves others without it', () => {
+    const draft = parseOk(jsonDoc([pull({ superset: ' A ' }), pull({ superset: 'A' }), pull()]));
+    expect(draft.workouts[0].exercises.map((e) => e.supersetGroup)).toEqual(['A', 'A', undefined]);
+    expect(draft.workouts[0].exercises[2]).not.toHaveProperty('supersetGroup');
+  });
+
+  it('JSON: null superset is absent; a 10 character label is accepted', () => {
+    const draft = parseOk(jsonDoc([pull({ superset: null }), pull({ superset: 'abcdefghij' })]));
+    expect(draft.workouts[0].exercises.map((e) => e.supersetGroup)).toEqual([undefined, 'abcdefghij']);
+  });
+
+  it('JSON errors: invalidType, tooShort, tooLong', () => {
+    expect(errorsOf(jsonDoc([pull({ superset: 5 })]))).toEqual([{ code: 'invalidType', path: P }]);
+    expect(errorsOf(jsonDoc([pull({ superset: '  ' })]))).toEqual([{ code: 'tooShort', path: P }]);
+    expect(errorsOf(jsonDoc([pull({ superset: 'abcdefghijk' })]))).toEqual([{ code: 'tooLong', path: P }]);
+  });
+
+  it('JSON: the resolved content carries supersetGroup and validates', () => {
+    const draft = parseOk(jsonDoc([pull({ superset: 'A' }), pull({ superset: 'A' })]));
+    const resolved = resolveDraft(draft, {});
+    if (!resolved.ok) throw new Error('unresolved');
+    expect(resolved.pending.content.workouts[0].exercises.map((e) => e.supersetGroup)).toEqual(['A', 'A']);
+    expect(validatePlanContent(resolved.pending.content, find)).toEqual([]);
+  });
+
+  describe('plain text', () => {
+    const groups = (text: string) => parseOk(text).workouts.map((w) => w.exercises.map((e) => e.supersetGroup));
+
+    it('a line starting with + joins the previous exercise in a superset (label S1)', () => {
+      const draft = parseOk('# P\n## A\nBarbell Bench Press | 4x8-12\n+ Dumbbell Curl | 4x12-15\nPull-up | 3x8');
+      expect(draft.workouts[0].exercises.map((e) => [e.reference, e.supersetGroup, e.sets])).toEqual([
+        ['Barbell Bench Press', 'S1', 4],
+        ['Dumbbell Curl', 'S1', 4],
+        ['Pull-up', undefined, 3],
+      ]);
+    });
+
+    it('accepts a bullet before or after the +', () => {
+      expect(groups('# P\n## A\n- Barbell Bench Press | 4x8\n- + Dumbbell Curl | 4x12')).toEqual([['S1', 'S1']]);
+      expect(groups('# P\n## A\n- Barbell Bench Press | 4x8\n+ - Dumbbell Curl | 4x12')).toEqual([['S1', 'S1']]);
+      expect(groups('# P\n## A\n1. Barbell Bench Press | 4x8\n+ 2. Dumbbell Curl | 4x12')).toEqual([['S1', 'S1']]);
+    });
+
+    it('three exercises chained with two + lines share one label', () => {
+      expect(groups('# P\n## A\nBarbell Bench Press | 4x8\n+ Dumbbell Curl | 4x12\n+ Pull-up | 3x8')).toEqual([
+        ['S1', 'S1', 'S1'],
+      ]);
+    });
+
+    it('two separate supersets in one workout get S1 and S2; the numbering restarts per workout', () => {
+      const text = [
+        '# P',
+        '## A',
+        'Barbell Bench Press | 4x8',
+        '+ Dumbbell Curl | 4x12',
+        'Pull-up | 3x8',
+        'Leg Curl | 3x10',
+        '+ Leg Extension | 3x12',
+        '## B',
+        'Barbell Row | 3x8',
+        '+ Lat Pulldown | 3x10',
+      ].join('\n');
+      expect(groups(text)).toEqual([
+        ['S1', 'S1', undefined, 'S2', 'S2'],
+        ['S1', 'S1'],
+      ]);
+    });
+
+    it('+ on the first exercise of a workout is supersetWithoutPrevious at its line', () => {
+      expect(errorsOf('# P\n## A\n+ Barbell Bench Press | 4x8\nPull-up | 3x8')).toEqual([
+        { code: 'supersetWithoutPrevious', line: 3 },
+      ]);
+      expect(errorsOf('# P\n## A\nPull-up | 3x8\n## B\n+ Leg Curl | 3x10')).toEqual([
+        { code: 'supersetWithoutPrevious', line: 5 },
+      ]);
+    });
+
+    it('a + line is still checked like any exercise line', () => {
+      expect(errorsOf('# P\n## A\nPull-up | 3x8\n+ Leg Curl | nonsense')).toEqual([
+        { code: 'invalidExerciseLine', line: 4 },
+      ]);
+    });
+
+    it('the grouped plan validates', () => {
+      const resolved = resolveDraft(parseOk('# P\n## A\nBarbell Bench Press | 4x8\n+ Dumbbell Curl | 4x12'), {});
+      if (!resolved.ok) throw new Error('unresolved');
+      expect(validatePlanContent(resolved.pending.content, find)).toEqual([]);
+      expect(resolved.pending.content.workouts[0].exercises[1].supersetGroup).toBe('S1');
+    });
+  });
+});

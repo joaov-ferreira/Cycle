@@ -24,6 +24,7 @@ export interface CyclePlanExercise {
   rest?: number;
   startLoad?: number;
   note?: string;
+  superset?: string;
 }
 
 export interface CyclePlanDocument {
@@ -83,6 +84,7 @@ export function exportPlan(
       if (planExercise.restSeconds !== undefined) entry.rest = planExercise.restSeconds;
       if (planExercise.startLoadKg !== undefined) entry.startLoad = planExercise.startLoadKg;
       if (planExercise.note) entry.note = planExercise.note;
+      if (planExercise.supersetGroup) entry.superset = planExercise.supersetGroup;
       return entry;
     }),
   }));

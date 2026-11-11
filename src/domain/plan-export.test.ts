@@ -183,3 +183,36 @@ describe('round trip (export → import → resolve → finalize)', () => {
     expect(withNormalizedIds(content)).toEqual(withNormalizedIds(CONTENT));
   });
 });
+
+describe('supersets in export (SPEC-v3 §4.1)', () => {
+  const grouped: PlanContent = {
+    ...CONTENT,
+    workouts: [
+      {
+        id: 'w',
+        name: 'A',
+        exercises: [
+          { id: 'e1', exerciseId: 'barbell-bench-press', sets: 3, repMin: 8, repMax: 12, supersetGroup: 'A' },
+          { id: 'e2', exerciseId: 'pull-up', sets: 3, repMin: 8, repMax: 12, supersetGroup: 'A' },
+          { id: 'e3', exerciseId: 'pull-up', sets: 2, repMin: 8, repMax: 12 },
+        ],
+      },
+    ],
+  };
+
+  it('exports "superset" only when the label is set', () => {
+    const exercises = exportPlan(grouped, find).workouts[0].exercises;
+    expect(exercises[0]).toEqual({ exercise: 'barbell-bench-press', sets: 3, repMin: 8, repMax: 12, superset: 'A' });
+    expect(exercises[2]).not.toHaveProperty('superset');
+  });
+
+  it('round trip keeps the grouping', () => {
+    const known = EXERCISES.filter((exercise) => !exercise.custom);
+    const parsed = parsePlanImport(serializePlan(exportPlan(grouped, find)), known);
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.errors));
+    const resolved = resolveDraft(parsed.draft, {});
+    if (!resolved.ok) throw new Error('unexpected unresolved');
+    const content = finalizePendingImport(resolved.pending, {});
+    expect(content.workouts[0].exercises.map((e) => e.supersetGroup)).toEqual(['A', 'A', undefined]);
+  });
+});
