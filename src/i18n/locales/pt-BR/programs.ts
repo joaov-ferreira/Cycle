@@ -1,2 +1,102 @@
-/** Brazilian Portuguese `programs` namespace (SPEC-v4). */
-export const programs = {};
+/** Brazilian Portuguese `programs` namespace (SPEC-v4 §10.2). */
+export const programs = {
+  // ---- List ----
+  list: {
+    title: 'Programas de força',
+    intro: 'Programas baseados em porcentagens, com fonte documentada. Abra um para ver a estrutura completa e depois inicie-o como plano.',
+    open: 'Abrir {{name}}',
+    weeks: { one: '{{count}} semana', other: '{{count}} semanas' },
+    days: { one: '{{count}} dia por semana', other: '{{count}} dias por semana' },
+    summary: '{{weeks}} · {{days}}',
+  },
+  families: {
+    '531-custom': '5/3/1 (personalizado)',
+    'smolov-jr': 'Smolov Jr.',
+    smolov: 'Smolov',
+    sheiko: 'Sheiko',
+  },
+
+  // ---- Verification badge ----
+  verification: {
+    label: 'Verificação: {{status}}',
+    verified: 'Verificado',
+    partial: 'Parcialmente verificado',
+    unverified: 'Não verificado',
+    verifiedHint: 'Todas as séries, repetições e porcentagens conferem com a fonte citada.',
+    partialHint: 'Parte dos dados vem de fontes secundárias ou precisou ser interpretada. Veja as notas da fonte.',
+    unverifiedHint: 'Os dados não puderam ser confirmados em uma fonte. Use com cautela.',
+  },
+
+  // ---- Detail ----
+  detail: {
+    notFoundTitle: 'Programa não encontrado',
+    notFoundMessage: 'Este programa não existe.',
+    start: 'Iniciar este programa',
+    version: 'Versão: {{version}}',
+    sourceTitle: 'Fonte',
+    author: 'Autor: {{author}}',
+    reference: 'Referência: {{reference}}',
+    link: 'Abrir a fonte',
+    accessed: 'Consultada em {{date}}',
+    notes: 'Notas: {{notes}}',
+    rolesTitle: 'Exercícios do programa',
+    roleDefault: 'Exercício padrão: {{name}}',
+    roleNoDefault: 'Você escolhe o exercício',
+    roleFixed: 'Escrito para este exercício',
+    paramsTitle: 'Parâmetros',
+    paramRange: 'De {{min}} a {{max}}, padrão {{default}}',
+    weeksTitle: 'O programa, semana a semana',
+    weeksNote: 'As cargas são calculadas a partir do seu 1RM quando você inicia o programa.',
+    week: 'Semana {{week}}',
+    weekPhase: 'Semana {{week}} · {{phase}}',
+    day: 'Dia {{day}}',
+    dayLabel: 'Dia {{day}} · {{label}}',
+    unverified: 'Dado não verificado',
+  },
+
+  // ---- Set and item formatting (shared with the import preview) ----
+  set: {
+    base: '{{sets}} × {{reps}}',
+    amrapReps: '{{reps}}+',
+    amrap: '{{label}} AMRAP',
+    percent: '{{label}} @ {{percent}} %',
+    addKg: '{{label}} + {{kg}}',
+    subKg: '{{label}} − {{kg}}',
+    addParam: '{{label}} + {{param}}',
+    addParamTimes: '{{label}} + {{times}} × {{param}}',
+  },
+  accessory: '{{name}}: {{sets}} × {{reps}}',
+
+  // ---- Start wizard ----
+  start: {
+    title: 'Iniciar {{name}}',
+    nameLabel: 'Nome do plano',
+    rolesTitle: 'Exercícios',
+    rolesIntro: 'Escolha o exercício de cada parte do programa.',
+    roleUnset: 'Escolher um exercício',
+    roleButton: '{{role}}: {{exercise}}',
+    pickerTitle: 'Exercício para {{role}}',
+    fidelity: 'Este programa foi escrito para {{original}}. Com {{exercise}} ele continua sendo um bom plano, mas deixa de ser o original.',
+    paramsTitle: 'Parâmetros',
+    percentUnit: '%',
+    accessoriesLabel: 'Incluir exercícios acessórios',
+    accessoriesHint: 'O programa lista trabalho acessório depois dos levantamentos principais.',
+    maxesTitle: 'Seus 1RMs',
+    maxesIntro: 'As cargas são calculadas a partir deles. Você pode deixar um vazio e informá-lo depois.',
+    maxLabel: '1RM {{exercise}}',
+    maxCurrent: '1RM salvo: {{kg}}',
+    create: 'Criar plano',
+    errors: {
+      nameRequired: 'Dê um nome ao plano.',
+      nameTooLong: 'O nome do plano é muito longo.',
+      rolesMissing: 'Escolha um exercício para cada parte do programa.',
+      fixValues: 'Corrija primeiro os valores destacados.',
+      paramInvalid: '{{label}}: este valor não é permitido.',
+      paramOutOfRange: '{{label}}: fora do intervalo permitido.',
+      paramOffStep: '{{label}}: não é múltiplo do passo permitido.',
+      maxInvalid: 'Um dos 1RMs não é válido.',
+      unknownProgram: 'Este programa não existe mais.',
+      createFailed: 'Não foi possível criar o plano. Tente novamente.',
+    },
+  },
+};
