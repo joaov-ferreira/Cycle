@@ -28,17 +28,20 @@ import {
 } from '@/domain/insights';
 import type { Period } from '@/domain/period';
 import { supersetLayout, type SupersetBlock } from '@/domain/plan';
-import { exportPlan, serializePlan } from '@/domain/plan-export';
 import { remainingSeconds } from '@/domain/rest-timer';
 import { buildAiReviewPrompt, type AiReviewInput } from '@/library';
 
 import { memoSelector } from './memo';
 import {
   selectAllExercises,
+  selectCurrentMaxes,
   selectExerciseById,
+  selectExercisesWithMax,
   selectExerciseSessions,
   selectFindExercise,
+  selectPlanExerciseIds,
 } from './selectors';
+import { bestEstimateInCycle, selectPlanExportText } from './selectors-v4';
 import type { AppState } from './types';
 
 const DAY_MS = 86_400_000;
@@ -83,7 +86,27 @@ export const selectCycleReport = memoSelector(
   (s, planId: number, cycleNumber: number): CycleReport | null => {
     const plan = s.plans.find((p) => p.id === planId);
     if (!plan) return null;
-    return cycleReport({ plan, cycleNumber, workouts: s.workouts, findExercise: selectFindExercise(s) });
+    // Program blocks have no exercises of their own: list the ones they generate (SPEC-v4 §5.2).
+    const hasBlocks = plan.workouts.some((w) => (w.programs?.length ?? 0) > 0);
+    const reportPlan = hasBlocks
+      ? {
+          ...plan,
+          workouts: [
+            {
+              id: 'effective',
+              name: '',
+              exercises: selectPlanExerciseIds(s, planId).map((exerciseId) => ({
+                id: exerciseId,
+                exerciseId,
+                sets: 1,
+                repMin: 1,
+                repMax: 1,
+              })),
+            },
+          ],
+        }
+      : plan;
+    return cycleReport({ plan: reportPlan, cycleNumber, workouts: s.workouts, findExercise: selectFindExercise(s) });
   },
   (planId, cycleNumber) => `${planId}|${cycleNumber}`,
 );
@@ -103,23 +126,12 @@ export function selectAiReviewInput(
   if (!plan) return null;
   const find = selectFindExercise(state);
 
-  const planJson = serializePlan(
-    exportPlan(
-      {
-        name: plan.name,
-        description: plan.description,
-        workouts: plan.workouts,
-        sessionsPerWeek: plan.sessionsPerWeek,
-        cycle: plan.cycle,
-      },
-      find,
-    ),
-  );
+  const planJson = selectPlanExportText(state, planId) ?? '';
 
   const latest = cycleNumbersWithWorkouts(planId, state.workouts)[0];
   const report = latest === undefined ? null : selectCycleReport(state, planId, latest);
 
-  const exerciseIds = [...new Set(plan.workouts.flatMap((w) => w.exercises.map((e) => e.exerciseId)))];
+  const exerciseIds = selectPlanExerciseIds(state, planId);
   const exercises = exerciseIds.map((exerciseId) => {
     const sessions = selectExerciseSessions(state, exerciseId)
       .map((session) => ({
@@ -145,6 +157,13 @@ export function selectAiReviewInput(
     .map(([muscle, sets]) => ({ muscle: muscle as (typeof MUSCLE_GROUPS)[number], sets: sets as number }))
     .sort((a, b) => b.sets - a.sets || MUSCLE_GROUPS.indexOf(a.muscle) - MUSCLE_GROUPS.indexOf(b.muscle));
 
+  const maxes = selectCurrentMaxes(state);
+  const strength = selectExercisesWithMax(state).map((exerciseId) => ({
+    exerciseId,
+    referenceKg: maxes[exerciseId].kg,
+    bestE1rmKg: latest === undefined ? null : bestEstimateInCycle(state, planId, latest, exerciseId),
+  }));
+
   return {
     locale,
     planJson,
@@ -157,6 +176,7 @@ export function selectAiReviewInput(
     exercises,
     muscleSetsPerWeek,
     exerciseList: selectAllExercises(state).filter((e) => !e.archived),
+    ...(strength.length > 0 ? { strength } : {}),
   };
 }
 
