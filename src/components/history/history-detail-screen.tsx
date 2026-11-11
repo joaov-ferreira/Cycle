@@ -291,6 +291,7 @@ function LoadedDetail({
             key={index}
             workout={workout}
             exercise={workout.exercises[index]}
+            exerciseIndex={index}
             editing={editingFor(index)}
             onOpenExercise={onOpenExercise}
           />
