@@ -112,7 +112,10 @@ export interface ExerciseRepository {
   /** Throws `CustomExerciseNotFoundError` for an unknown id. */
   updateCustom(profileId: number, id: string, input: CustomExerciseInput): Promise<Exercise>;
   setArchived(profileId: number, id: string, archived: boolean): Promise<Exercise>;
-  /** Throws `ExerciseInUseError` when a plan (archived or not) or a workout references it. */
+  /**
+   * Throws `ExerciseInUseError` when a plan (archived or not) or a workout references it (also as a
+   * percent basis or a program role mapping). Deleting it deletes its reference maxes.
+   */
   deleteCustom(profileId: number, id: string): Promise<void>;
   /** True when any plan (archived or not) or workout of the profile references the exercise. */
   isReferenced(profileId: number, id: string): Promise<boolean>;
@@ -197,6 +200,23 @@ export interface BodyMetricRepository {
   delete(profileId: number, id: number): Promise<void>;
 }
 
+/** What `ReferenceMaxRepository.add` takes: the record without the fields the repository owns. */
+export type ReferenceMaxInput = Pick<ReferenceMax, 'exerciseId' | 'kg' | 'effectiveAt' | 'origin'>;
+
+/** Reference 1RM records (SPEC-v4 §2): append-only history per exercise; a change adds a record. */
+export interface ReferenceMaxRepository {
+  /** All records of the profile, oldest first by effective time, then by id. */
+  list(profileId: number): Promise<ReferenceMax[]>;
+  /**
+   * Throws `RangeError` (adding nothing) for a `kg` that `validateMaxKg` rejects, an empty exercise
+   * id, an effective time that is not a date-time or an unknown origin, and `ProfileNotFoundError`
+   * for an unknown profile. The exercise id is not checked against the library.
+   */
+  add(profileId: number, input: ReferenceMaxInput): Promise<ReferenceMax>;
+  /** Throws `ReferenceMaxNotFoundError` for an unknown id (or one of another profile). */
+  delete(profileId: number, id: number): Promise<void>;
+}
+
 /** Whole-profile export and restore (SPEC-v3 §8). */
 export interface BackupRepository {
   /** Everything of the profile, in the shapes of `src/domain/backup.ts`. */
@@ -215,6 +235,7 @@ export type Repositories = {
   plans: PlanRepository;
   workouts: WorkoutRepository;
   bodyMetrics: BodyMetricRepository;
+  referenceMaxes: ReferenceMaxRepository;
   backup: BackupRepository;
 };
 
@@ -257,6 +278,14 @@ export class BodyMetricNotFoundError extends Error {
   constructor(readonly metricId: number) {
     super(`Body metric ${metricId} not found`);
     this.name = 'BodyMetricNotFoundError';
+  }
+}
+
+export class ReferenceMaxNotFoundError extends Error {
+  readonly code = 'REFERENCE_MAX_NOT_FOUND';
+  constructor(readonly referenceMaxId: number) {
+    super(`Reference max ${referenceMaxId} not found`);
+    this.name = 'ReferenceMaxNotFoundError';
   }
 }
 

@@ -12,6 +12,7 @@ import { createSqliteBackupRepository } from './backup-repository';
 import { createSqliteBodyMetricRepository } from './body-repository';
 import { createSqliteExerciseRepository } from './exercise-repository';
 import { createSqlitePlanRepository } from './plan-repository';
+import { createSqliteReferenceMaxRepository } from './reference-max-repository';
 import { createSqliteWorkoutRepository } from './workout-repository';
 
 type ProfileRow = { id: number; name: string; created_at: string };
@@ -178,6 +179,7 @@ export function createSqliteRepositories(
     plans: createSqlitePlanRepository(db, clock),
     workouts: createSqliteWorkoutRepository(db, clock),
     bodyMetrics: createSqliteBodyMetricRepository(db),
+    referenceMaxes: createSqliteReferenceMaxRepository(db),
     backup: createSqliteBackupRepository(db, clock, () => repositories),
   };
   return repositories;

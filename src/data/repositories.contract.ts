@@ -6,6 +6,7 @@ import { describeBackupContract } from './contract/backup-contract';
 import { describeBodyContract } from './contract/body-contract';
 import { describeExerciseContract } from './contract/exercise-contract';
 import { describePlanContract } from './contract/plan-contract';
+import { describeReferenceMaxContract } from './contract/reference-max-contract';
 import { describeWorkoutContract } from './contract/workout-contract';
 import { ProfileNotFoundError, type Clock, type Repositories } from './repositories';
 
@@ -311,6 +312,7 @@ export function describeRepositoriesContract(name: string, factory: Repositories
     describeExerciseContract(factory);
     describePlanContract(factory);
     describeWorkoutContract(factory);
+    describeReferenceMaxContract(factory);
     describeBodyContract(factory);
     describeBackupContract(factory);
   });

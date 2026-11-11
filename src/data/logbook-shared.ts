@@ -94,8 +94,21 @@ export function assertValidExercises(exercises: readonly WorkoutExercise[]): voi
   }
 }
 
+/**
+ * True when the plan uses the exercise: as an own exercise, as the basis of a percent scheme
+ * (SPEC-v4 §5.1) or as a role mapping of a program block (SPEC-v4 §5.2).
+ */
 export function planReferencesExercise(content: PlanContent, exerciseId: string): boolean {
-  return content.workouts.some((w) => w.exercises.some((e) => e.exerciseId === exerciseId));
+  return content.workouts.some(
+    (w) =>
+      w.exercises.some((e) => e.exerciseId === exerciseId || e.percent?.basisExerciseId === exerciseId) ||
+      (w.programs ?? []).some((p) => Object.values(p.roles).includes(exerciseId)),
+  );
+}
+
+/** True when a logged exercise is the exercise or its prescription's basis (SPEC-v4 §7). */
+export function workoutExerciseReferences(entry: WorkoutExercise, exerciseId: string): boolean {
+  return entry.exerciseId === exerciseId || entry.prescription?.basisExerciseId === exerciseId;
 }
 
 /** Deep copy through JSON, exactly what a database round trip does (drops `undefined`). */

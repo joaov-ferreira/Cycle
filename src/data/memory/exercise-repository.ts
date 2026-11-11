@@ -5,6 +5,7 @@ import {
   parseCustomExerciseId,
   planReferencesExercise,
   toCustomExercise,
+  workoutExerciseReferences,
 } from '../logbook-shared';
 import {
   CustomExerciseNotFoundError,
@@ -29,7 +30,7 @@ export function createMemoryExerciseRepository(state: MemoryState): ExerciseRepo
       (p) => p.profileId === profileId && planReferencesExercise(p, id),
     );
     const inWorkout = [...state.workouts.values()].some(
-      (w) => w.profileId === profileId && w.exercises.some((e) => e.exerciseId === id),
+      (w) => w.profileId === profileId && w.exercises.some((e) => workoutExerciseReferences(e, id)),
     );
     return inPlan || inWorkout;
   }
@@ -87,6 +88,9 @@ export function createMemoryExerciseRepository(state: MemoryState): ExerciseRepo
       if (await isReferenced(profileId, id)) throw new ExerciseInUseError(id);
       state.customExercises.delete(stored.id);
       state.exerciseSettings.get(profileId)?.delete(id);
+      for (const [recordId, record] of state.referenceMaxes) {
+        if (record.profileId === profileId && record.exerciseId === id) state.referenceMaxes.delete(recordId);
+      }
     },
     isReferenced,
     async getIncrementOverrides(profileId) {
