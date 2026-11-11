@@ -49,7 +49,7 @@ export function BarChart({ bars, label, testID }: BarChartProps) {
               ]}
             />
           </View>
-          <Text variant="caption" tone="secondary" numberOfLines={1}>
+          <Text variant="caption" tone="secondary" style={styles.label}>
             {bar.label}
           </Text>
         </View>
@@ -62,5 +62,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: spacing.xs, alignItems: 'flex-end' },
   column: { flex: 1, alignItems: 'center', gap: spacing.xs },
   plot: { height: PLOT_HEIGHT, width: '100%', justifyContent: 'flex-end', alignItems: 'center' },
+  // Eight labels share a phone's width: a smaller type that wraps (never an ellipsis) keeps every date readable.
+  label: { fontSize: 11, lineHeight: 14, textAlign: 'center' },
   bar: { width: '70%', borderTopLeftRadius: radius.sm, borderTopRightRadius: radius.sm },
 });
