@@ -135,6 +135,7 @@ export const planImport = {
     zeroLoadNotAllowed: '0 kg is not allowed for this exercise',
     supersetNotAdjacent: 'Exercises of the same superset must be next to each other.',
     supersetSize: 'A superset needs 2 to 4 exercises.',
+    invalidRirRamp: 'The effort ramp needs RIR values from 0 to 5, starting at or above the final value.',
   },
 
   // ---- Export ----

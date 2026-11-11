@@ -130,6 +130,7 @@ export const planImport: typeof enPlanImport = {
     zeroLoadNotAllowed: '0 kg não é permitido para este exercício',
     supersetNotAdjacent: 'Os exercícios do mesmo bi-set precisam estar em sequência.',
     supersetSize: 'Um bi-set precisa de 2 a 4 exercícios.',
+    invalidRirRamp: 'A rampa de esforço precisa de valores de RIR de 0 a 5, começando igual ou acima do valor final.',
   },
 
   export: {

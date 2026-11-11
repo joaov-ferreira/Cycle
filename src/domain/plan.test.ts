@@ -33,6 +33,7 @@ describe('PLAN_LIMITS (SPEC §3.1)', () => {
       deloadWeeks: { min: 0, max: 2 },
       deloadVolumeFactor: { min: 0.3, max: 1, step: 0.05 },
       deloadLoadFactor: { min: 0.5, max: 1, step: 0.05 },
+      rirRamp: { min: 0, max: 5 },
     });
   });
 });
@@ -179,6 +180,25 @@ describe('validatePlanContent (SPEC §3.1)', () => {
     ['load factor off step', (c) => { c.cycle.deloadLoadFactor = 0.93; }, { path: 'cycle.deloadLoadFactor', code: 'invalidStep' }],
   ])('%s', (_label, change, expected) => {
     expect(issuesAfter(change)).toEqual([expected]);
+  });
+
+  describe('rirRamp', () => {
+    const rampIssue: PlanIssue = { path: 'cycle.rirRamp', code: 'invalidRirRamp' };
+    it('accepts valid ramps, absent and null', () => {
+      for (const ramp of [{ start: 3, end: 0 }, { start: 2, end: 2 }, { start: 5, end: 0 }, null, undefined]) {
+        expect(issuesAfter((c) => { c.cycle.rirRamp = ramp; })).toEqual([]);
+      }
+    });
+    it.each<[string, { start: number; end: number }]>([
+      ['start below end', { start: 1, end: 2 }],
+      ['start above 5', { start: 6, end: 0 }],
+      ['end below 0', { start: 3, end: -1 }],
+      ['non-integer start', { start: 2.5, end: 0 }],
+      ['non-integer end', { start: 3, end: 0.5 }],
+      ['NaN', { start: Number.NaN, end: 0 }],
+    ])('rejects %s', (_label, ramp) => {
+      expect(issuesAfter((c) => { c.cycle.rirRamp = ramp; })).toEqual([rampIssue]);
+    });
   });
 
   it('flags too many workouts and too many exercises', () => {

@@ -90,6 +90,15 @@ describe('issueMessage', () => {
     expect(message('pt-BR', path, 'supersetSize')).toBe('Um bi-set precisa de 2 a 4 exercícios.');
   });
 
+  it('words the invalid RIR ramp issue in both locales', () => {
+    expect(message('en', 'cycle.rirRamp', 'invalidRirRamp')).toBe(
+      'Plan settings: The effort ramp needs RIR values from 0 to 5, starting at or above the final value.',
+    );
+    expect(message('pt-BR', 'cycle.rirRamp', 'invalidRirRamp')).toBe(
+      'Ajustes da periodização: A rampa de esforço precisa de valores de RIR de 0 a 5, começando igual ou acima do valor final.',
+    );
+  });
+
   it('produces a non-empty message for every code in both locales', () => {
     const codes: PlanIssueCode[] = [
       'required',
@@ -106,6 +115,7 @@ describe('issueMessage', () => {
       'zeroLoadNotAllowed',
       'supersetNotAdjacent',
       'supersetSize',
+      'invalidRirRamp',
     ];
     const paths = ['name', 'description', 'sessionsPerWeek', 'workouts', 'workouts[0].name', 'workouts[0].exercises', 'workouts[0].exercises[0].sets', 'cycle.loadWeeks'];
     for (const locale of ['en', 'pt-BR'] as const) {

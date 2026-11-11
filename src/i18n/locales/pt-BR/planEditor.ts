@@ -82,6 +82,7 @@ export const planEditor: typeof enPlanEditor = {
     zeroLoadNotAllowed: 'Só exercícios com peso corporal e elástico aceitam 0 kg',
     supersetNotAdjacent: 'Os exercícios do mesmo bi-set precisam estar em sequência.',
     supersetSize: 'Um bi-set precisa de 2 a 4 exercícios.',
+    invalidRirRamp: 'A rampa de esforço precisa de valores de RIR de 0 a 5, começando igual ou acima do valor final.',
     other: 'Ajustes da periodização: {{message}}',
   },
 };
