@@ -3,7 +3,6 @@ import { createMemoryRepositories } from '@/data/memory/memory-repositories';
 import { createClock, DAY_MS } from '@/test-utils/clock';
 import { BENCH, createTestStore, seedCompletedWorkout, seedReferenceMax, SQUAT } from '@/test-utils/seed';
 
-import { selectPersonalRecords, selectSeries } from './selectors';
 import {
   selectCurrentMaxes,
   selectE1rmFormula,
@@ -11,9 +10,11 @@ import {
   selectExercisesWithMax,
   selectFocus,
   selectMaxHistory,
+  selectPersonalRecords,
   selectRoundingMode,
+  selectSeries,
   selectStrengthVisible,
-} from './selectors-v4';
+} from './selectors';
 
 describe('reference maxes', () => {
   it('adds records with the store clock and default origin, nothing overwritten', async () => {

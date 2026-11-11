@@ -337,3 +337,37 @@ export async function seedStrengthProfile(store: AppStore): Promise<void> {
     ],
   });
 }
+
+/**
+ * SPEC-v4 §12 step 2, the v1 example in one plan: workout `w1` custom 5/3/1 → Bench Press, `w2` Smolov Jr.
+ * day 2 → Bench Press (increment 2.5), `w3` custom 5/3/1 → Back Squat, `w4` Sheiko #29 day 2, role deadlift →
+ * Conventional Deadlift, accessories off; 4 sessions per week, cycle 3 load weeks + 0 deload.
+ */
+export function v1ExamplePlan(): PlanContent {
+  const block = (id: string, programId: string, day: number, roles: Record<string, string>, params?: Record<string, number>) => ({
+    id,
+    programId,
+    day,
+    startWeek: 1,
+    roles,
+    accessories: false,
+    ...(params ? { params } : {}),
+  });
+  return {
+    name: 'v1 example',
+    description: '',
+    sessionsPerWeek: 4,
+    cycle: { ...DEFAULT_CYCLE, loadWeeks: 3, deloadWeeks: 0 },
+    workouts: [
+      { id: 'w1', name: 'Bench 5/3/1', exercises: [], programs: [block('w1p1', 'cycle-531-custom', 1, { lift: BENCH })] },
+      {
+        id: 'w2',
+        name: 'Smolov Jr.',
+        exercises: [],
+        programs: [block('w2p1', 'smolov-jr', 2, { lift: BENCH }, { weeklyIncrementKg: 2.5 })],
+      },
+      { id: 'w3', name: 'Squat 5/3/1', exercises: [], programs: [block('w3p1', 'cycle-531-custom', 1, { lift: SQUAT })] },
+      { id: 'w4', name: 'Sheiko', exercises: [], programs: [block('w4p1', 'sheiko-29', 2, { deadlift: DEADLIFT })] },
+    ],
+  };
+}
