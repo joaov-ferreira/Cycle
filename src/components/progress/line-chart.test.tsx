@@ -165,6 +165,15 @@ describe('LineChart', () => {
     expect(screen.queryByText('Target')).toBeNull();
   });
 
+  it('uses the given unit and value formatter instead of kg', async () => {
+    await renderChart({ unit: 'reps', formatValue: (value) => `${value} reps` });
+    expect(screen.getByText('reps')).toBeOnTheScreen();
+    expect(screen.queryByText('kg')).toBeNull();
+    expect(screen.getByLabelText(`Bench Press load, the last 4 weeks: 2 data points, latest 91 reps on Nov 5, 2026.`)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Nov 5, 2026: 91 reps' }));
+    expect(screen.getByText('Nov 5, 2026 · 91 reps')).toBeOnTheScreen();
+  });
+
   it('lays the chart out at the measured width', async () => {
     await renderChart();
     const chart = screen.getByLabelText('Bench Press load chart');

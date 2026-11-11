@@ -26,6 +26,10 @@ export type LineChartProps = {
   now: Date;
   /** Localized extra line shown under the selected point's tooltip, by entry id. */
   detailLabels?: ReadonlyMap<number, string>;
+  /** Localized unit shown above the y axis; defaults to kg. */
+  unit?: string;
+  /** Formats a charted value for the summary, tooltips and point labels; defaults to kg. */
+  formatValue?: (value: number) => string;
   height?: number;
 };
 
@@ -54,6 +58,8 @@ export function LineChart({
   period,
   now,
   detailLabels = NO_DETAILS,
+  unit,
+  formatValue: formatValueOverride,
   height = DEFAULT_HEIGHT,
 }: LineChartProps) {
   const { t, formatKg, formatNumber, formatDate } = useI18n();
@@ -88,7 +94,7 @@ export function LineChart({
     : { day: 'numeric', month: 'short' };
   const last = model.points[model.points.length - 1];
   const selected = model.points.find((point) => point.id === selectedId) ?? null;
-  const formatValue = (kg: number) => formatKg(kg, { maximumFractionDigits: 1 });
+  const formatValue = formatValueOverride ?? ((kg: number) => formatKg(kg, { maximumFractionDigits: 1 }));
   const pointDate = (at: string) => formatDate(new Date(at));
   const summary = t('progress.chart.summary', {
     label,
@@ -128,7 +134,7 @@ export function LineChart({
           </Svg>
         </View>
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          <AxisLabel style={{ left: 0, width: plot.left - 6, top: 0, textAlign: 'right' }}>{t('progress.chart.yAxis')}</AxisLabel>
+          <AxisLabel style={{ left: 0, width: plot.left - 6, top: 0, textAlign: 'right' }}>{unit ?? t('progress.chart.yAxis')}</AxisLabel>
           {model.yTicks.map((tick) => (
             <AxisLabel key={`y-${tick.value}`} style={{ left: 0, width: plot.left - 6, top: tick.y - AXIS_LINE / 2, textAlign: 'right' }}>
               {formatNumber(tick.value, { maximumFractionDigits: 1 })}
