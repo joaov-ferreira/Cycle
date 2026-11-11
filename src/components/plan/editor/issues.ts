@@ -148,6 +148,22 @@ function baseMessage(
       return t('planEditor.issues.supersetSize');
     case 'invalidRirRamp':
       return t('planEditor.issues.invalidRirRamp');
+    case 'notAllowedWithPercent':
+      return t('planEditor.issues.notAllowedWithPercent');
+    case 'emptyScheme':
+      return t('planEditor.issues.emptyScheme');
+    case 'unknownProgram':
+      return t('planEditor.issues.unknownProgram');
+    case 'unknownRole':
+      return t('planEditor.issues.unknownRole');
+    case 'noRoleMapped':
+      return t('planEditor.issues.noRoleMapped');
+    case 'unknownParam':
+      return t('planEditor.issues.unknownParam');
+    case 'paramOutOfRange':
+      return t('planEditor.issues.paramOutOfRange');
+    case 'paramOffStep':
+      return t('planEditor.issues.paramOffStep');
   }
 }
 

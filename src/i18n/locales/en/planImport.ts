@@ -146,6 +146,14 @@ export const planImport = {
     supersetNotAdjacent: 'Exercises of the same superset must be next to each other.',
     supersetSize: 'A superset needs 2 to 4 exercises.',
     invalidRirRamp: 'The effort ramp needs RIR values from 0 to 5, starting at or above the final value.',
+    notAllowedWithPercent: 'RIR and starting load do not apply to a percent scheme',
+    emptyScheme: 'the scheme has no sets in any week',
+    unknownProgram: 'unknown program',
+    unknownRole: 'unknown program role',
+    noRoleMapped: 'no exercise chosen for the program',
+    unknownParam: 'unknown program parameter',
+    paramOutOfRange: 'program parameter out of range',
+    paramOffStep: 'program parameter off its step',
   },
 
   // ---- Export ----

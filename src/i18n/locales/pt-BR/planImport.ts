@@ -141,6 +141,14 @@ export const planImport: typeof enPlanImport = {
     supersetNotAdjacent: 'Os exercícios do mesmo grupo (bi-set, tri-set ou série gigante) precisam estar em sequência.',
     supersetSize: 'Um bi-set, tri-set ou série gigante precisa de 2 a 4 exercícios.',
     invalidRirRamp: 'A rampa de esforço precisa de valores de RIR de 0 a 5, começando igual ou acima do valor final.',
+    notAllowedWithPercent: 'RIR e carga inicial não se aplicam a um esquema em porcentagem',
+    emptyScheme: 'o esquema não tem séries em nenhuma semana',
+    unknownProgram: 'programa desconhecido',
+    unknownRole: 'papel do programa desconhecido',
+    noRoleMapped: 'nenhum exercício escolhido para o programa',
+    unknownParam: 'parâmetro do programa desconhecido',
+    paramOutOfRange: 'parâmetro do programa fora do intervalo',
+    paramOffStep: 'parâmetro do programa fora do passo',
   },
 
   export: {
