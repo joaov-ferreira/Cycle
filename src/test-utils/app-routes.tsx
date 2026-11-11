@@ -13,6 +13,13 @@ import ProgressRoute from '@/app/(tabs)/progress';
 import WorkoutRoute from '@/app/(tabs)/workout';
 import ExerciseDetailRoute from '@/app/exercises/[id]';
 import BodyRoute from '@/app/body';
+import MaxDetailRoute from '@/app/maxes/[exerciseId]';
+import MaxesRoute from '@/app/maxes/index';
+import ProgramDetailRoute from '@/app/programs/[id]/index';
+import ProgramStartRoute from '@/app/programs/[id]/start';
+import ProgramsRoute from '@/app/programs/index';
+import PeriodizationRoute from '@/app/plans/[id]/periodization';
+import OneRepMaxRoute from '@/app/tools/one-rep-max';
 import ExercisesRoute from '@/app/exercises/index';
 import ExerciseNewRoute from '@/app/exercises/new';
 import HistoryDetailRoute from '@/app/history/[id]';
@@ -50,6 +57,13 @@ export const appRoutes = {
   'plans/[id]/export': PlanExportRoute,
   'plans/[id]/cycles/[cycle]': CycleReportRoute,
   'plans/[id]/review': AiReviewRoute,
+  'plans/[id]/periodization': PeriodizationRoute,
+  'programs/index': ProgramsRoute,
+  'programs/[id]/index': ProgramDetailRoute,
+  'programs/[id]/start': ProgramStartRoute,
+  'maxes/index': MaxesRoute,
+  'maxes/[exerciseId]': MaxDetailRoute,
+  'tools/one-rep-max': OneRepMaxRoute,
   'exercises/index': ExercisesRoute,
   'exercises/new': ExerciseNewRoute,
   'exercises/[id]': ExerciseDetailRoute,
