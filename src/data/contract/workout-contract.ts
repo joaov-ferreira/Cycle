@@ -6,7 +6,7 @@ import {
   type Clock,
   type Repositories,
 } from '../repositories';
-import { draft, entry, movableClock, planContent, set } from './fixtures';
+import { draft, entry, movableClock, planContent, prescriptionSnapshot, set } from './fixtures';
 
 export function describeWorkoutContract(factory: (clock: Clock) => Promise<Repositories>) {
   async function setup() {
@@ -500,6 +500,117 @@ export function describeWorkoutContract(factory: (clock: Clock) => Promise<Repos
       await completed(repos, a, { planId: plan.id }, '2026-11-01T10:00:00.000Z');
       await repos.plans.delete(a, plan.id);
       expect((await repos.workouts.exerciseSessions(a, 'barbell-bench-press'))[0].planId).toBeNull();
+    });
+  });
+
+  describe('workouts: v4 prescriptions and half-point RIR', () => {
+    const withPrescription = () => [
+      entry('barbell-back-squat', [set(105, 5, { rir: 1.5 }), set(117.5, 3, { rir: 0.5 })], {
+        planExerciseId: 'p1:0',
+        target: { sets: 3, repMin: 3, repMax: 5 },
+        prescription: prescriptionSnapshot(),
+      }),
+      entry('seated-cable-row', [set(50, 10)], { planExerciseId: 'pg1:2' }),
+    ];
+
+    it('round trips the prescription snapshot, planExerciseId and half-point RIR through draft, complete and amend', async () => {
+      const { repos, a } = await setup();
+      const saved = await repos.workouts.saveDraft(a, draft({ exercises: withPrescription() }));
+      expect(saved.exercises[0].prescription).toEqual(prescriptionSnapshot());
+      expect(saved.exercises[0].planExerciseId).toBe('p1:0');
+      expect(saved.exercises[1].planExerciseId).toBe('pg1:2');
+      expect(saved.exercises[0].sets.map((s) => s.rir)).toEqual([1.5, 0.5]);
+      expect((await repos.workouts.getInProgress(a))?.exercises).toEqual(saved.exercises);
+
+      const done = await repos.workouts.complete(a, saved.id, { exercises: withPrescription(), notes: '' });
+      expect(done.exercises).toEqual(saved.exercises);
+      expect((await repos.workouts.get(a, done.id))?.exercises[0].prescription?.source).toEqual({
+        kind: 'program',
+        programId: 'smolov-jr',
+        programWeek: 2,
+        day: 1,
+        label: { en: 'Heavy day', 'pt-BR': 'Dia pesado' },
+      });
+
+      const edited = withPrescription();
+      edited[0].sets[0].rir = 2.5;
+      const amended = await repos.workouts.amend(a, done.id, { exercises: edited, notes: 'x' });
+      expect(amended.exercises[0].sets[0].rir).toBe(2.5);
+      expect(amended.exercises[0].prescription).toEqual(prescriptionSnapshot());
+      expect((await repos.workouts.listCompleted(a))[0].exercises[0].prescription).toEqual(prescriptionSnapshot());
+    });
+
+    it('round trips a scheme source and a missing basis', async () => {
+      const { repos, a } = await setup();
+      const snapshot = {
+        ...prescriptionSnapshot(),
+        basisKg: null,
+        source: { kind: 'scheme' as const, schemeWeek: 3 },
+        warnings: ['missingReferenceMax' as const],
+      };
+      const saved = await repos.workouts.saveDraft(
+        a,
+        draft({ exercises: [entry('barbell-back-squat', [set(1, 1)], { prescription: snapshot })] }),
+      );
+      expect(saved.exercises[0].prescription).toEqual(snapshot);
+    });
+
+    it('returns entries without a prescription as absent, whether saved without one or with null', async () => {
+      const { repos, a } = await setup();
+      const plain = await repos.workouts.saveDraft(a, draft({ exercises: [entry('barbell-back-squat', [set(100, 5)])] }));
+      expect(plain.exercises[0]).not.toHaveProperty('prescription');
+      const nulled = await repos.workouts.saveDraft(
+        a,
+        draft({ exercises: [entry('barbell-back-squat', [set(100, 5)], { prescription: null })] }),
+      );
+      expect(nulled.exercises[0]).not.toHaveProperty('prescription');
+      expect((await repos.workouts.get(a, nulled.id))?.exercises[0]).not.toHaveProperty('prescription');
+    });
+
+    it('accepts every half point of RIR from 0 to 10 and rejects other fractions', async () => {
+      const { repos, a } = await setup();
+      const halves = Array.from({ length: 21 }, (_, i) => i / 2);
+      const saved = await repos.workouts.saveDraft(
+        a,
+        draft({ exercises: [entry('barbell-bench-press', halves.map((rir) => set(60, 8, { rir })))] }),
+      );
+      expect(saved.exercises[0].sets.map((s) => s.rir)).toEqual(halves);
+      expect((await repos.workouts.get(a, saved.id))?.exercises[0].sets.map((s) => s.rir)).toEqual(halves);
+      for (const rir of [0.25, 1.1, 10.5, -0.5]) {
+        await expect(
+          repos.workouts.saveDraft(a, draft({ exercises: [entry('barbell-bench-press', [set(60, 8, { rir })])] })),
+        ).rejects.toThrow(RangeError);
+      }
+    });
+
+    it('reports half-point RIR in exercise sessions', async () => {
+      const { repos, a } = await setup();
+      await completed(
+        repos,
+        a,
+        { exercises: [entry('barbell-bench-press', [set(60, 8, { rir: 1.5 })])] },
+        '2026-11-01T10:00:00.000Z',
+      );
+      expect((await repos.workouts.exerciseSessions(a, 'barbell-bench-press'))[0].sets[0].rir).toBe(1.5);
+    });
+
+    it('blocks deleting a custom exercise used as a prescription basis', async () => {
+      const { repos, a } = await setup();
+      const custom = await repos.exercises.createCustom(a, {
+        name: 'Box squat',
+        primaryMuscle: 'quads',
+        secondaryMuscles: [],
+        equipment: 'barbell',
+        mechanics: 'compound',
+      });
+      await repos.workouts.saveDraft(
+        a,
+        draft({
+          exercises: [entry('barbell-back-squat', [set(100, 5)], { prescription: prescriptionSnapshot(custom.id) })],
+        }),
+      );
+      expect(await repos.exercises.isReferenced(a, custom.id)).toBe(true);
+      await expect(repos.exercises.deleteCustom(a, custom.id)).rejects.toMatchObject({ code: 'EXERCISE_IN_USE' });
     });
   });
 }

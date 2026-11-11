@@ -8,7 +8,7 @@ import {
   restorableBodyMetrics,
   restorableExerciseSettings,
 } from '../backup-shared';
-import { cloneJson, customExerciseId } from '../logbook-shared';
+import { cloneJson, customExerciseId, storedWorkoutExercise } from '../logbook-shared';
 import type { BackupRepository, Repositories } from '../repositories';
 import { restoreSnapshot, snapshotState, type MemoryState } from './memory-state';
 
@@ -77,7 +77,7 @@ export function createMemoryBackupRepository(
               id,
               profileId,
               completedAt: workout.status === 'completed' ? workout.completedAt : null,
-              exercises: workout.exercises.map((e) => ({ ...e, supersetGroup: e.supersetGroup ?? null })),
+              exercises: workout.exercises.map(storedWorkoutExercise),
             }),
           );
         }

@@ -106,6 +106,19 @@ export function planReferencesExercise(content: PlanContent, exerciseId: string)
   );
 }
 
+/**
+ * A logged exercise as stored and read back by every implementation: a missing superset group is
+ * `null`, a `null` prescription is absent (copy; the input is not changed).
+ */
+export function storedWorkoutExercise(entry: WorkoutExercise): WorkoutExercise {
+  const { prescription, ...rest } = entry;
+  return {
+    ...rest,
+    supersetGroup: entry.supersetGroup ?? null,
+    ...(prescription ? { prescription } : {}),
+  };
+}
+
 /** True when a logged exercise is the exercise or its prescription's basis (SPEC-v4 §7). */
 export function workoutExerciseReferences(entry: WorkoutExercise, exerciseId: string): boolean {
   return entry.exerciseId === exerciseId || entry.prescription?.basisExerciseId === exerciseId;

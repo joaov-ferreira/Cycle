@@ -6,7 +6,7 @@ import {
   type Clock,
   type Repositories,
 } from '../repositories';
-import { draft, entry, movableClock, planContent, set } from './fixtures';
+import { draft, entry, movableClock, planContent, set, v4PlanContent } from './fixtures';
 
 export function describePlanContract(factory: (clock: Clock) => Promise<Repositories>) {
   async function setup() {
@@ -49,6 +49,62 @@ export function describePlanContract(factory: (clock: Clock) => Promise<Reposito
       expect(await repos.plans.get(a, 1)).toEqual(plan);
       expect(await repos.plans.list(a)).toEqual([plan]);
       expect((await repos.plans.create(a, content)).id).toBe(2);
+    });
+
+    it('round trips percent schemes and program blocks exactly (SPEC-v4 §5)', async () => {
+      const { repos, a } = await setup();
+      const content = v4PlanContent();
+      const plan = await repos.plans.create(a, content);
+      expect(plan.workouts).toEqual(content.workouts);
+      const loaded = (await repos.plans.get(a, plan.id))!;
+      expect(loaded.workouts[0].exercises[0].percent).toEqual({
+        weeks: [
+          { sets: [{ reps: 5, percent: 75, repeat: 3 }, { reps: 5, percent: 80, addKg: 2.5, amrap: true }] },
+          { sets: [] },
+          { sets: [{ reps: 3, percent: 87.5, addKg: -5, unverified: true }, { reps: 8 }] },
+        ],
+        startWeek: 2,
+        basisExerciseId: 'custom-1',
+      });
+      expect(loaded.workouts[0].exercises[1]).not.toHaveProperty('percent');
+      expect(loaded).toEqual(plan);
+    });
+
+    it('round trips program blocks in order with all their fields', async () => {
+      const { repos, a } = await setup();
+      const plan = await repos.plans.create(a, v4PlanContent());
+      expect((await repos.plans.get(a, plan.id))!.workouts[0].programs).toEqual([
+        {
+          id: 'pg1',
+          programId: 'smolov-jr',
+          day: 2,
+          startWeek: 3,
+          roles: { lift: 'barbell-back-squat' },
+          accessories: true,
+          params: { increment: 2.5, pct: 0.85 },
+        },
+        {
+          id: 'pg2',
+          programId: 'sheiko',
+          day: 1,
+          startWeek: 1,
+          roles: { squat: 'custom-1', bench: 'barbell-bench-press' },
+          accessories: false,
+        },
+      ]);
+    });
+
+    it('stores a workout with no own exercises and one program block', async () => {
+      const { repos, a } = await setup();
+      const plan = await repos.plans.create(a, v4PlanContent());
+      const only = (await repos.plans.get(a, plan.id))!.workouts[1];
+      expect(only.exercises).toEqual([]);
+      expect(only.programs).toHaveLength(1);
+      const content = v4PlanContent();
+      content.workouts[1].programs![0].startWeek = 4;
+      const updated = await repos.plans.update(a, plan.id, content);
+      expect(updated.workouts[1]).toEqual(content.workouts[1]);
+      expect((await repos.plans.list(a))[0].workouts[1].programs![0].startWeek).toBe(4);
     });
 
     it('returns copies, so callers cannot mutate stored data', async () => {
