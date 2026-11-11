@@ -7,7 +7,13 @@ import { bestE1rm, newRecords, topWeight } from '@/domain/stats';
 import type { PrescribedSet } from '@/domain/prescription';
 import type { SetErrors, Workout, WorkoutExercise } from '@/domain/workout';
 import { useI18n } from '@/i18n';
-import { selectExerciseSessions, selectFindExercise, selectPrescriptionComparison, useAppStore } from '@/state';
+import {
+  selectEffortScale,
+  selectExerciseSessions,
+  selectFindExercise,
+  selectPrescriptionComparison,
+  useAppStore,
+} from '@/state';
 
 import { useStrengthFormat } from '../progress/strength-format';
 import { SetRow, SetRowHeader, useExerciseName, type SetRowChange } from '../shared';
@@ -61,6 +67,7 @@ export function ExerciseDetailBlock({
   const nameOf = useExerciseName();
   const signedKg = useSignedKg();
   const format = useStrengthFormat();
+  const effortScale = useAppStore(selectEffortScale);
   const comparison = useAppStore((s) => selectPrescriptionComparison(s, workout.id, exerciseIndex));
   const prescription = exercise.prescription ?? null;
   const find = useAppStore(selectFindExercise);
@@ -113,12 +120,13 @@ export function ExerciseDetailBlock({
 
       {editing ? (
         <View style={styles.editing}>
-          <SetRowHeader />
+          <SetRowHeader effortScale={effortScale} />
           {editing.exercise.sets.map((set, setIndex) => (
             <SetRow
               key={setIndex}
               index={setIndex}
               set={set}
+              effortScale={effortScale}
               errors={editing.setErrors[setIndex]}
               onChange={(change) => editing.onChangeSet(setIndex, change)}
               onToggleDone={() => editing.onToggleDone(setIndex)}
