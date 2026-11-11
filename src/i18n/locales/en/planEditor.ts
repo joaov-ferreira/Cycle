@@ -84,6 +84,7 @@ export const planEditor = {
     zeroLoadNotAllowed: 'Only bodyweight and band exercises take 0 kg',
     supersetNotAdjacent: 'Exercises of the same superset must be next to each other.',
     supersetSize: 'A superset needs 2 to 4 exercises.',
+    invalidRirRamp: 'The effort ramp needs RIR values from 0 to 5, starting at or above the final value.',
     /** Issue that belongs to no visible field; `{{message}}` is the specific text. */
     other: 'Plan settings: {{message}}',
   },

@@ -146,6 +146,8 @@ function baseMessage(
       return t('planEditor.issues.supersetNotAdjacent');
     case 'supersetSize':
       return t('planEditor.issues.supersetSize');
+    case 'invalidRirRamp':
+      return t('planEditor.issues.invalidRirRamp');
   }
 }
 

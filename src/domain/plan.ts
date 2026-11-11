@@ -85,6 +85,7 @@ export const PLAN_LIMITS = {
   deloadWeeks: { min: 0, max: 2 },
   deloadVolumeFactor: { min: 0.3, max: 1, step: 0.05 },
   deloadLoadFactor: { min: 0.5, max: 1, step: 0.05 },
+  rirRamp: { min: 0, max: 5 },
 } as const;
 
 // ---------------------------------------------------------------------------------------
@@ -105,7 +106,8 @@ export type PlanIssueCode =
   | 'duplicateId'
   | 'zeroLoadNotAllowed'
   | 'supersetNotAdjacent'
-  | 'supersetSize';
+  | 'supersetSize'
+  | 'invalidRirRamp';
 
 /** `path` looks like `name`, `workouts[1].name`, `workouts[0].exercises[2].repMax`, `cycle.loadWeeks`. */
 export type PlanIssue = { path: string; code: PlanIssueCode };
@@ -165,6 +167,12 @@ export function validatePlanContent(
   integer('cycle.deloadWeeks', cycle.deloadWeeks, PLAN_LIMITS.deloadWeeks.min, PLAN_LIMITS.deloadWeeks.max);
   factor('cycle.deloadVolumeFactor', cycle.deloadVolumeFactor, PLAN_LIMITS.deloadVolumeFactor);
   factor('cycle.deloadLoadFactor', cycle.deloadLoadFactor, PLAN_LIMITS.deloadLoadFactor);
+  if (cycle.rirRamp) {
+    const { start, end } = cycle.rirRamp;
+    const { min, max } = PLAN_LIMITS.rirRamp;
+    const valid = (v: number) => Number.isInteger(v) && v >= min && v <= max;
+    if (!valid(start) || !valid(end) || start < end) add('cycle.rirRamp', 'invalidRirRamp');
+  }
 
   if (content.workouts.length < PLAN_LIMITS.workouts.min) add('workouts', 'tooFew');
   if (content.workouts.length > PLAN_LIMITS.workouts.max) add('workouts', 'tooMany');

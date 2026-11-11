@@ -7,6 +7,7 @@ import type { WorkoutExercise } from './workout';
 export function buildWorkoutExercises(
   planWorkout: PlanWorkout,
   suggestions: Record<string, Suggestion>,
+  options: { targetRir?: number } = {},
 ): WorkoutExercise[] {
   return planWorkout.exercises.map((pe) => {
     const suggestion = suggestions[pe.id];
@@ -16,7 +17,8 @@ export function buildWorkoutExercises(
       repMin: pe.repMin,
       repMax: pe.repMax,
     };
-    if (pe.targetRir !== undefined) target.targetRir = pe.targetRir;
+    const targetRir = options.targetRir ?? pe.targetRir;
+    if (targetRir !== undefined) target.targetRir = targetRir;
     if (pe.restSeconds !== undefined) target.restSeconds = pe.restSeconds;
     return {
       exerciseId: pe.exerciseId,

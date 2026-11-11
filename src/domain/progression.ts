@@ -124,7 +124,7 @@ export function suggest(input: {
   if (atLast.length >= target.sets && atLast.every((s) => s.reps >= target.repMax)) {
     const easy =
       atLast.every((s) => s.rir !== null) &&
-      Math.min(...atLast.map((s) => s.rir as number)) >= (target.targetRir ?? 1) + 2;
+      Math.min(...atLast.map((s) => s.rir as number)) >= (last.targetRir ?? target.targetRir ?? 1) + 2;
     const stepGrams = (easy ? 2 : 1) * incrementGrams;
     return result(
       'increase',

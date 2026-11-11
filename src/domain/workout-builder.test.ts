@@ -89,6 +89,18 @@ describe('buildWorkoutExercises supersets (SPEC-v3 §4.1)', () => {
   });
 });
 
+describe('buildWorkoutExercises week target RIR (SPEC-v3 §5)', () => {
+  it('options.targetRir replaces every exercise target RIR, set or not', () => {
+    const result = buildWorkoutExercises(planWorkout, {}, { targetRir: 0 });
+    expect(result.map((e) => e.target?.targetRir)).toEqual([0, 0, 0]);
+    expect(result[0].target).toEqual({ sets: 4, repMin: 6, repMax: 10, targetRir: 0, restSeconds: 120 });
+  });
+  it('without the option the plan targets are kept', () => {
+    const result = buildWorkoutExercises(planWorkout, {}, {});
+    expect(result.map((e) => e.target?.targetRir)).toEqual([2, undefined, undefined]);
+  });
+});
+
 describe('targetRepsPlaceholder', () => {
   it('returns the target reps of the set', () => {
     expect(targetRepsPlaceholder({ ...loadSuggestion, targetReps: [12, 11, 10] }, 1)).toBe(11);

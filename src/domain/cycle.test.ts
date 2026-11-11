@@ -8,6 +8,7 @@ import {
   startDeload,
   startNewCycle,
   suggestCycle,
+  weekTargetRir,
   type CycleConfig,
   type CycleState,
   DEFAULT_CYCLE,
@@ -221,6 +222,50 @@ describe('cycleTimeline', () => {
   });
   it('a deload week beyond the scheduled ones stays in range', () => {
     expect(cells(cfg({ loadWeeks: 1, deloadWeeks: 1 }), st({ phase: 'deload', week: 3 }))).toEqual(['l1', 'd1', 'd2', 'd3*']);
+  });
+});
+
+describe('weekTargetRir (SPEC-v3 §5)', () => {
+  const ramp = (start: number, end: number, loadWeeks: number) =>
+    cfg({ loadWeeks, rirRamp: { start, end } });
+  const weeks = (c: CycleConfig, n: number) =>
+    Array.from({ length: n }, (_, i) => weekTargetRir(c, st({ week: i + 1 })));
+
+  it('3 -> 0 over 4 weeks', () => {
+    expect(weeks(ramp(3, 0, 4), 4)).toEqual([3, 2, 1, 0]);
+  });
+  it('3 -> 0 over 6 weeks (halves round up)', () => {
+    expect(weeks(ramp(3, 0, 6), 6)).toEqual([3, 2, 2, 1, 1, 0]);
+  });
+  it('4 -> 1 over 3 weeks', () => {
+    expect(weeks(ramp(4, 1, 3), 3)).toEqual([4, 3, 1]);
+  });
+  it('2 -> 2 over 5 weeks is flat', () => {
+    expect(weeks(ramp(2, 2, 5), 5)).toEqual([2, 2, 2, 2, 2]);
+  });
+  it('a week beyond loadWeeks uses the last load week', () => {
+    expect(weekTargetRir(ramp(3, 0, 4), st({ week: 9 }))).toBe(0);
+  });
+  it('a single load week uses the end value', () => {
+    expect(weekTargetRir(ramp(3, 1, 1), st())).toBe(1);
+  });
+  it('the deload phase uses the start value', () => {
+    expect(weekTargetRir(ramp(3, 0, 4), st({ phase: 'deload', week: 1 }))).toBe(3);
+  });
+  it('is undefined without a ramp', () => {
+    expect(weekTargetRir(cfg(), st())).toBeUndefined();
+    expect(weekTargetRir(cfg({ rirRamp: null }), st())).toBeUndefined();
+  });
+});
+
+describe('cycleTimeline targetRir', () => {
+  it('cells carry the week target when a ramp is set', () => {
+    const c = cfg({ loadWeeks: 4, deloadWeeks: 1, rirRamp: { start: 3, end: 0 } });
+    expect(cycleTimeline(c, st({ week: 2 })).map((x) => x.targetRir)).toEqual([3, 2, 1, 0, 3]);
+  });
+  it('cells have no targetRir without a ramp', () => {
+    const cells = cycleTimeline(cfg({ loadWeeks: 2 }), st());
+    expect(cells.every((x) => !('targetRir' in x))).toBe(true);
   });
 });
 
