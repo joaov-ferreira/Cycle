@@ -28,6 +28,8 @@ export type WorkoutCardProps = {
   onMoveExercise: (exerciseIndex: number, delta: -1 | 1) => void;
   onRemoveExercise: (exerciseIndex: number) => void;
   onLoadInvalid: (planExerciseId: string, invalid: boolean) => void;
+  /** Plan exercise ids that start expanded (added in this editing session). */
+  newExerciseIds: ReadonlySet<string>;
 };
 
 /** One workout of the plan: its name, ↑/↓/remove, its exercises and the Add exercise button. */
@@ -46,6 +48,7 @@ export function WorkoutCard({
   onMoveExercise,
   onRemoveExercise,
   onLoadInvalid,
+  newExerciseIds,
 }: WorkoutCardProps) {
   const { t } = useI18n();
   const path = `workouts[${index}]`;
@@ -84,6 +87,7 @@ export function WorkoutCard({
             onMove={(delta) => onMoveExercise(exerciseIndex, delta)}
             onRemove={() => onRemoveExercise(exerciseIndex)}
             onLoadInvalid={(invalid) => onLoadInvalid(exercise.id, invalid)}
+            startExpanded={newExerciseIds.has(exercise.id)}
           />
         ))
       )}

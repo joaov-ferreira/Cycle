@@ -39,10 +39,10 @@ export const planEditor: typeof enPlanEditor = {
   repMinOf: 'Repetições mínimas de {{exercise}}',
   repMaxLabel: 'Repetições máx.',
   repMaxOf: 'Repetições máximas de {{exercise}}',
-  moreOptions: 'Mais opções',
-  lessOptions: 'Menos opções',
-  moreOptionsOf: 'Mais opções de {{exercise}}',
-  lessOptionsOf: 'Menos opções de {{exercise}}',
+  /** The collapsed exercise row, a button that expands its targets. */
+  editTargets: 'Editar metas de {{exercise}}',
+  /** RIR part of the collapsed summary line, e.g. `3 × 8–12 · RIR 2 · 90 s`. */
+  rirSummary: 'RIR {{rir}}',
   rirLabel: 'RIR alvo',
   rirOf: 'RIR alvo de {{exercise}}',
   restLabel: 'Descanso',

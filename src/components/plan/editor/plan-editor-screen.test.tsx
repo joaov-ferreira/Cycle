@@ -44,6 +44,10 @@ async function addExercise(workout: string, name: string) {
 
 const value = (label: string) => screen.getByLabelText(label);
 
+/** Opens the collapsed row of an exercise (rows of existing exercises start collapsed). */
+const expand = async (exercise: string) =>
+  fireEvent.press(await screen.findByRole('button', { name: `Edit ${exercise} targets`, expanded: false }));
+
 const SESSION_A = 'Workout A';
 
 describe('PlanEditScreen: creating a plan from scratch', () => {
@@ -179,6 +183,7 @@ describe('PlanEditScreen: editing an existing plan', () => {
     await press('Move Legs up');
     await press('Move Lat Pulldown up');
     await press('Remove Barbell Bench Press');
+    await expand('Barbell Back Squat');
     await press('Increase Barbell Back Squat sets');
 
     expect(store.getState().plans[0].name).toBe('Sample plan');
@@ -234,6 +239,7 @@ describe('PlanEditScreen: editing an existing plan', () => {
   it('couples the minimum and maximum reps', async () => {
     await setup();
     await screen.findByLabelText('Name');
+    await expand('Barbell Bench Press');
     for (let i = 0; i < 5; i++) await press('Increase Barbell Bench Press minimum reps');
     expect(value('Barbell Bench Press minimum reps')).toHaveTextContent('13');
     expect(value('Barbell Bench Press maximum reps')).toHaveTextContent('13');
@@ -268,6 +274,85 @@ describe('PlanEditScreen: editing an existing plan', () => {
   });
 });
 
+describe('PlanEditScreen: compact exercise rows', () => {
+  const withTargets = samplePlanContent({
+    workouts: [
+      {
+        id: 'w-a',
+        name: 'A',
+        exercises: [
+          { id: 'pe-bench', exerciseId: 'barbell-bench-press', sets: 3, repMin: 8, repMax: 12, targetRir: 2, restSeconds: 90 },
+          { id: 'pe-pulldown', exerciseId: 'lat-pulldown', sets: 4, repMin: 10, repMax: 15 },
+        ],
+      },
+    ],
+    sessionsPerWeek: 1,
+  });
+
+  it('starts collapsed: name, summary with RIR and rest, reorder and remove only', async () => {
+    await setup({ content: withTargets });
+    const edit = await screen.findByRole('button', { name: 'Edit Barbell Bench Press targets', expanded: false });
+    expect(within(edit).getByText('Barbell Bench Press')).toBeOnTheScreen();
+    expect(within(edit).getByText('3 × 8–12 · RIR 2 · 90 s')).toBeOnTheScreen();
+    expect(screen.getByText('4 × 10–15')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Move Barbell Bench Press down' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Remove Barbell Bench Press' })).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Barbell Bench Press sets')).toBeNull();
+    expect(screen.queryByLabelText('Barbell Bench Press minimum reps')).toBeNull();
+    expect(screen.queryByLabelText('Barbell Bench Press target RIR')).toBeNull();
+  });
+
+  it('expands on tap to show the steppers and the optional fields, and collapses again', async () => {
+    await setup({ content: withTargets });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Edit Barbell Bench Press targets' }));
+    expect(screen.getByRole('button', { name: 'Edit Barbell Bench Press targets', expanded: true })).toBeOnTheScreen();
+    expect(value('Barbell Bench Press sets')).toHaveTextContent('3');
+    expect(value('Barbell Bench Press minimum reps')).toHaveTextContent('8');
+    expect(value('Barbell Bench Press maximum reps')).toHaveTextContent('12');
+    expect(value('Barbell Bench Press target RIR')).toHaveTextContent('2');
+    expect(screen.getByLabelText('Barbell Bench Press start load')).toBeOnTheScreen();
+    // The other exercise stays collapsed.
+    expect(screen.queryByLabelText('Lat Pulldown sets')).toBeNull();
+
+    await press('Increase Barbell Bench Press sets');
+    await press('Edit Barbell Bench Press targets');
+    expect(screen.queryByLabelText('Barbell Bench Press sets')).toBeNull();
+    expect(screen.getByText('4 × 8–12 · RIR 2 · 90 s')).toBeOnTheScreen();
+  });
+
+  it('starts a newly added exercise expanded', async () => {
+    await setup({ target: 'new' });
+    await press('Add workout');
+    await addExercise(SESSION_A, 'Barbell Bench Press');
+    expect(screen.getByRole('button', { name: 'Edit Barbell Bench Press targets', expanded: true })).toBeOnTheScreen();
+    expect(value('Barbell Bench Press sets')).toHaveTextContent('3');
+
+    await addExercise(SESSION_A, 'Lat Pulldown');
+    expect(screen.getByRole('button', { name: 'Edit Lat Pulldown targets', expanded: true })).toBeOnTheScreen();
+  });
+
+  it('expands the exercise that has a validation issue and leaves the others collapsed', async () => {
+    const { store } = await setup({ content: withTargets });
+    store.setState({
+      updatePlan: jest
+        .fn()
+        .mockRejectedValue(new PlanValidationError([{ path: 'workouts[0].exercises[1].sets', code: 'outOfRange' }])),
+    });
+    await screen.findByLabelText('Name');
+    await save();
+    expect(await screen.findByText('Use a value from 1 to 20')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Edit Lat Pulldown targets', expanded: true })).toBeOnTheScreen();
+    expect(value('Lat Pulldown sets')).toHaveTextContent('4');
+    expect(screen.getByRole('button', { name: 'Edit Barbell Bench Press targets', expanded: false })).toBeOnTheScreen();
+  });
+
+  it('labels the row in Portuguese', async () => {
+    await setup({ content: withTargets, language: 'pt-BR' });
+    const row = await screen.findByRole('button', { name: 'Editar metas de Supino reto com barra', expanded: false });
+    expect(within(row).getByText('3 × 8–12 · RIR 2 · 90 s')).toBeOnTheScreen();
+  });
+});
+
 describe('PlanEditScreen: optional fields', () => {
   const withOptionals = samplePlanContent({
     workouts: [
@@ -294,7 +379,7 @@ describe('PlanEditScreen: optional fields', () => {
 
   it('sets the optional fields', async () => {
     const { store, onSaved } = await setup();
-    await press('More options for Barbell Bench Press');
+    await expand('Barbell Bench Press');
     expect(value('Barbell Bench Press target RIR')).toHaveTextContent('None');
     expect(value('Barbell Bench Press rest')).toHaveTextContent('None');
 
@@ -325,7 +410,7 @@ describe('PlanEditScreen: optional fields', () => {
 
   it('shows and clears the optional fields', async () => {
     const { store, onSaved } = await setup({ content: withOptionals });
-    await press('More options for Barbell Bench Press');
+    await expand('Barbell Bench Press');
     expect(value('Barbell Bench Press target RIR')).toHaveTextContent('2');
     expect(value('Barbell Bench Press rest')).toHaveTextContent('90 s');
     expect(screen.getByLabelText('Barbell Bench Press start load')).toHaveDisplayValue('62.5');
@@ -352,7 +437,7 @@ describe('PlanEditScreen: optional fields', () => {
 
   it('bounds RIR to 0-5 and rest to 15-900 seconds', async () => {
     await setup({ content: withOptionals });
-    await press('More options for Barbell Bench Press');
+    await expand('Barbell Bench Press');
     for (let i = 0; i < 5; i++) await press('Increase Barbell Bench Press target RIR');
     expect(value('Barbell Bench Press target RIR')).toHaveTextContent('5');
     expect(screen.getByRole('button', { name: 'Increase Barbell Bench Press target RIR' })).toBeDisabled();
@@ -365,15 +450,15 @@ describe('PlanEditScreen: optional fields', () => {
 
   it('formats the start load with the locale decimal separator', async () => {
     await setup({ content: withOptionals, language: 'pt-BR' });
-    await press('Mais opções de Supino reto com barra');
+    await fireEvent.press(await screen.findByRole('button', { name: 'Editar metas de Supino reto com barra', expanded: false }));
     expect(screen.getByLabelText('Carga inicial de Supino reto com barra')).toHaveDisplayValue('62,5');
     expect(screen.getByLabelText('Séries de Supino reto com barra')).toHaveTextContent('3');
-    expect(screen.getByText('3 × 8–12')).toBeOnTheScreen();
+    expect(screen.getByText('3 × 8–12 · RIR 2 · 90 s')).toBeOnTheScreen();
   });
 
   it('refuses to save while a number field holds an invalid value', async () => {
     const { store, onSaved } = await setup();
-    await press('More options for Barbell Bench Press');
+    await expand('Barbell Bench Press');
     await fireEvent.changeText(screen.getByLabelText('Barbell Bench Press start load'), '12.345');
     expect(await screen.findByText('Use at most 2 decimal places')).toBeOnTheScreen();
     await save();

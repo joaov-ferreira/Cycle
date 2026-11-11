@@ -41,10 +41,10 @@ export const planEditor = {
   repMinOf: '{{exercise}} minimum reps',
   repMaxLabel: 'Max reps',
   repMaxOf: '{{exercise}} maximum reps',
-  moreOptions: 'More options',
-  lessOptions: 'Fewer options',
-  moreOptionsOf: 'More options for {{exercise}}',
-  lessOptionsOf: 'Fewer options for {{exercise}}',
+  /** The collapsed exercise row, a button that expands its targets. */
+  editTargets: 'Edit {{exercise}} targets',
+  /** RIR part of the collapsed summary line, e.g. `3 × 8–12 · RIR 2 · 90 s`. */
+  rirSummary: 'RIR {{rir}}',
   rirLabel: 'Target RIR',
   rirOf: '{{exercise}} target RIR',
   restLabel: 'Rest',

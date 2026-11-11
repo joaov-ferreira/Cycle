@@ -68,6 +68,7 @@ export function PlanEditor({ initial, planId, onSaved, onCancel }: PlanEditorPro
   const [problem, setProblem] = useState<SaveProblem>(null);
   const [invalidLoads, setInvalidLoads] = useState<ReadonlySet<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [newExerciseIds, setNewExerciseIds] = useState<ReadonlySet<string>>(new Set());
   const [pickerWorkout, setPickerWorkout] = useState<string | null>(null);
   const [removingWorkout, setRemovingWorkout] = useState<number | null>(null);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
@@ -142,12 +143,12 @@ export function PlanEditor({ initial, planId, onSaved, onCancel }: PlanEditorPro
 
   const addExercise = (workoutId: string, exerciseId: string) => {
     setPickerWorkout(null);
+    const created = newPlanExercise(draft, exerciseId);
+    setNewExerciseIds((current) => new Set(current).add(created.id));
     edit((content) => ({
       ...content,
       workouts: content.workouts.map((workout) =>
-        workout.id === workoutId
-          ? { ...workout, exercises: [...workout.exercises, newPlanExercise(content, exerciseId)] }
-          : workout,
+        workout.id === workoutId ? { ...workout, exercises: [...workout.exercises, created] } : workout,
       ),
     }));
   };
@@ -283,6 +284,7 @@ export function PlanEditor({ initial, planId, onSaved, onCancel }: PlanEditorPro
             changeWorkout(index, (w) => ({ ...w, exercises: w.exercises.filter((_, i) => i !== exerciseIndex) }))
           }
           onLoadInvalid={setLoadInvalid}
+          newExerciseIds={newExerciseIds}
         />
       ))}
       <Button
