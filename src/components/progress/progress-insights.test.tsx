@@ -96,6 +96,9 @@ describe('Volume tab', () => {
     expect(screen.getByLabelText('Week of Nov 9: 1 session')).toBeOnTheScreen();
     expect(screen.getByLabelText('Week of Oct 19: 0 sessions')).toBeOnTheScreen();
     expect(screen.getAllByLabelText(/^Week of /)).toHaveLength(8);
+    // The label under each bar is a short numeric date, so eight of them fit on a phone.
+    expect(screen.getByText('10/26')).toBeOnTheScreen();
+    expect(screen.getByText('11/09')).toBeOnTheScreen();
     // 4 sessions over 8 weeks
     expect(screen.getByText('8-week average: 0.5')).toBeOnTheScreen();
   });
@@ -122,6 +125,7 @@ describe('Volume tab', () => {
     await fireEvent.press(within(screen.getByLabelText('Métrica')).getByRole('button', { name: 'Volume (kg)' }));
 
     expect(screen.getByLabelText(`Semana de 9 de nov.: 2.340${NBSP}kg`)).toBeOnTheScreen();
+    expect(screen.getByText('09/11')).toBeOnTheScreen();
     expect(screen.getByLabelText(`Semana de 2 de nov.: 2.500${NBSP}kg`)).toBeOnTheScreen();
     expect(screen.getByText(`Média de 8 semanas: 705${NBSP}kg`)).toBeOnTheScreen();
   });

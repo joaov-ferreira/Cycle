@@ -17,6 +17,8 @@ import { BarChart, type Bar } from './bar-chart';
 type VolumeMetric = 'sessions' | 'volume' | 'sets';
 
 const SHORT_DATE: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
+/** Label under a bar: numeric (`11/9`, `09/11`), short enough for eight columns on a phone. */
+const BAR_DATE: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit' };
 
 /** Progress → Volume (SPEC-v3 §10): sessions, volume or sets of a muscle group over the last 8 weeks. */
 export function VolumeTab({ now }: { now: Date }) {
@@ -52,7 +54,7 @@ export function VolumeTab({ now }: { now: Date }) {
             });
     return {
       key: String(week.weekStart.getTime()),
-      label: date,
+      label: formatDate(week.weekStart, BAR_DATE),
       value,
       valueText: count(value),
       accessibilityLabel,
