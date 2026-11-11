@@ -26,7 +26,7 @@ export type EstimateOfferProps = {
 export function EstimateOffer({ exerciseId, name, currentKg }: EstimateOfferProps) {
   const { t, formatKg, formatDate } = useI18n();
   const estimate = useAppStore((s) => selectLatestStrengthEstimate(s, exerciseId));
-  const useEstimateAsMax = useAppStore((s) => s.useEstimateAsMax);
+  const applyEstimate = useAppStore((s) => s.useEstimateAsMax);
   const [confirming, setConfirming] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -38,7 +38,7 @@ export function EstimateOffer({ exerciseId, name, currentKg }: EstimateOfferProp
   async function confirm() {
     setConfirming(false);
     try {
-      await useEstimateAsMax(exerciseId, offerKg);
+      await applyEstimate(exerciseId, offerKg);
       setFailed(false);
     } catch {
       setFailed(true);

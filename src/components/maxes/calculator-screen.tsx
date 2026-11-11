@@ -12,7 +12,7 @@ import { useAppStore } from '@/state/app-store-context';
 import { Chip, ExerciseSelectModal, exerciseName } from '../shared';
 import { useTheme } from '../theme-provider';
 import { Button, Card, Screen, Text } from '../ui';
-import { CONFIDENCE_KEYS, FORMULA_LABEL_KEYS, ROUNDING_LABEL_KEYS } from './labels';
+import { FORMULA_LABEL_KEYS, ROUNDING_LABEL_KEYS } from './labels';
 import { SetInputs, type SetValues } from './set-inputs';
 
 /** Percentages of the load table: 50 % to 100 % in steps of 5 %. */

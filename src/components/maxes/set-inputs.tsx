@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { spacing } from '@/constants/theme';
@@ -25,6 +25,7 @@ const REPS_RULES: NumberRules = { min: 1, max: 50, maxDecimals: 0 };
 const EFFORT_RULES: NumberRules = { min: 0, max: 10, maxDecimals: 1, step: 0.5 };
 
 export type SetInputsProps = {
+  /** Called on mount and whenever a field changes; pass a stable function (e.g. a state setter). */
   onChange: (values: SetValues) => void;
   /** Prefix of the field test ids. */
   testIDPrefix?: string;
@@ -45,11 +46,9 @@ export function SetInputs({ onChange, testIDPrefix = 'set' }: SetInputsProps) {
   const [effortInvalid, setEffortInvalid] = useState(false);
 
   const rir = effortInvalid ? null : effort === null ? 0 : scale === 'rpe' ? rirFromRpe(effort) : effort;
-  const callback = useRef(onChange);
-  callback.current = onChange;
   useEffect(() => {
-    callback.current({ weightKg: weight, reps, rir });
-  }, [weight, reps, rir]);
+    onChange({ weightKg: weight, reps, rir });
+  }, [weight, reps, rir, onChange]);
 
   return (
     <View style={styles.fields}>
