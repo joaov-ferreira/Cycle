@@ -1,2 +1,41 @@
-/** English `backup` namespace (source catalog). Filled by its v3 UI stage. */
-export const backup = {};
+/** English `backup` namespace (source catalog): the Settings "Data" section and the restore flow. */
+export const backup = {
+  title: 'Data',
+  lastBackup: 'Last backup: {{date}}',
+  noBackup: 'No backup yet',
+  reminder: 'It has been a while since your last backup. Export one to keep your logbook safe.',
+  export: 'Export backup',
+  exportDone: 'Backup exported.',
+  exportFailed: 'The backup could not be saved or shared.',
+  restore: 'Restore backup',
+  restoreTitle: 'Restore this backup?',
+  summary: {
+    profile: 'Profile: {{name}}',
+    exportedAt: 'Exported: {{date}}',
+    plans: 'Plans: {{count}}',
+    workouts: 'Workouts: {{count}}',
+    customExercises: 'Custom exercises: {{count}}',
+    bodyMetrics: 'Body entries: {{count}}',
+    firstWorkout: 'First workout: {{date}}',
+    lastWorkout: 'Last workout: {{date}}',
+    newProfile: 'A new profile will be created and nothing on this device is overwritten.',
+  },
+  confirmRestore: 'Restore',
+  restored: 'Restored. You are now using the profile "{{name}}".',
+  restoredName: '{{name}} (restored)',
+  csv: 'Export logbook (CSV)',
+  csvDone: 'Logbook exported.',
+  csvFailed: 'The logbook could not be saved or shared.',
+  csvEmpty: 'Complete a workout to export your logbook.',
+  fileTooLarge: 'This file is too large to be a backup.',
+  errors: {
+    invalidJson: 'The file is not valid JSON.',
+    notAnObject: 'The file does not contain a backup.',
+    unsupportedFormat: 'This is not a CYCLE backup file.',
+    unsupportedVersion: 'This backup was made by a newer version of the app. Update the app and try again.',
+    invalidBackup: 'The backup is damaged or incomplete (problem at {{path}}).',
+    invalidBackupNoPath: 'The backup is damaged or incomplete.',
+    profileName: 'The profile name for the restored data is not valid.',
+    generic: 'The backup could not be restored.',
+  },
+};

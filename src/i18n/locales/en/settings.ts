@@ -18,6 +18,26 @@ export const settings = {
     advanced: 'Advanced',
     hint: 'Sets the suggested cycle: {{loadWeeks}} load weeks + {{deloadWeeks}} deload.',
   },
+  tools: {
+    title: 'Workout tools',
+    rest: 'Default rest between sets',
+    restOff: 'Off',
+    restNotifications: 'Rest notifications',
+    restNotificationsHint: 'A notification when a rest ends while the app is in the background.',
+    keepAwake: 'Keep screen on',
+    keepAwakeHint: 'While a workout is in progress on the Workout tab.',
+    bar: 'Bar weight',
+    plates: 'Available plates',
+    errors: {
+      rest: 'Rest must be between 0 and 10 minutes.',
+      bar: 'Bar weight must be between 0 and 50 kg.',
+      plates: 'Choose at least one plate.',
+    },
+  },
+  notification: {
+    title: 'Rest over',
+    body: 'Next: {{exercise}} — set {{set}}',
+  },
   theme: {
     title: 'Theme',
     label: 'App theme',
