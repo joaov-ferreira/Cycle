@@ -459,3 +459,26 @@ describe('referencedCustomExerciseIds', () => {
     expect(referencedCustomExerciseIds(doc)).toEqual(['custom-5']);
   });
 });
+
+describe('docs/BACKUP_FORMAT.md example', () => {
+  it('parses with parseBackup and keeps the superset, the ramp and the drop set', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs') as typeof import('fs');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require('path') as typeof import('path');
+    const doc = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'BACKUP_FORMAT.md'), 'utf8');
+    const start = doc.indexOf('## 7. Example');
+    const open = doc.indexOf('```json\n', start) + '```json\n'.length;
+    const text = doc.slice(open, doc.indexOf('\n```', open));
+
+    const result = parseBackup(text);
+    if (!result.ok) throw new Error(`the example must parse: ${JSON.stringify(result.errors)}`);
+    const { backup } = result;
+    expect(backup.profile.name).toBe('Ana');
+    expect(backup.plans[0].content.cycle.rirRamp).toEqual({ start: 2, end: 0 });
+    expect(backup.plans[0].content.workouts[0].exercises.map((e) => e.supersetGroup)).toEqual(['S1', 'S1']);
+    expect(backup.workouts[0].exercises[0].sets.map((s) => s.kind)).toEqual(['working', 'drop']);
+    expect(backup.exerciseSettings).toEqual([{ exerciseId: 'barbell-bench-press', note: 'Seat on position 4', barKg: 15 }]);
+    expect(backup.bodyMetrics).toEqual([{ date: '2026-11-16', kind: 'weight', value: 80 }]);
+  });
+});
