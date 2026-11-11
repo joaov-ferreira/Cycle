@@ -4,7 +4,6 @@ import {
   DEFAULT_INCREMENT_KG,
   DEFAULT_ROUNDING_MODE,
   INCREMENT_PRESETS_KG,
-  effectiveIncrement,
   roundLoad,
   validateIncrement,
 } from './rounding';
@@ -148,13 +147,5 @@ describe('validateIncrement (SPEC §5: presets, custom 0.1–25 kg in steps of 0
     [Number.POSITIVE_INFINITY, 'invalidNumber'],
   ] as const)('rejects %p with %p', (value, error) => {
     expect(validateIncrement(value)).toBe(error);
-  });
-});
-
-describe('effectiveIncrement', () => {
-  it('uses the profile default unless the lift has an override', () => {
-    expect(effectiveIncrement('bench', 2.5, { bench: 1.25 })).toBe(1.25);
-    expect(effectiveIncrement('squat', 2.5, { bench: 1.25 })).toBe(2.5);
-    expect(effectiveIncrement('deadlift', 1, {})).toBe(1);
   });
 });

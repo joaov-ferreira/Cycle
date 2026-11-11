@@ -46,10 +46,10 @@ const NOW = new Date('2026-11-05T12:00:00.000Z');
 const at = (iso: string) => `${iso}T12:00:00.000Z`;
 
 describe('buildChartModel', () => {
-  it('is empty when there is no e1RM in the period', () => {
+  it('is empty when there is no entry in the period', () => {
     const model = buildChartModel({
-      e1rms: [{ id: 1, at: at('2026-08-01'), valueKg: 96 }],
-      references: [{ at: at('2026-07-01'), valueKg: 100 }],
+      series: [{ id: 1, at: at('2026-08-01'), value: 96 }],
+      references: [{ at: at('2026-07-01'), value: 100 }],
       period: '4w',
       now: NOW,
       layout,
@@ -60,7 +60,7 @@ describe('buildChartModel', () => {
   });
 
   it('is empty without any history', () => {
-    const model = buildChartModel({ e1rms: [], references: [], period: 'all', now: NOW, layout });
+    const model = buildChartModel({ series: [], references: [], period: 'all', now: NOW, layout });
     expect(model.empty).toBe(true);
     expect(model.yTicks).toEqual([]);
     expect(model.xTicks).toEqual([]);
@@ -68,12 +68,12 @@ describe('buildChartModel', () => {
 
   it('places a 4-week chart on the plot area (carry-in reference, no change)', () => {
     const model = buildChartModel({
-      e1rms: [
-        { id: 7, at: at('2026-09-01'), valueKg: 90 },
-        { id: 8, at: at('2026-10-22'), valueKg: 96 },
-        { id: 9, at: at('2026-11-05'), valueKg: 102 },
+      series: [
+        { id: 7, at: at('2026-09-01'), value: 90 },
+        { id: 8, at: at('2026-10-22'), value: 96 },
+        { id: 9, at: at('2026-11-05'), value: 102 },
       ],
-      references: [{ at: at('2026-10-01'), valueKg: 105 }],
+      references: [{ at: at('2026-10-01'), value: 105 }],
       period: '4w',
       now: NOW,
       layout,
@@ -82,10 +82,10 @@ describe('buildChartModel', () => {
     expect(model.plot).toEqual({ left: 40, right: 290, top: 10, bottom: 170 });
     expect(model.xDomain).toEqual([Date.parse(at('2026-10-08')), Date.parse(at('2026-11-05'))]);
     expect(model.yDomain).toEqual([96, 106]);
-    // only the two e1RMs inside the period are drawn: 14 and 28 days after the start
+    // only the two entries inside the period are drawn: 14 and 28 days after the start
     expect(model.points).toEqual([
-      { id: 8, at: at('2026-10-22'), valueKg: 96, x: 165, y: 170 },
-      { id: 9, at: at('2026-11-05'), valueKg: 102, x: 290, y: 74 },
+      { id: 8, at: at('2026-10-22'), value: 96, x: 165, y: 170 },
+      { id: 9, at: at('2026-11-05'), value: 102, x: 290, y: 74 },
     ]);
     expect(model.referenceSteps).toEqual([
       { x: 40, y: 26 },
@@ -103,13 +103,13 @@ describe('buildChartModel', () => {
 
   it('draws a reference change as a step', () => {
     const model = buildChartModel({
-      e1rms: [
-        { id: 8, at: at('2026-10-22'), valueKg: 96 },
-        { id: 9, at: at('2026-11-05'), valueKg: 102 },
+      series: [
+        { id: 8, at: at('2026-10-22'), value: 96 },
+        { id: 9, at: at('2026-11-05'), value: 102 },
       ],
       references: [
-        { at: at('2026-10-01'), valueKg: 105 },
-        { at: at('2026-10-29'), valueKg: 106 },
+        { at: at('2026-10-01'), value: 105 },
+        { at: at('2026-10-29'), value: 106 },
       ],
       period: '4w',
       now: NOW,
@@ -126,8 +126,8 @@ describe('buildChartModel', () => {
 
   it('starts the reference line at its own record when it began inside the period', () => {
     const model = buildChartModel({
-      e1rms: [{ id: 8, at: at('2026-10-22'), valueKg: 96 }],
-      references: [{ at: at('2026-10-22'), valueKg: 100 }],
+      series: [{ id: 8, at: at('2026-10-22'), value: 96 }],
+      references: [{ at: at('2026-10-22'), value: 100 }],
       period: '4w',
       now: NOW,
       layout,
@@ -140,13 +140,13 @@ describe('buildChartModel', () => {
 
   it('spans the whole history for "all" and extends the last reference to the last record', () => {
     const model = buildChartModel({
-      e1rms: [
-        { id: 1, at: at('2026-09-10'), valueKg: 96 },
-        { id: 2, at: at('2026-11-02'), valueKg: 102 },
+      series: [
+        { id: 1, at: at('2026-09-10'), value: 96 },
+        { id: 2, at: at('2026-11-02'), value: 102 },
       ],
       references: [
-        { at: at('2026-08-01'), valueKg: 100 },
-        { at: at('2026-10-01'), valueKg: 105 },
+        { at: at('2026-08-01'), value: 100 },
+        { at: at('2026-10-01'), value: 105 },
       ],
       period: 'all',
       now: NOW,
@@ -167,22 +167,22 @@ describe('buildChartModel', () => {
 
   it('centres a single point (one day of padding on each side)', () => {
     const model = buildChartModel({
-      e1rms: [{ id: 1, at: at('2026-10-20'), valueKg: 96 }],
+      series: [{ id: 1, at: at('2026-10-20'), value: 96 }],
       references: [],
       period: 'all',
       now: NOW,
       layout,
     });
-    expect(model.points).toEqual([{ id: 1, at: at('2026-10-20'), valueKg: 96, x: 165, y: 90 }]);
+    expect(model.points).toEqual([{ id: 1, at: at('2026-10-20'), value: 96, x: 165, y: 90 }]);
     expect(model.referenceSteps).toEqual([]);
     expect(model.yDomain).toEqual([90, 102]);
   });
 
-  it('spans two days at least, so a first session on the onboarding day gets three distinct dates', () => {
-    // onboarding 1RM at 17:50 and the first e1RM at 18:00 the same day: 10 minutes apart
+  it('spans two days at least, so a series starting right after its reference gets three distinct dates', () => {
+    // reference at 17:50 and the first entry at 18:00 the same day: 10 minutes apart
     const model = buildChartModel({
-      e1rms: [{ id: 1, at: '2026-11-05T18:00:00.000Z', valueKg: 95.6 }],
-      references: [{ at: '2026-11-05T17:50:00.000Z', valueKg: 100 }],
+      series: [{ id: 1, at: '2026-11-05T18:00:00.000Z', value: 95.6 }],
+      references: [{ at: '2026-11-05T17:50:00.000Z', value: 100 }],
       period: 'all',
       now: new Date('2026-11-05T18:05:00.000Z'),
       layout,
@@ -202,8 +202,8 @@ describe('buildChartModel', () => {
 
   it('keeps a span of two days or more as it is', () => {
     const model = buildChartModel({
-      e1rms: [{ id: 1, at: at('2026-11-07'), valueKg: 96 }],
-      references: [{ at: at('2026-11-05'), valueKg: 100 }],
+      series: [{ id: 1, at: at('2026-11-07'), value: 96 }],
+      references: [{ at: at('2026-11-05'), value: 100 }],
       period: 'all',
       now: NOW,
       layout,
