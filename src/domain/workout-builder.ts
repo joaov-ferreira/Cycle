@@ -22,6 +22,7 @@ export function buildWorkoutExercises(
       exerciseId: pe.exerciseId,
       planExerciseId: pe.id,
       target,
+      supersetGroup: pe.supersetGroup ?? null,
       note: '',
       sets: Array.from({ length: sets }, () => ({
         kind: 'working' as const,

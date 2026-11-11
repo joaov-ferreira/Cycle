@@ -3,6 +3,7 @@ import {
   DEFAULT_CYCLE,
   PLAN_LIMITS,
   emptyPlanContent,
+  supersetLayout,
   uniqueId,
   validatePlanContent,
   type CycleConfig,
@@ -25,6 +26,8 @@ describe('PLAN_LIMITS (SPEC §3.1)', () => {
       restSeconds: { min: 0, max: 900 },
       startLoadKg: { min: 0, max: 1000, maxDecimals: 2 },
       note: { max: 200 },
+      supersetGroup: { min: 1, max: 10 },
+      supersetSize: { min: 2, max: 4 },
       sessionsPerWeek: { min: 1, max: 14 },
       loadWeeks: { min: 1, max: 16 },
       deloadWeeks: { min: 0, max: 2 },
@@ -230,5 +233,119 @@ describe('emptyPlanContent', () => {
       sessionsPerWeek: 1,
       cycle: DEFAULT_CYCLE,
     });
+  });
+});
+
+describe('superset validation (SPEC-v3 §4.1)', () => {
+  /** One workout with `labels.length` exercises carrying the given labels (undefined = none). */
+  const withLabels = (labels: (string | undefined)[]) => (c: PlanContent) => {
+    c.workouts[0].exercises = labels.map((label, i) => ({
+      id: `w1e${i + 1}`,
+      exerciseId: 'bench',
+      sets: 3,
+      repMin: 8,
+      repMax: 12,
+      ...(label === undefined ? {} : { supersetGroup: label }),
+    }));
+  };
+
+  it('accepts a pair, a group of 4 and a label of 10 characters', () => {
+    expect(issuesAfter(withLabels(['A', 'A']))).toEqual([]);
+    expect(issuesAfter(withLabels(['A', 'A', 'A', 'A', undefined]))).toEqual([]);
+    expect(issuesAfter(withLabels(['a'.repeat(10), 'a'.repeat(10)]))).toEqual([]);
+    expect(issuesAfter(withLabels(['A', 'A', undefined, 'B', 'B', 'B']))).toEqual([]);
+  });
+
+  it('supersetSize: a label used by a single exercise, on that exercise', () => {
+    expect(issuesAfter(withLabels(['A', undefined, undefined]))).toEqual([
+      { path: 'workouts[0].exercises[0].supersetGroup', code: 'supersetSize' },
+    ]);
+  });
+
+  it('supersetSize: more than 4 exercises, on the first exercise of the group', () => {
+    expect(issuesAfter(withLabels([undefined, 'A', 'A', 'A', 'A', 'A']))).toEqual([
+      { path: 'workouts[0].exercises[1].supersetGroup', code: 'supersetSize' },
+    ]);
+  });
+
+  it('supersetNotAdjacent: reported on the later exercise', () => {
+    expect(issuesAfter(withLabels(['A', 'A', undefined, 'A']))).toEqual([
+      { path: 'workouts[0].exercises[3].supersetGroup', code: 'supersetNotAdjacent' },
+    ]);
+  });
+
+  it('supersetNotAdjacent when another label sits between the two', () => {
+    expect(issuesAfter(withLabels(['A', 'B', 'A', 'B']))).toEqual([
+      { path: 'workouts[0].exercises[2].supersetGroup', code: 'supersetNotAdjacent' },
+      { path: 'workouts[0].exercises[3].supersetGroup', code: 'supersetNotAdjacent' },
+    ]);
+  });
+
+  it('the same label in different workouts is independent', () => {
+    const issues = issuesAfter((c) => {
+      withLabels(['A', 'A'])(c);
+      c.workouts[1].exercises = [
+        { id: 'w2e1', exerciseId: 'bench', sets: 1, repMin: 1, repMax: 5, supersetGroup: 'A' },
+        { id: 'w2e2', exerciseId: 'bench', sets: 1, repMin: 1, repMax: 5, supersetGroup: 'A' },
+      ];
+    });
+    expect(issues).toEqual([]);
+  });
+
+  it('required for a blank label and tooLong beyond 10 characters (after trimming)', () => {
+    expect(issuesAfter(withLabels(['  ', undefined]))).toEqual([
+      { path: 'workouts[0].exercises[0].supersetGroup', code: 'required' },
+    ]);
+    expect(issuesAfter(withLabels(['a'.repeat(11), 'a'.repeat(11)]))).toEqual([
+      { path: 'workouts[0].exercises[0].supersetGroup', code: 'tooLong' },
+      { path: 'workouts[0].exercises[1].supersetGroup', code: 'tooLong' },
+    ]);
+    expect(issuesAfter(withLabels([' A ', 'A']))).toEqual([]);
+  });
+});
+
+describe('supersetLayout (SPEC-v3 §4.1)', () => {
+  const layout = (labels: (string | null | undefined)[]) =>
+    supersetLayout(labels.map((supersetGroup) => ({ supersetGroup })));
+
+  it('is one single block per exercise without groups', () => {
+    expect(layout([undefined, null, undefined])).toEqual([
+      { indices: [0], label: null },
+      { indices: [1], label: null },
+      { indices: [2], label: null },
+    ]);
+  });
+
+  it('is empty for no exercises', () => {
+    expect(layout([])).toEqual([]);
+  });
+
+  it('groups one pair', () => {
+    expect(layout(['A', 'A', undefined])).toEqual([
+      { indices: [0, 1], label: 'A' },
+      { indices: [2], label: null },
+    ]);
+  });
+
+  it('a group of 3 followed by a single', () => {
+    expect(layout(['A', 'A', 'A', null])).toEqual([
+      { indices: [0, 1, 2], label: 'A' },
+      { indices: [3], label: null },
+    ]);
+  });
+
+  it('a label repeated non-adjacently gives two separate blocks (and a lone label is a single)', () => {
+    expect(layout(['A', 'A', 'B', 'A', 'A'])).toEqual([
+      { indices: [0, 1], label: 'A' },
+      { indices: [2], label: null },
+      { indices: [3, 4], label: 'A' },
+    ]);
+  });
+
+  it('works for objects without the property at all', () => {
+    expect(supersetLayout([{}, {}])).toEqual([
+      { indices: [0], label: null },
+      { indices: [1], label: null },
+    ]);
   });
 });
