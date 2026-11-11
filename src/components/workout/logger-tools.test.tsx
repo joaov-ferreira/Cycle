@@ -246,6 +246,8 @@ describe('exercise note', () => {
     });
     expect(await card(0).findByText('Seat on position 4')).toBeOnTheScreen();
 
+    expect(card(0).queryByRole('button', { name: 'Edit exercise note' })).toBeNull();
+    await fireEvent.press(card(0).getByRole('button', { name: 'Exercise options' }));
     await fireEvent.press(card(0).getByRole('button', { name: 'Edit exercise note' }));
     const field = card(0).getByLabelText('Exercise note');
     expect(field).toHaveDisplayValue('Seat on position 4');
@@ -260,7 +262,8 @@ describe('exercise note', () => {
 
   it('rejects a note above 200 characters with a localized message', async () => {
     const { store } = await renderWorkout({ prepare: startA });
-    await fireEvent.press(await card(0).findByRole('button', { name: 'Edit exercise note' }));
+    await fireEvent.press(await card(0).findByRole('button', { name: 'Exercise options' }));
+    await fireEvent.press(card(0).getByRole('button', { name: 'Edit exercise note' }));
     await fireEvent.changeText(card(0).getByLabelText('Exercise note'), 'x'.repeat(201));
     expect(await card(0).findByText('Use at most 200 characters')).toBeOnTheScreen();
     expect(selectExerciseNote(store.getState(), 'barbell-bench-press')).toBe('');
@@ -271,10 +274,11 @@ describe('exercise note', () => {
       language: 'pt-BR',
       prepare: startA,
     });
-    await fireEvent.press(await card(0).findByRole('button', { name: 'Adicionar nota da sessão' }));
+    await fireEvent.press(await card(0).findByRole('button', { name: 'Opções do exercício' }));
+    expect(card(0).getByRole('button', { name: 'Editar nota do exercício' })).toBeOnTheScreen();
+    await fireEvent.press(card(0).getByRole('button', { name: 'Adicionar nota da sessão' }));
     await fireEvent.changeText(card(0).getByLabelText('Nota da sessão'), 'Pesado');
     await waitFor(() => expect(store.getState().currentWorkout!.exercises[0].note).toBe('Pesado'));
-    expect(card(0).getByRole('button', { name: 'Editar nota do exercício' })).toBeOnTheScreen();
   });
 });
 

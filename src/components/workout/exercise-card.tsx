@@ -210,6 +210,24 @@ export const ExerciseCard = memo(function ExerciseCard({
           />
           <Button
             variant="secondary"
+            label={t('tools.editNote')}
+            onPress={() => {
+              setMenuOpen(false);
+              setEditingNote(true);
+            }}
+          />
+          {!noteOpen ? (
+            <Button
+              variant="secondary"
+              label={t('workout.note')}
+              onPress={() => {
+                setMenuOpen(false);
+                setNoteOpen(true);
+              }}
+            />
+          ) : null}
+          <Button
+            variant="secondary"
             label={t('workout.removeExercise')}
             onPress={() => {
               setMenuOpen(false);
@@ -241,14 +259,11 @@ export const ExerciseCard = memo(function ExerciseCard({
           <Button variant="secondary" label={t('workout.done')} onPress={() => setEditingNote(false)} />
         </View>
       ) : (
-        <>
-          {savedNote !== '' ? (
-            <Text testID={`exercise-note-${index}`} tone="secondary">
-              {savedNote}
-            </Text>
-          ) : null}
-          <Button variant="secondary" label={t('tools.editNote')} onPress={() => setEditingNote(true)} />
-        </>
+        savedNote !== '' ? (
+          <Text testID={`exercise-note-${index}`} tone="secondary">
+            {savedNote}
+          </Text>
+        ) : null
       )}
 
       {noteOpen ? (
@@ -257,9 +272,7 @@ export const ExerciseCard = memo(function ExerciseCard({
           value={exercise.note}
           onSave={(text) => setExerciseNote(index, text)}
         />
-      ) : (
-        <Button variant="secondary" label={t('workout.note')} onPress={() => setNoteOpen(true)} />
-      )}
+      ) : null}
 
       <SetRowHeader />
       {exercise.sets.map((set, setIndex) => {
