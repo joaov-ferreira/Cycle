@@ -4,10 +4,12 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { layout, spacing } from '@/constants/theme';
 import { countedSets, volume } from '@/domain/metrics';
 import { bestE1rm, newRecords, topWeight } from '@/domain/stats';
+import type { PrescribedSet } from '@/domain/prescription';
 import type { SetErrors, Workout, WorkoutExercise } from '@/domain/workout';
 import { useI18n } from '@/i18n';
-import { selectExerciseSessions, selectFindExercise, useAppStore } from '@/state';
+import { selectExerciseSessions, selectFindExercise, selectPrescriptionComparison, useAppStore } from '@/state';
 
+import { useStrengthFormat } from '../progress/strength-format';
 import { SetRow, SetRowHeader, useExerciseName, type SetRowChange } from '../shared';
 import { Button, Card, Text, TextField } from '../ui';
 import { WorkoutBadge } from './workout-badge';
@@ -31,6 +33,8 @@ export type ExerciseDetailBlockProps = {
   workout: Workout;
   /** The stored exercise (what the read-only view and the comparison use). */
   exercise: WorkoutExercise;
+  /** Position of the exercise in the stored workout (for the prescribed-vs-actual comparison). */
+  exerciseIndex: number;
   editing?: ExerciseEditing;
   onOpenExercise: (exerciseId: string) => void;
 };
@@ -49,12 +53,16 @@ function useSignedKg() {
 export function ExerciseDetailBlock({
   workout,
   exercise,
+  exerciseIndex,
   editing,
   onOpenExercise,
 }: ExerciseDetailBlockProps) {
   const { t, formatKg } = useI18n();
   const nameOf = useExerciseName();
   const signedKg = useSignedKg();
+  const format = useStrengthFormat();
+  const comparison = useAppStore((s) => selectPrescriptionComparison(s, workout.id, exerciseIndex));
+  const prescription = exercise.prescription ?? null;
   const find = useAppStore(selectFindExercise);
   const sessions = useAppStore((s) => selectExerciseSessions(s, exercise.exerciseId));
 
@@ -97,6 +105,12 @@ export function ExerciseDetailBlock({
         <Text variant="heading">{name}</Text>
       </Pressable>
 
+      {prescription ? (
+        <Text tone="secondary" testID="history-origin">
+          {format.origin(prescription.source)}
+        </Text>
+      ) : null}
+
       {editing ? (
         <View style={styles.editing}>
           <SetRowHeader />
@@ -127,8 +141,11 @@ export function ExerciseDetailBlock({
         </View>
       ) : (
         <View style={styles.sets}>
-          {exercise.sets.map((set, setIndex) =>
-            set.kind === 'drop' ? (
+          {exercise.sets.map((set, setIndex) => {
+            const working = exercise.sets.slice(0, setIndex).filter((s) => s.kind === 'working').length;
+            const pair = set.kind === 'working' ? (comparison?.pairs[working] ?? null) : null;
+            const isExtra = comparison !== null && set.kind === 'working' && working >= comparison.pairs.length && set.done;
+            return set.kind === 'drop' ? (
               <View key={setIndex} style={styles.dropLine}>
                 <Text tabular>
                   {t('history.dropSetLine', { weight: kg(set.weightKg ?? 0), reps: set.reps ?? 0 })}
@@ -141,7 +158,7 @@ export function ExerciseDetailBlock({
                 </Text>
                 {set.rir !== null ? (
                   <Text tone="secondary" tabular>
-                    {t('history.rir', { rir: set.rir })}
+                    {format.effort(set.rir)}
                   </Text>
                 ) : null}
                 {set.kind === 'warmup' ? (
@@ -149,14 +166,44 @@ export function ExerciseDetailBlock({
                     {t('common.warmupSet')}
                   </Text>
                 ) : null}
+                {pair ? (
+                  <PairNotes
+                    prescribed={pair.prescribed}
+                    missed={pair.missed}
+                    deltaKg={pair.deltaKg}
+                    deltaReps={pair.deltaReps}
+                  />
+                ) : null}
+                {isExtra ? (
+                  <Text tone="accent" variant="label">
+                    {t('history.extraSet')}
+                  </Text>
+                ) : null}
               </View>
-            ),
+            );
+          })}
+          {comparison?.pairs.map((pair, index) =>
+            pair.logged === null ? (
+              <View key={`missed-${index}`} style={styles.setLine}>
+                <PairNotes prescribed={pair.prescribed} missed deltaKg={null} deltaReps={null} />
+              </View>
+            ) : null,
           )}
           {exercise.note ? (
             <Text tone="secondary">{t('history.exerciseNote', { note: exercise.note })}</Text>
           ) : null}
         </View>
       )}
+
+      {comparison ? (
+        <Text tabular testID="history-prescription-totals">
+          {t('history.prescriptionTotals', {
+            prescribed: kg(comparison.prescribedTonnage),
+            actual: kg(comparison.actualTonnage),
+            delta: signedKg(comparison.deltaTonnage),
+          })}
+        </Text>
+      ) : null}
 
       {hasWork ? (
         <View style={styles.stats}>
@@ -194,6 +241,48 @@ export function ExerciseDetailBlock({
     </Card>
   );
 }
+
+/** The prescribed values of a set and how the logged set differs (SPEC-v4 §6.4). */
+function PairNotes({
+  prescribed,
+  missed,
+  deltaKg,
+  deltaReps,
+}: {
+  prescribed: PrescribedSet;
+  missed: boolean;
+  deltaKg: number | null;
+  deltaReps: number | null;
+}) {
+  const { t } = useI18n();
+  const format = useStrengthFormat();
+  const weight = prescribed.kg === null ? t('strength.prescription.noLoad') : format.kg(prescribed.kg, 2);
+  const reps = prescribed.amrap ? `${prescribed.reps}+` : String(prescribed.reps);
+  return (
+    <>
+      <Text tone="secondary" tabular>
+        {t('history.prescribedSet', { weight, reps })}
+      </Text>
+      {missed ? (
+        <Text tone="danger" variant="label">
+          {t('history.missedSet')}
+        </Text>
+      ) : null}
+      {deltaKg !== null && deltaKg !== 0 ? (
+        <Text tone="secondary" tabular>
+          {format.signedKg(deltaKg, 2)}
+        </Text>
+      ) : null}
+      {deltaReps !== null && deltaReps !== 0 ? (
+        <Text tone="secondary" tabular>
+          {t('history.repsDelta', { count: Math.abs(deltaReps), delta: signedCount(deltaReps) })}
+        </Text>
+      ) : null}
+    </>
+  );
+}
+
+const signedCount = (value: number): string => `${value > 0 ? '+' : '−'}${Math.abs(value)}`;
 
 const styles = StyleSheet.create({
   nameButton: { minHeight: layout.minTouchTarget, justifyContent: 'center' },

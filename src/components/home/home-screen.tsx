@@ -4,13 +4,14 @@ import { StyleSheet, View } from 'react-native';
 import { spacing } from '@/constants/theme';
 import { useT } from '@/i18n';
 import { selectDeloadAdvice, selectHomeSummary } from '@/state/selectors';
+import { selectMissingMaxes } from '@/state/selectors-v4';
 import { selectBackupReminder, selectWeekStreak } from '@/state/selectors-v3';
 import { WorkoutInProgressError } from '@/state/errors';
 import { useAppStore } from '@/state/app-store-context';
 
 import { Button, Card, Screen, Text } from '../ui';
 import { CycleSummary } from './cycle-summary';
-import { BackupReminderCard, CycleCompleteBanner, StreakLine } from './home-notices';
+import { BackupReminderCard, CycleCompleteBanner, MissingMaxesNotice, StreakLine } from './home-notices';
 import { NextWorkoutCard } from './next-workout-card';
 import { RecentWorkouts } from './recent-workouts';
 import { ResumeCard } from './resume-card';
@@ -28,6 +29,8 @@ export type HomeScreenProps = {
   onOpenPlan: () => void;
   /** Opens a cycle's report (`/plans/<id>/cycles/<n>`). */
   onOpenCycleReport?: (planId: number, cycleNumber: number) => void;
+  /** Opens the 1RMs screen (`/maxes`). */
+  onOpenMaxes?: () => void;
   /** Opens Settings (`/settings`), where the backup lives. */
   onOpenSettings?: () => void;
   /** The reference time for the streak and the backup reminder (defaults to the current time). */
@@ -44,6 +47,7 @@ export function HomeScreen({
   onNewPlan,
   onOpenPlan,
   onOpenCycleReport,
+  onOpenMaxes,
   onOpenSettings,
   now,
 }: HomeScreenProps) {
@@ -57,6 +61,7 @@ export function HomeScreen({
   const advice = useAppStore(selectDeloadAdvice);
   const startPlanWorkout = useAppStore((s) => s.startPlanWorkout);
   const startFreeWorkout = useAppStore((s) => s.startFreeWorkout);
+  const completeRestDay = useAppStore((s) => s.completeRestDay);
   const [error, setError] = useState<string | null>(null);
 
   const run: RunAction = async (action, next) => {
@@ -71,6 +76,7 @@ export function HomeScreen({
 
   const inProgress = summary.inProgress !== null;
   const plan = summary.activePlan;
+  const missingMaxes = useAppStore((s) => (plan ? selectMissingMaxes(s, plan.id) : NO_IDS));
 
   return (
     <Screen title={t('home.title')} testID="screen-home">
@@ -96,8 +102,13 @@ export function HomeScreen({
             <NextWorkoutCard
               workout={summary.nextWorkout}
               deload={summary.cycle?.phase === 'deload'}
+              cycleWeek={summary.cycle?.phase === 'deload' ? 1 : (summary.cycle?.week ?? 1)}
               onStart={() => run(() => startPlanWorkout(), onOpenWorkout)}
+              onCompleteRestDay={() => run(() => completeRestDay(plan.id))}
             />
+          ) : null}
+          {missingMaxes.length > 0 ? (
+            <MissingMaxesNotice exerciseIds={missingMaxes} onOpenMaxes={() => onOpenMaxes?.()} />
           ) : null}
           {summary.cycle ? (
             <CycleSummary
@@ -146,6 +157,8 @@ function NoPlanContent({ onNewPlan }: { onNewPlan: (kind: NewPlanKind) => void }
     </View>
   );
 }
+
+const NO_IDS: readonly string[] = [];
 
 const styles = StyleSheet.create({
   stack: { gap: spacing.lg },

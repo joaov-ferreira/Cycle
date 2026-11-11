@@ -9,6 +9,7 @@ import { selectCycleReport } from '@/state/selectors-v3';
 
 import { EmptyState, exerciseName, muscleLabelKey } from '../shared';
 import { Button, Card, Screen, Text } from '../ui';
+import { CycleStrengthSection } from './cycle-strength-section';
 
 export type CycleReportScreenProps = {
   planId: number;
@@ -152,6 +153,7 @@ export function CycleReportScreen({
           ) : null}
         </>
       )}
+      <CycleStrengthSection planId={planId} cycleNumber={cycleNumber} />
       <Button label={t('cycleReport.reviewWithAi')} onPress={() => onReviewWithAi(planId)} />
     </Screen>
   );

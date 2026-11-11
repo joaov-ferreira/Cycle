@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 
 import { ProgressScreen } from '@/components/progress/progress-screen';
 
@@ -12,6 +12,8 @@ export default function ProgressRoute() {
       initialExerciseId={exerciseId}
       onOpenExercise={(id) => router.push({ pathname: '/exercises/[id]', params: { id } })}
       onOpenWorkout={(id) => router.push({ pathname: '/history/[id]', params: { id: String(id) } })}
+      onOpenMax={(id) => router.push(`/maxes/${id}` as Href)}
+      onOpenMaxes={() => router.push('/maxes' as Href)}
     />
   );
 }
