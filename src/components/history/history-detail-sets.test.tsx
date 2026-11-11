@@ -84,9 +84,8 @@ describe('HistoryDetailScreen: drop sets', () => {
     const { store, repos, workout } = await seedDropWorkout();
     await renderInApp(detail(workout.id), { store, repos });
     await fireEvent.press(await screen.findByRole('button', { name: 'Edit' }));
-    // Toggling the kind of the drop set does not turn it into a warm-up or a working set.
-    await fireEvent.press(screen.getAllByRole('button', { name: 'Set 4 type' })[0]);
-    await fireEvent.changeText(screen.getAllByLabelText('Set 4 weight')[0], '30');
+    // The shared SetRow labels a drop set's fields "Drop set …" and its marker cannot be toggled.
+    await fireEvent.changeText(screen.getAllByLabelText('Drop set weight')[0], '30');
     await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findByRole('button', { name: 'Edit' })).toBeOnTheScreen();
