@@ -6,17 +6,41 @@
  * Only counted sets (done working sets with a weight and reps ≥ 1, `countedSets`) are used.
  */
 import { allowsZeroLoad, type Equipment, type Exercise, type MuscleGroup } from './exercise';
+import { DEFAULT_E1RM_FORMULA, type E1rmFormula, estimate1rm } from './e1rm';
 import { countedSets, e1rm, volume } from './metrics';
 import { periodStart, type Period } from './period';
 import type { ExerciseSession, LoggedSet, Workout } from './workout';
 
-/** Best e1RM over the counted sets with a weight above 0 (SPEC §6.1); `null` when none. */
-export function bestE1rm(sets: readonly LoggedSet[]): number | null {
+/**
+ * Best e1RM over the counted sets with a weight above 0 (SPEC §6.1); `null` when none. The
+ * estimate uses `formula` (SPEC-v4 §3.1); the default is Epley.
+ */
+export function bestE1rm(sets: readonly LoggedSet[], formula: E1rmFormula = DEFAULT_E1RM_FORMULA): number | null {
   let best: number | null = null;
   for (const set of countedSets(sets)) {
-    const value = e1rm(set.weightKg, set.reps, set.rir ?? 0);
+    const value = e1rm(set.weightKg, set.reps, set.rir ?? 0, formula);
     if (value !== null && (best === null || value > best)) best = value;
   }
+  return best;
+}
+
+/**
+ * The strength estimate of a session (SPEC-v4 §3.2): the best e1RM among the counted sets whose
+ * estimate has `normal` confidence. `setIndex` is the position in `sets`; a tie keeps the first
+ * set. `null` when no counted set has a normal estimate (e.g. only 15-rep sets).
+ */
+export function strengthE1rm(
+  sets: readonly LoggedSet[],
+  formula: E1rmFormula = DEFAULT_E1RM_FORMULA,
+): { kg: number; setIndex: number } | null {
+  const counted = new Set<LoggedSet>(countedSets(sets));
+  let best: { kg: number; setIndex: number } | null = null;
+  sets.forEach((set, setIndex) => {
+    if (!counted.has(set) || set.weightKg === null || set.reps === null) return;
+    const estimate = estimate1rm(set.weightKg, set.reps, set.rir ?? 0, formula);
+    if (estimate === null || estimate.confidence !== 'normal') return;
+    if (best === null || estimate.kg > best.kg) best = { kg: estimate.kg, setIndex };
+  });
   return best;
 }
 
@@ -55,10 +79,10 @@ export interface SeriesPoint {
 }
 
 /** The value of a metric for one session's sets; `null` when the session has no counted set. */
-function metricValue(sets: readonly LoggedSet[], metric: Metric): number | null {
+function metricValue(sets: readonly LoggedSet[], metric: Metric, formula: E1rmFormula): number | null {
   switch (metric) {
     case 'e1rm':
-      return bestE1rm(sets);
+      return bestE1rm(sets, formula);
     case 'topWeight':
       return topWeight(sets);
     case 'reps':
@@ -75,19 +99,21 @@ function compareOldestFirst(a: ExerciseSession, b: ExerciseSession): number {
 
 /**
  * One point per session that has a value for the metric, oldest first. With `range`, only the
- * sessions completed at or after the start of the period (SPEC §9.1).
+ * sessions completed at or after the start of the period (SPEC §9.1). `formula` applies to the
+ * e1RM metric only (SPEC-v4 §3.1).
  */
 export function exerciseSeries(
   sessions: readonly ExerciseSession[],
   metric: Metric,
   range?: { period: Period; now: Date },
+  formula: E1rmFormula = DEFAULT_E1RM_FORMULA,
 ): SeriesPoint[] {
   const start = range ? periodStart(range.period, range.now) : null;
   const startMs = start === null ? -Infinity : start.getTime();
   const points: SeriesPoint[] = [];
   for (const session of [...sessions].sort(compareOldestFirst)) {
     if (Date.parse(session.completedAt) < startMs) continue;
-    const value = metricValue(session.sets, metric);
+    const value = metricValue(session.sets, metric, formula);
     if (value !== null) {
       points.push({ workoutId: session.workoutId, at: session.completedAt, value });
     }
@@ -118,9 +144,12 @@ export interface PersonalRecords {
 
 /**
  * Weight PR (heaviest counted set; ties go to more reps, then to the earliest session) and
- * e1RM PR (highest e1RM; ties go to the earliest session).
+ * e1RM PR (highest e1RM by `formula`; ties go to the earliest session).
  */
-export function personalRecords(sessions: readonly ExerciseSession[]): PersonalRecords {
+export function personalRecords(
+  sessions: readonly ExerciseSession[],
+  formula: E1rmFormula = DEFAULT_E1RM_FORMULA,
+): PersonalRecords {
   let weight: WeightRecord | null = null;
   let e1rmRecord: E1rmRecord | null = null;
 
@@ -140,7 +169,7 @@ export function personalRecords(sessions: readonly ExerciseSession[]): PersonalR
       }
     }
 
-    const best = bestE1rm(session.sets);
+    const best = bestE1rm(session.sets, formula);
     if (best !== null && (e1rmRecord === null || best > e1rmRecord.valueKg)) {
       e1rmRecord = { valueKg: best, at: session.completedAt, workoutId: session.workoutId };
     }
@@ -161,17 +190,19 @@ export interface NewRecord {
  * The records a completed workout sets (SPEC §9.2). `historyBefore` returns the sessions of an
  * exercise before this workout. The first session of an exercise sets no record; a value equal
  * to the previous record is not a record. Order: workout exercise order, `weight` before `e1rm`.
+ * The e1RM records are compared with `formula`.
  */
 export function newRecords(
   workout: Workout,
   historyBefore: (exerciseId: string) => readonly ExerciseSession[],
+  formula: E1rmFormula = DEFAULT_E1RM_FORMULA,
 ): NewRecord[] {
   const records: NewRecord[] = [];
   for (const exercise of workout.exercises) {
     const history = historyBefore(exercise.exerciseId);
     if (history.length === 0) continue;
 
-    const previous = personalRecords(history);
+    const previous = personalRecords(history, formula);
     const top = topWeight(exercise.sets);
     if (previous.weight !== null && top !== null && top > previous.weight.valueKg) {
       records.push({
@@ -182,7 +213,7 @@ export function newRecords(
       });
     }
 
-    const best = bestE1rm(exercise.sets);
+    const best = bestE1rm(exercise.sets, formula);
     if (previous.e1rm !== null && best !== null && best > previous.e1rm.valueKg) {
       records.push({
         exerciseId: exercise.exerciseId,
