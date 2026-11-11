@@ -228,9 +228,9 @@ describe('WorkoutScreen: logging', () => {
 
   it('keeps an exercise note, collapsed behind a Note action while empty', async () => {
     const { store } = await renderWorkout({ prepare: startA });
-    expect(card(0).queryByLabelText('Exercise note')).toBeNull();
-    await fireEvent.press(await card(0).findByRole('button', { name: 'Note' }));
-    await fireEvent.changeText(card(0).getByLabelText('Exercise note'), 'Felt heavy');
+    expect(card(0).queryByLabelText('Session note')).toBeNull();
+    await fireEvent.press(await card(0).findByRole('button', { name: 'Add session note' }));
+    await fireEvent.changeText(card(0).getByLabelText('Session note'), 'Felt heavy');
     await waitFor(() => expect(store.getState().currentWorkout!.exercises[0].note).toBe('Felt heavy'));
   });
 
@@ -241,8 +241,8 @@ describe('WorkoutScreen: logging', () => {
         await store.getState().setExerciseNote(0, 'Pause on the chest');
       },
     });
-    expect(await card(0).findByLabelText('Exercise note')).toHaveDisplayValue('Pause on the chest');
-    expect(card(0).queryByRole('button', { name: 'Note' })).toBeNull();
+    expect(await card(0).findByLabelText('Session note')).toHaveDisplayValue('Pause on the chest');
+    expect(card(0).queryByRole('button', { name: 'Add session note' })).toBeNull();
   });
 
   it('saves the workout notes and rejects over-long ones with a localized message', async () => {

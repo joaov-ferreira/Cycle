@@ -8,7 +8,8 @@ import { actionErrorMessage } from './action-error';
  * Runs store actions without ever letting a rejection escape: the rejection becomes a localized
  * message in `error`. `run` resolves to `true` when the action succeeded.
  */
-export function useAction() {
+export function useAction(options: { noteMax?: number } = {}) {
+  const { noteMax } = options;
   const t = useT();
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
@@ -26,11 +27,11 @@ export function useAction() {
         if (mounted.current) setError(null);
         return true;
       } catch (caught) {
-        if (mounted.current) setError(actionErrorMessage(caught, t));
+        if (mounted.current) setError(actionErrorMessage(caught, t, noteMax));
         return false;
       }
     },
-    [t],
+    [t, noteMax],
   );
 
   return { error, run };

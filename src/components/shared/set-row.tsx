@@ -24,6 +24,8 @@ export type SetRowProps = {
   onToggleDone: () => void;
   onToggleKind: () => void;
   onRemove: () => void;
+  /** Adds a drop set after this set; the action shows on working sets only (SPEC-v3 §4.2). */
+  onAddDrop?: () => void;
   testID?: string;
 };
 
@@ -40,7 +42,9 @@ export const SET_ROW_LAYOUT = {
 } as const;
 
 /** Localized message key for every error code of `SetErrors`. */
-const SET_ERROR_KEYS: { [F in keyof SetErrors]-?: Record<NonNullable<SetErrors[F]>, MessageKey> } = {
+const SET_ERROR_KEYS: {
+  [F in keyof SetErrors]-?: Record<NonNullable<SetErrors[F]>, MessageKey>;
+} = {
   weightKg: {
     required: 'common.setErrors.weightKg.required',
     outOfRange: 'common.setErrors.weightKg.outOfRange',
@@ -93,7 +97,12 @@ function IntegerField({ label, value, placeholder, width, onChange }: IntegerFie
       style={[
         styles.input,
         tabularNumbers,
-        { width, color: colors.text, backgroundColor: colors.surface, borderColor: colors.border },
+        {
+          width,
+          color: colors.text,
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
       ]}
     />
   );
@@ -113,12 +122,24 @@ export function SetRow({
   onToggleDone,
   onToggleKind,
   onRemove,
+  onAddDrop,
   testID,
 }: SetRowProps) {
   const { colors } = useTheme();
   const { t, formatNumber } = useI18n();
   const number = index + 1;
   const warmup = set.kind === 'warmup';
+  const drop = set.kind === 'drop';
+  // A drop set keeps its parent's number: its inputs are named by kind instead.
+  const labels = drop
+    ? {
+        weight: t('workout.dropSetWeight'),
+        reps: t('workout.dropSetReps'),
+        rir: t('workout.dropSetRir'),
+        done: t('workout.dropSetDone'),
+        remove: t('workout.removeDropSet'),
+      }
+    : null;
   const numberText = formatNumber(number, { maximumFractionDigits: 0 });
   const messages = (Object.keys(errors ?? {}) as (keyof SetErrors)[])
     .map((field) => {
@@ -134,21 +155,36 @@ export function SetRow({
     .filter((message): message is string => message !== null);
 
   return (
-    <View testID={testID} style={styles.container}>
+    <View testID={testID} style={[styles.container, drop && styles.dropIndent]}>
       <View testID="set-row-controls" style={styles.line}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('common.setType', { number: numberText })}
-          accessibilityValue={{ text: warmup ? t('common.warmupSet') : t('common.workingSet') }}
-          onPress={onToggleKind}
-          style={[styles.control, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-          <Text variant="label" tone={warmup ? 'accent' : 'primary'}>
-            {warmup ? t('common.warmupMarker') : numberText}
-          </Text>
-        </Pressable>
+        {drop ? (
+          // The marker is not an action: pressing it does nothing.
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('workout.dropSet')}
+            disabled
+            style={[styles.control, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <Text variant="label" tone="accent">
+              {t('workout.dropMarker')}
+            </Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('common.setType', { number: numberText })}
+            accessibilityValue={{
+              text: warmup ? t('common.warmupSet') : t('common.workingSet'),
+            }}
+            onPress={onToggleKind}
+            style={[styles.control, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <Text variant="label" tone={warmup ? 'accent' : 'primary'}>
+              {warmup ? t('common.warmupMarker') : numberText}
+            </Text>
+          </Pressable>
+        )}
         <View testID="set-row-weight" style={styles.weight}>
           <NumberInput
-            label={t('common.setWeight', { number: numberText })}
+            label={labels?.weight ?? t('common.setWeight', { number: numberText })}
             value={set.weightKg}
             rules={WEIGHT_RULES}
             onChange={({ value }) => onChange({ weightKg: value })}
@@ -156,21 +192,21 @@ export function SetRow({
           />
         </View>
         <IntegerField
-          label={t('common.setReps', { number: numberText })}
+          label={labels?.reps ?? t('common.setReps', { number: numberText })}
           value={set.reps}
           placeholder={placeholderReps}
           width={SET_ROW_LAYOUT.reps}
           onChange={(reps) => onChange({ reps })}
         />
         <IntegerField
-          label={t('common.setRir', { number: numberText })}
+          label={labels?.rir ?? t('common.setRir', { number: numberText })}
           value={set.rir}
           width={SET_ROW_LAYOUT.rir}
           onChange={(rir) => onChange({ rir })}
         />
         <Pressable
           accessibilityRole="checkbox"
-          accessibilityLabel={t('common.setDone', { number: numberText })}
+          accessibilityLabel={labels?.done ?? t('common.setDone', { number: numberText })}
           accessibilityState={{ checked: set.done }}
           onPress={onToggleDone}
           style={[
@@ -196,21 +232,37 @@ export function SetRow({
                 weight: lastTime.weightKg,
                 reps: lastTime.reps,
               })}>
-              {t('common.lastTimeValue', { weight: lastTime.weightKg, reps: lastTime.reps })}
+              {t('common.lastTimeValue', {
+                weight: lastTime.weightKg,
+                reps: lastTime.reps,
+              })}
             </Text>
           </View>
         ) : (
           <View />
         )}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('common.removeSet', { number: numberText })}
-          hitSlop={REMOVE_HIT_SLOP}
-          onPress={onRemove}>
-          <Text variant="caption" tone="secondary" style={styles.remove}>
-            {t('common.remove')}
-          </Text>
-        </Pressable>
+        <View style={styles.actions}>
+          {onAddDrop && set.kind === 'working' ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('workout.addDropSet')}
+              hitSlop={REMOVE_HIT_SLOP}
+              onPress={onAddDrop}>
+              <Text variant="caption" tone="accent" style={styles.remove}>
+                {t('workout.addDrop')}
+              </Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={labels?.remove ?? t('common.removeSet', { number: numberText })}
+            hitSlop={REMOVE_HIT_SLOP}
+            onPress={onRemove}>
+            <Text variant="caption" tone="secondary" style={styles.remove}>
+              {t('common.remove')}
+            </Text>
+          </Pressable>
+        </View>
       </View>
       {messages.map((message) => (
         <Text key={message} variant="caption" tone="danger" accessibilityLiveRegion="polite">
@@ -223,6 +275,8 @@ export function SetRow({
 
 const styles = StyleSheet.create({
   container: { gap: spacing.xs },
+  dropIndent: { marginLeft: spacing.lg },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
   line: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -236,7 +290,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  weight: { flexGrow: 1, flexShrink: 1, minWidth: SET_ROW_LAYOUT.weightMinWidth },
+  weight: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: SET_ROW_LAYOUT.weightMinWidth,
+  },
   input: {
     ...typography.body,
     // Web: an <input> has an intrinsic minimum width and shrinks by default; pin it to its column.
@@ -255,6 +313,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.md,
   },
-  lastTime: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center', flexShrink: 1 },
+  lastTime: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'center',
+    flexShrink: 1,
+  },
   remove: { textDecorationLine: 'underline' },
 });
