@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { useState } from 'react';
 import * as Localization from 'expo-localization';
 
 import { createMemoryRepositories } from '@/data/memory/memory-repositories';
@@ -6,6 +7,8 @@ import type { Repositories } from '@/data/repositories';
 import { useT } from '@/i18n';
 import { createAppStore } from '@/state/app-store';
 import { useAppStore } from '@/state/app-store-context';
+
+import { createFakeNotifier } from '@/test-utils/seed';
 
 import { AppProviders } from './app-providers';
 import { Button, Screen, Text } from './ui';
@@ -152,6 +155,46 @@ describe('AppProviders', () => {
     );
     await fireEvent.press(await screen.findByRole('button', { name: 'start' }));
     expect(await screen.findByText('startedAt:2031-05-06T07:08:09.000Z')).toBeOnTheScreen();
+  });
+
+  it('passes the notifier and the app version to the store it creates', async () => {
+    const repos = createMemoryRepositories();
+    const notifier = createFakeNotifier();
+    function Tools() {
+      const state = useAppStore((s) => s);
+      const [version, setVersion] = useState('');
+      return (
+        <>
+          <Button
+            label="rest"
+            onPress={async () => {
+              await state.startFreeWorkout('Free');
+              await state.addExercise('barbell-bench-press');
+              await state.updateSet(0, 0, { weightKg: 40, reps: 10 });
+              await state.toggleSetDone(0, 0);
+            }}
+          />
+          <Button
+            label="backup"
+            onPress={async () => {
+              const { text } = await state.buildBackupFile();
+              setVersion(JSON.parse(text).appVersion);
+            }}
+          />
+          <Text>{`version:${version}`}</Text>
+        </>
+      );
+    }
+    await render(
+      <AppProviders openRepositories={() => Promise.resolve(repos)} notifier={notifier} appVersion="3.0.0">
+        <Tools />
+      </AppProviders>,
+    );
+    await fireEvent.press(await screen.findByRole('button', { name: 'backup' }));
+    expect(await screen.findByText('version:3.0.0')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'rest' }));
+    await waitFor(() => expect(notifier.calls).toHaveLength(1));
+    expect(notifier.calls[0]).toMatchObject({ type: 'schedule', info: { exerciseId: 'barbell-bench-press', setNumber: 1 } });
   });
 
   it('provides a pre-built store without booting it twice', async () => {

@@ -270,6 +270,31 @@ describe('suggest: easy rule', () => {
     expect(easy([3, 3, 3]).loadKg).toBe(45);
     expect(easy([3, 2, 3]).loadKg).toBe(42.5);
   });
+  describe('with the session target RIR (SPEC-v3 §5)', () => {
+    const withSessionTarget = (rirs: number[], sessionTarget?: number | null, planTarget?: number) =>
+      run([session(rirs.map((r) => work(40, 12, r)), { targetRir: sessionTarget })], {
+        target: { ...target, targetRir: planTarget },
+      });
+
+    it('last session target 3: logged RIR 4 is not easy, RIR 5 is', () => {
+      expect(withSessionTarget([4, 4, 4], 3).reason).toBe('hitTopOfRange');
+      expect(withSessionTarget([5, 5, 5], 3).reason).toBe('hitTopOfRangeEasy');
+    });
+    it('the session target wins over the plan target', () => {
+      expect(withSessionTarget([4, 4, 4], 3, 1).reason).toBe('hitTopOfRange');
+      expect(withSessionTarget([3, 3, 3], 0, 2).reason).toBe('hitTopOfRangeEasy');
+    });
+    it('a session target of 0 is used (not treated as missing)', () => {
+      expect(withSessionTarget([2, 2, 2], 0).reason).toBe('hitTopOfRangeEasy');
+      expect(withSessionTarget([1, 1, 1], 0).reason).toBe('hitTopOfRange');
+    });
+    it('without a session target falls back to the plan target, then to 1', () => {
+      expect(withSessionTarget([4, 4, 4], undefined, 2).reason).toBe('hitTopOfRangeEasy');
+      expect(withSessionTarget([3, 3, 3], null, 2).reason).toBe('hitTopOfRange');
+      expect(withSessionTarget([3, 3, 3], null).reason).toBe('hitTopOfRangeEasy');
+      expect(withSessionTarget([2, 2, 2], null).reason).toBe('hitTopOfRange');
+    });
+  });
   it('a set with null RIR disables the easy rule', () => {
     expect(easy([3, null, 3]).reason).toBe('hitTopOfRange');
   });

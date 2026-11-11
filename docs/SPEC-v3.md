@@ -2,9 +2,9 @@
 
 > Extends [`SPEC.md`](./SPEC.md) (v2). Everything in the v2 spec stays valid unless this document
 > says otherwise; section references such as "v2 §6.2" point to `SPEC.md`. The implementation plan is
-> [`PLAN-v3.md`](./PLAN-v3.md). v3 starts only after v2 is merged into `main`.
+> [`PLAN.md`](./PLAN.md). v2 is merged into `main` (PR #2).
 
-- **Status:** v3.0 (approved for implementation after v2)
+- **Status:** v3.0 (approved for implementation)
 - **Theme:** v2 made CYCLE a logbook that plans and suggests. v3 makes it the tool the user keeps
   open during the session, closes the loop with AI assistants, deepens the periodization and
   protects the data.
@@ -126,7 +126,8 @@ sets, computed from the first working set's weight; warm-up sets that are not do
 
 - `PlanExercise.supersetGroup?: string` (1–10 chars). **Consecutive** exercises of a workout with the
   same label form a superset of 2–4 exercises. Validation codes: `supersetNotAdjacent`,
-  `supersetSize`. `WorkoutExercise.supersetGroup: string | null` is the snapshot.
+  `supersetSize`. `WorkoutExercise.supersetGroup?: string | null` is the snapshot (optional in the
+  type so workouts stored by v2 load unchanged).
 - Import/export: JSON property `"superset": "A"` on an exercise (IMPORT_FORMAT.md, optional, no
   version change). Plain text: a line starting with `+` joins the previous exercise's superset:
 
@@ -136,8 +137,8 @@ sets, computed from the first working set's weight; warm-up sets that are not do
   ```
 - Plan editor: "Link with next" / "Unlink" on an exercise.
 - Logger: the group is one card labeled **Superset** (pt-BR: "Bi-set" for 2, "Tri-set" for 3,
-  "Série gigante" for 4), sets shown round by round; the rest timer starts after the last
-  exercise's set (§1.2).
+  "Série gigante" for 4) that holds its exercises in order, each with its own set rows; the rest
+  timer starts after the last exercise's set (§1.2).
 - Progression, statistics and history treat each exercise independently.
 
 ### 4.2 Drop sets
@@ -161,7 +162,7 @@ sets, computed from the first working set's weight; warm-up sets that are not do
 - When a ramp is set, the week's value replaces every plan exercise's `targetRir` for workouts
   started in that week (stored in the workout's target snapshot, shown in the logger as "RIR 2 this
   week" and in the cycle timeline cells).
-- `ExerciseSession` gains `targetRir: number | null` (from the snapshot). The "easy" rule of v2 §6.2
+- `ExerciseSession` gains `targetRir?: number | null` (from the snapshot). The "easy" rule of v2 §6.2
   compares the logged RIR with the target **of that session**:
   `min(RIR) ≥ (last.targetRir ?? target.targetRir ?? 1) + 2`.
 - Import/export: `cycle.rirRamp: { "start": 3, "end": 0 }`; plain-text directive `rir: 3-0`.
@@ -221,6 +222,79 @@ interface CycleReport {
   `2026-10-05: 40×12@2, 40×12@2, 40×11@1` (`weight×reps@RIR`, RIR omitted when not logged, `.` as
   decimal separator, ` (deload)` suffix for deload sessions, drop sets prefixed with `d`); the stalled
   exercises; the average weekly sets per muscle group.
+- `buildAiReviewPrompt(input)` takes plain data, so it does not depend on the report module:
+
+  ```ts
+  interface AiReviewInput {
+    locale: 'en' | 'pt-BR';
+    planJson: string;                                   // v2 §4.4 export, pretty-printed
+    notes?: string;                                     // empty → the localized placeholder below
+    period: { from: string; to: string } | null;        // YYYY-MM-DD
+    sessions: { done: number; planned: number } | null;
+    exercises: {
+      exerciseId: string; name: string; stalled: boolean;
+      sessions: { date: string; deload: boolean;        // newest first, at most 6 are printed
+        sets: { weightKg: number; reps: number; rir: number | null; drop?: boolean }[] }[];
+    }[];
+    muscleSetsPerWeek: { muscle: MuscleGroup; sets: number }[];
+    exerciseList: readonly Exercise[];                   // for the EXERCISE LIST block
+  }
+  ```
+- Prompt = the review header below (per locale) with `{{NOTES}}`, `{{PLAN}}` and `{{SUMMARY}}`
+  replaced, then a blank line, then the plan prompt of IMPORT_FORMAT.md §8 **from its `OUTPUT` /
+  `SAÍDA` line to the end** (output format, rules and the exercise list), unchanged.
+
+  ````text
+  You are an experienced strength and hypertrophy coach. Below are my current training plan in the CYCLE app and a summary of what I actually did. Review my results and give me an adjusted plan as a file for the CYCLE app.
+
+  HOW TO REVIEW
+  Look at each exercise: where the load or the reps went up, keep what works; where I stalled or fell below the rep range, change something (rep range, sets, exercise variation, order or rest). Check the weekly sets per muscle group and my adherence, and rebalance the volume if needed. Keep the exercises I am progressing on unless there is a reason to swap them. After the JSON, explain the main changes in a few lines. If my notes are empty and you need to know how I feel (pain, fatigue, schedule changes), ask me first and wait for my answer.
+
+  MY NOTES
+  {{NOTES}}
+
+  CURRENT PLAN (cycle-plan JSON)
+  {{PLAN}}
+
+  TRAINING SUMMARY
+  {{SUMMARY}}
+  ````
+
+  ````text
+  Você é um treinador experiente de força e hipertrofia. Abaixo estão a minha periodização atual no app CYCLE e um resumo do que eu realmente fiz. Analise os meus resultados e me entregue uma periodização ajustada como um arquivo para o app CYCLE.
+
+  COMO ANALISAR
+  Olhe cada exercício: onde a carga ou as repetições subiram, mantenha o que funciona; onde estagnei ou fiquei abaixo da faixa de repetições, mude algo (faixa de repetições, séries, variação do exercício, ordem ou descanso). Confira as séries semanais por grupo muscular e a minha aderência e reequilibre o volume se for preciso. Mantenha os exercícios em que estou progredindo, a menos que haja motivo para trocar. Depois do JSON, explique as principais mudanças em poucas linhas. Se as minhas observações estiverem vazias e você precisar saber como me sinto (dor, fadiga, mudanças de agenda), pergunte primeiro e espere a minha resposta.
+
+  MINHAS OBSERVAÇÕES
+  {{NOTES}}
+
+  PERIODIZAÇÃO ATUAL (JSON cycle-plan)
+  {{PLAN}}
+
+  RESUMO DOS TREINOS
+  {{SUMMARY}}
+  ````
+
+  `{{NOTES}}` placeholder when empty: `(write here how you feel, pains, schedule changes)` /
+  `(escreva aqui como você se sente, dores, mudanças de agenda)`.
+- `{{SUMMARY}}` (headings localized, data lines identical in both locales):
+
+  ```
+  Period: 2026-10-01 to 2026-11-10
+  Sessions done: 10 of 14 planned (adherence 71%)
+  Set notation: weight×reps@RIR in kg; d = drop set.
+
+  barbell-bench-press — Barbell Bench Press [stalled]
+    2026-11-05: 40×12@2, 40×12@2, 40×11@1
+    2026-10-29 (deload): 35×8, 35×8, d28×10
+
+  Weekly sets per muscle group (average): chest 12, back 10.5
+  ```
+
+  Weights and set counts use `.` as decimal separator with no trailing zeros; adherence is a whole
+  percent (`round(done / planned × 100)`); the period and sessions lines are omitted when their input
+  is `null`; an exercise without sessions prints `  (no sessions)`; `[stalled]` only when stalled.
 - Entry points: the cycle report and Plan detail → **Review with AI** → the prompt in a selectable
   field with *Share*, and the usage steps.
 - **Updating a plan in place:** the import preview offers "Save as a new plan" or "Update

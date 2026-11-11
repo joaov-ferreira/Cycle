@@ -5,12 +5,19 @@
 import { WORKOUT_LIMITS } from '@/domain/workout';
 import type { TFunction } from '@/i18n';
 
-export function actionErrorMessage(error: unknown, t: TFunction): string {
+/** `noteMax` is the limit quoted by a too-long note message (the session note by default). */
+export function actionErrorMessage(
+  error: unknown,
+  t: TFunction,
+  noteMax: number = WORKOUT_LIMITS.note.max,
+): string {
   const code =
     typeof error === 'object' && error !== null && 'code' in error ? (error as { code: unknown }).code : null;
   switch (code) {
     case 'NOTE_INVALID':
-      return t('workout.errors.noteTooLong', { max: WORKOUT_LIMITS.note.max });
+      return t('workout.errors.noteTooLong', { max: noteMax });
+    case 'WORKOUT_SET_ORDER':
+      return t('workout.errors.dropOrder');
     case 'NOTHING_LOGGED':
       return t('workout.errors.nothingLogged');
     case 'WORKOUT_IN_PROGRESS':

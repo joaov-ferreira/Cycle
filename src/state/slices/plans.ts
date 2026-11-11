@@ -11,7 +11,7 @@ import {
   type Plan,
   type PlanContent,
 } from '@/domain/plan';
-import { finalizePendingImport, PENDING_PREFIX } from '@/domain/plan-import';
+import { finalizePendingImport, PENDING_PREFIX, type PendingImport } from '@/domain/plan-import';
 
 import { CustomExerciseValidationError, PlanValidationError } from '../errors';
 import { selectAllExercises, selectFindExercise } from '../selectors';
@@ -30,6 +30,8 @@ export type PlanActions = Pick<
   | 'startDeload'
   | 'startNewCycle'
   | 'dismissDeloadAdvice'
+  | 'dismissCompletedCycle'
+  | 'updatePlanFromImport'
 >;
 
 /** Only the user-editable fields (a `Plan` may be passed where content is expected). */
@@ -72,6 +74,54 @@ export function createPlanActions(ctx: StoreContext): PlanActions {
     return plan;
   }
 
+  /**
+   * Validates the custom exercises and the content of an import against the current library;
+   * throws without side effects.
+   */
+  function validatePending(pending: PendingImport) {
+    const existing = selectAllExercises(get());
+    const stubs: Exercise[] = [];
+    for (const { key, ...input } of pending.customExercises) {
+      const checked = { ...input, name: input.name.trim() };
+      const errors = validateCustomExercise(checked, [...existing, ...stubs]);
+      if (Object.keys(errors).length > 0) throw new CustomExerciseValidationError(errors, key);
+      stubs.push({
+        ...checked,
+        id: PENDING_PREFIX + key,
+        name: { en: checked.name, 'pt-BR': checked.name },
+        aliases: [],
+        custom: true,
+        archived: false,
+      });
+    }
+    const find = selectFindExercise(get());
+    const lookup = (id: string) => stubs.find((s) => s.id === id) ?? find(id);
+    assertValid(pending.content, lookup);
+  }
+
+  /** Creates the pending custom exercises (undone on failure) and resolves the content's ids. */
+  async function createPendingExercises(profileId: number, pending: PendingImport) {
+    const created: Exercise[] = [];
+    try {
+      const idsByKey: Record<string, string> = {};
+      for (const { key, ...input } of pending.customExercises) {
+        const exercise = await repos.exercises.createCustom(profileId, { ...input, name: input.name.trim() });
+        created.push(exercise);
+        idsByKey[key] = exercise.id;
+      }
+      return { created, content: finalizePendingImport(pending, idsByKey) };
+    } catch (error) {
+      await removeCreated(profileId, created);
+      throw error;
+    }
+  }
+
+  async function removeCreated(profileId: number, created: Exercise[]) {
+    for (const exercise of created) {
+      await repos.exercises.deleteCustom(profileId, exercise.id).catch(() => undefined);
+    }
+  }
+
   async function updatePlan(id: number, content: PlanContent): Promise<Plan> {
     const profile = requireReady();
     const current = requirePlan(id);
@@ -103,43 +153,48 @@ export function createPlanActions(ctx: StoreContext): PlanActions {
 
     async importPlan(pending, options) {
       const profile = requireReady();
-      // Validate everything first, so a failure leaves nothing behind.
-      const existing = selectAllExercises(get());
-      const stubs: Exercise[] = [];
-      for (const { key, ...input } of pending.customExercises) {
-        const checked = { ...input, name: input.name.trim() };
-        const errors = validateCustomExercise(checked, [...existing, ...stubs]);
-        if (Object.keys(errors).length > 0) throw new CustomExerciseValidationError(errors, key);
-        stubs.push({
-          ...checked,
-          id: PENDING_PREFIX + key,
-          name: { en: checked.name, 'pt-BR': checked.name },
-          aliases: [],
-          custom: true,
-          archived: false,
-        });
-      }
-      const find = selectFindExercise(get());
-      assertValid(pending.content, (id) => stubs.find((s) => s.id === id) ?? find(id));
-
-      const created: Exercise[] = [];
+      validatePending(pending);
+      const { created, content } = await createPendingExercises(profile.id, pending);
       let plan: Plan;
       try {
-        const idsByKey: Record<string, string> = {};
-        for (const { key, ...input } of pending.customExercises) {
-          const exercise = await repos.exercises.createCustom(profile.id, { ...input, name: input.name.trim() });
-          created.push(exercise);
-          idsByKey[key] = exercise.id;
-        }
-        plan = await repos.plans.create(profile.id, finalizePendingImport(pending, idsByKey));
+        plan = await repos.plans.create(profile.id, content);
       } catch (error) {
-        for (const exercise of created) {
-          await repos.exercises.deleteCustom(profile.id, exercise.id).catch(() => undefined);
-        }
+        await removeCreated(profile.id, created);
         throw error;
       }
       set({ customExercises: [...get().customExercises, ...created] });
       return adopt(profile.id, plan, options?.activate ?? false);
+    },
+
+    async updatePlanFromImport(planId, pending, options) {
+      const profile = requireReady();
+      const current = requirePlan(planId);
+      // Validate everything first, so a failure changes nothing.
+      validatePending(pending);
+      const backupContent = { ...contentOf(current), name: options.backupName.trim() };
+      assertValid(backupContent, selectFindExercise(get()));
+
+      const { created, content } = await createPendingExercises(profile.id, pending);
+      let backup: Plan;
+      let updated: Plan;
+      try {
+        backup = await repos.plans.create(profile.id, backupContent);
+        await repos.plans.setCycleState(profile.id, backup.id, current.cycleState);
+        backup = await repos.plans.setArchived(profile.id, backup.id, true);
+        updated = await repos.plans.update(profile.id, planId, contentOf(content));
+        const clamped = clampCycleState(current.cycleState, content.workouts.length, content.sessionsPerWeek);
+        if (JSON.stringify(clamped) !== JSON.stringify(current.cycleState)) {
+          updated = await repos.plans.setCycleState(profile.id, planId, clamped);
+        }
+      } catch (error) {
+        await removeCreated(profile.id, created);
+        throw error;
+      }
+      set({
+        customExercises: [...get().customExercises, ...created],
+        plans: [...get().plans.map((p) => (p.id === updated.id ? updated : p)), backup],
+      });
+      return updated;
     },
 
     updatePlan,
@@ -191,6 +246,10 @@ export function createPlanActions(ctx: StoreContext): PlanActions {
 
     async dismissDeloadAdvice() {
       set({ deloadAdviceDismissed: true });
+    },
+
+    dismissCompletedCycle() {
+      set({ completedCycle: null });
     },
   };
 }

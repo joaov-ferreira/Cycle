@@ -1,5 +1,5 @@
-import type { SqlDatabase } from '../database';
-import { assertExperience } from '../logbook-shared';
+import type { SqlDatabase, SqlValue } from '../database';
+import { assertSettingsPatch, normalizeSettingsPatch } from '../logbook-shared';
 import {
   ProfileNotFoundError,
   type Clock,
@@ -8,6 +8,8 @@ import {
   type Settings,
   type SettingsPatch,
 } from '../repositories';
+import { createSqliteBackupRepository } from './backup-repository';
+import { createSqliteBodyMetricRepository } from './body-repository';
 import { createSqliteExerciseRepository } from './exercise-repository';
 import { createSqlitePlanRepository } from './plan-repository';
 import { createSqliteWorkoutRepository } from './workout-repository';
@@ -20,7 +22,17 @@ type SettingsRow = {
   theme: Settings['theme'];
   onboarding_completed: number;
   experience: Settings['experience'];
+  default_rest_seconds: number;
+  rest_notifications: number;
+  keep_awake: number;
+  bar_kg: number;
+  plates: string;
+  last_backup_at: string | null;
 };
+
+/** Columns read for a settings row. */
+export const SETTINGS_SELECT =
+  'profile_id, language, theme, onboarding_completed, experience, default_rest_seconds, rest_notifications, keep_awake, bar_kg, plates, last_backup_at';
 
 const toProfile = (row: ProfileRow): Profile => ({
   id: row.id,
@@ -34,6 +46,12 @@ const toSettings = (row: SettingsRow): Settings => ({
   theme: row.theme,
   onboardingCompleted: row.onboarding_completed === 1,
   experience: row.experience,
+  defaultRestSeconds: row.default_rest_seconds,
+  restNotifications: row.rest_notifications === 1,
+  keepAwake: row.keep_awake === 1,
+  barKg: row.bar_kg,
+  platesKg: JSON.parse(row.plates) as number[],
+  lastBackupAt: row.last_backup_at,
 });
 
 /** Column for each patchable settings field (allowlist: never interpolate caller keys). */
@@ -42,10 +60,19 @@ const SETTINGS_COLUMNS: Record<keyof SettingsPatch, string> = {
   theme: 'theme',
   onboardingCompleted: 'onboarding_completed',
   experience: 'experience',
+  defaultRestSeconds: 'default_rest_seconds',
+  restNotifications: 'rest_notifications',
+  keepAwake: 'keep_awake',
+  barKg: 'bar_kg',
+  platesKg: 'plates',
+  lastBackupAt: 'last_backup_at',
 };
 
-const toSqlValue = (value: string | boolean | undefined): string | number =>
-  typeof value === 'boolean' ? (value ? 1 : 0) : (value as string);
+const toSqlValue = (value: SettingsPatch[keyof SettingsPatch]): SqlValue => {
+  if (typeof value === 'boolean') return value ? 1 : 0;
+  if (Array.isArray(value)) return JSON.stringify(value);
+  return value as string | number | null;
+};
 
 /** `Repositories` backed by SQLite (expo-sqlite in the app, node:sqlite in tests). */
 export function createSqliteRepositories(
@@ -54,14 +81,14 @@ export function createSqliteRepositories(
 ): Repositories {
   async function getSettings(profileId: number): Promise<Settings> {
     const row = await db.getFirstAsync<SettingsRow>(
-      'SELECT profile_id, language, theme, onboarding_completed, experience FROM settings WHERE profile_id = ?',
+      `SELECT ${SETTINGS_SELECT} FROM settings WHERE profile_id = ?`,
       [profileId],
     );
     if (!row) throw new ProfileNotFoundError(profileId);
     return toSettings(row);
   }
 
-  return {
+  const repositories: Repositories = {
     profiles: {
       async list() {
         const rows = await db.getAllAsync<ProfileRow>(
@@ -119,10 +146,11 @@ export function createSqliteRepositories(
     settings: {
       get: getSettings,
       async update(profileId, patch) {
-        if (patch.experience !== undefined) assertExperience(patch.experience);
+        assertSettingsPatch(patch);
+        const normalized = normalizeSettingsPatch(patch);
         const entries = (Object.keys(SETTINGS_COLUMNS) as (keyof SettingsPatch)[])
-          .filter((key) => patch[key] !== undefined)
-          .map((key) => [SETTINGS_COLUMNS[key], toSqlValue(patch[key])] as const);
+          .filter((key) => normalized[key] !== undefined)
+          .map((key) => [SETTINGS_COLUMNS[key], toSqlValue(normalized[key])] as const);
         if (entries.length > 0) {
           const assignments = entries.map(([column]) => `${column} = ?`).join(', ');
           const result = await db.runAsync(
@@ -137,5 +165,8 @@ export function createSqliteRepositories(
     exercises: createSqliteExerciseRepository(db, clock),
     plans: createSqlitePlanRepository(db, clock),
     workouts: createSqliteWorkoutRepository(db, clock),
+    bodyMetrics: createSqliteBodyMetricRepository(db),
+    backup: createSqliteBackupRepository(db, clock, () => repositories),
   };
+  return repositories;
 }

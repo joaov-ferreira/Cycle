@@ -1,5 +1,6 @@
 import {
   countedSets,
+  dropSetLoad,
   e1rm,
   floorToIncrement,
   roundToIncrementTiesDown,
@@ -257,5 +258,56 @@ describe('roundToIncrementTiesDown', () => {
   it('rejects negative loads and non-positive increments', () => {
     expect(() => roundToIncrementTiesDown(-1, 2.5)).toThrow(RangeError);
     expect(() => roundToIncrementTiesDown(10, 0)).toThrow(RangeError);
+  });
+});
+
+/** A done drop set. */
+const drop = (weightKg: number | null, reps: number | null): LoggedSet => ({
+  kind: 'drop',
+  weightKg,
+  reps,
+  rir: null,
+  done: true,
+});
+
+describe('drop sets in metrics (SPEC-v3 §4.2)', () => {
+  const base = [work(40, 12), work(40, 12), work(40, 12)];
+  const withDrop = [...base, drop(32.5, 8)];
+
+  it('are never counted sets', () => {
+    expect(countedSets(withDrop)).toEqual(countedSets(base));
+    expect(countedSets([drop(30, 10)])).toEqual([]);
+  });
+
+  it('volume includes done drop sets: 1440 + 260 = 1700', () => {
+    expect(volume(base)).toBe(1440);
+    expect(volume(withDrop)).toBe(1700);
+  });
+
+  it('volume ignores drop sets that are not done or lack weight or reps', () => {
+    const notDoneDrop: LoggedSet = { ...drop(32.5, 8), done: false };
+    expect(volume([...base, notDoneDrop, drop(null, 8), drop(30, null), drop(30, 0)])).toBe(1440);
+  });
+
+  it('volume counts a drop set with zero weight as 0 and still ignores warm-ups', () => {
+    expect(volume([warmup(20, 10), drop(0, 10)])).toBe(0);
+  });
+
+  it('work load and session score ignore drop sets', () => {
+    expect(workLoad(withDrop)).toBe(40);
+    expect(sessionScore(withDrop)).toBe(sessionScore(base));
+    expect(setsAtWorkLoad(withDrop)).toHaveLength(3);
+  });
+});
+
+describe('dropSetLoad (SPEC-v3 §4.2)', () => {
+  it('80 % of the weight rounded to the increment', () => {
+    expect(dropSetLoad(40, 2.5)).toBe(32.5);
+    expect(dropSetLoad(100, 2.5)).toBe(80);
+    expect(dropSetLoad(10, 5)).toBe(10);
+  });
+  it('ties round down', () => {
+    // 7.5 kg x 0.8 = 6 kg, exactly between 4 and 8 with increment 4
+    expect(dropSetLoad(7.5, 4)).toBe(4);
   });
 });

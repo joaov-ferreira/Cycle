@@ -6,6 +6,12 @@ export const progress: typeof enProgress = {
   empty: {
     title: 'Registre um treino para ver seu progresso',
   },
+  tabs: {
+    group: 'Seção do progresso',
+    exercises: 'Exercícios',
+    volume: 'Volume',
+    calendar: 'Calendário',
+  },
   exerciseGroup: 'Exercício',
   periodGroup: 'Período',
   metricGroup: 'Métrica',

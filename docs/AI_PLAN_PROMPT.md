@@ -7,19 +7,13 @@
 3. Copy the JSON answer, or save it as a `.json` file, and import it in the app under Plan → New → Import.
 
 ````text
-You are an experienced strength and hypertrophy coach. Create a weight-training plan for me and
-deliver it as a file for the CYCLE app.
+You are an experienced strength and hypertrophy coach. Create a weight-training plan for me and deliver it as a file for the CYCLE app.
 
 BEFORE WRITING THE PLAN
-You need to know: my goal (hypertrophy, strength, general fitness…), my training experience
-(beginner, intermediate or advanced), how many days per week I can train and for how long, the
-equipment I have (full gym, home gym, dumbbells only…), injuries or movements to avoid, exercises I
-like or dislike, and — optionally — the loads I currently use. If any of this is missing from my
-message, ask me first and wait for my answer. Do not invent my data.
+You need to know: my goal (hypertrophy, strength, general fitness…), my training experience (beginner, intermediate or advanced), how many days per week I can train and for how long, the equipment I have (full gym, home gym, dumbbells only…), injuries or movements to avoid, exercises I like or dislike, and — optionally — the loads I currently use. If any of this is missing from my message, ask me first and wait for my answer. Do not invent my data.
 
 OUTPUT
-Reply with ONE JSON document inside a single ```json code block, with no comments and nothing else in
-the block. You may add a short explanation after the block. The document must follow this format:
+Reply with ONE JSON document inside a single ```json code block, with no comments and nothing else in the block. You may add a short explanation after the block. The document must follow this format:
 
 {
   "format": "cycle-plan",
@@ -42,24 +36,17 @@ the block. You may add a short explanation after the block. The document must fo
 }
 
 RULES
-1. "exercise" must be an id from the EXERCISE LIST below, copied exactly. Only when the exercise I
-   need is not in the list, define it in "customExercises" and use its "key" as "exercise".
-2. primaryMuscle / secondaryMuscles: chest, back, shoulders, traps, biceps, triceps, forearms, abs,
-   lowerBack, glutes, quads, hamstrings, adductors, abductors, calves.
-   equipment: barbell, dumbbell, machine, cable, smith, kettlebell, bodyweight, band, other.
-   mechanics: compound or isolation.
-3. Limits: 1–14 workouts; 1–30 exercises per workout; sets 1–20; reps 1–100; rir 0–5; rest 0–900
-   seconds; sessionsPerWeek 1–14; loadWeeks 1–16; deloadWeeks 0–2; deloadVolumeFactor 0.3–1;
-   deloadLoadFactor 0.5–1.
-4. "reps" is a range such as "8-12". The app uses double progression: I add reps inside the range
-   and the app raises the load when every set reaches the top of the range, so always give a range
-   (a single number such as "5" means the load goes up whenever all sets reach it).
+1. "exercise" must be an id from the EXERCISE LIST below, copied exactly. Only when the exercise I need is not in the list, define it in "customExercises" and use its "key" as "exercise".
+2. primaryMuscle / secondaryMuscles: chest, back, shoulders, traps, biceps, triceps, forearms, abs, lowerBack, glutes, quads, hamstrings, adductors, abductors, calves. equipment: barbell, dumbbell, machine, cable, smith, kettlebell, bodyweight, band, other. mechanics: compound or isolation.
+3. Limits: 1–14 workouts; 1–30 exercises per workout; sets 1–20; reps 1–100; rir 0–5; rest 0–900 seconds; sessionsPerWeek 1–14; loadWeeks 1–16; deloadWeeks 0–2; deloadVolumeFactor 0.3–1; deloadLoadFactor 0.5–1.
+4. "reps" is a range such as "8-12". The app uses double progression: I add reps inside the range and the app raises the load when every set reaches the top of the range, so always give a range (a single number such as "5" means the load goes up whenever all sets reach it).
 5. "rir" is the target reps in reserve and "rest" the rest between sets in seconds.
 6. "startLoad" (kg) only when I told you the load I use on that exercise; otherwise leave it out.
 7. "sessionsPerWeek" is the number of sessions I do per week; the workouts are done in rotation.
-8. "cycle": loadWeeks 8 for a beginner, 6 for an intermediate, 4 for an advanced lifter, followed by
-   1 deload week, unless I ask for something else.
+8. "cycle": loadWeeks 8 for a beginner, 6 for an intermediate, 4 for an advanced lifter, followed by 1 deload week, unless I ask for something else.
 9. All weights in kilograms. Write names and notes in the language I am using.
+10. Supersets: to have 2 to 4 consecutive exercises done back to back, give each of them the same "superset" label, for example "superset": "A". Leave it out otherwise.
+11. Effort ramp (optional): add "rirRamp": { "start": 3, "end": 0 } inside "cycle" to make the target RIR fall week by week during the load weeks. Use it only if I ask for it or it suits my experience.
 
 EXERCISE LIST (id — name — primary muscle — equipment)
 barbell-bench-press — Barbell Bench Press — chest — barbell

@@ -28,6 +28,7 @@ import {
 } from './draft-ops';
 import { issueMessage, parseIssuePath } from './issues';
 import { MultilineField } from './multiline-field';
+import { linkWithNext, normalizeSupersets, unlinkAt } from './superset-ops';
 import { WorkoutCard } from './workout-card';
 
 export type PlanEditorProps = {
@@ -278,10 +279,22 @@ export function PlanEditor({ initial, planId, onSaved, onCancel }: PlanEditorPro
             }))
           }
           onMoveExercise={(exerciseIndex, delta) =>
-            changeWorkout(index, (w) => ({ ...w, exercises: moveItem(w.exercises, exerciseIndex, delta) }))
+            changeWorkout(index, (w) => ({
+              ...w,
+              exercises: normalizeSupersets(moveItem(w.exercises, exerciseIndex, delta)),
+            }))
           }
           onRemoveExercise={(exerciseIndex) =>
-            changeWorkout(index, (w) => ({ ...w, exercises: w.exercises.filter((_, i) => i !== exerciseIndex) }))
+            changeWorkout(index, (w) => ({
+              ...w,
+              exercises: normalizeSupersets(w.exercises.filter((_, i) => i !== exerciseIndex)),
+            }))
+          }
+          onLinkExercise={(exerciseIndex) =>
+            changeWorkout(index, (w) => ({ ...w, exercises: linkWithNext(w.exercises, exerciseIndex) }))
+          }
+          onUnlinkExercise={(exerciseIndex) =>
+            changeWorkout(index, (w) => ({ ...w, exercises: unlinkAt(w.exercises, exerciseIndex) }))
           }
           onLoadInvalid={setLoadInvalid}
           newExerciseIds={newExerciseIds}

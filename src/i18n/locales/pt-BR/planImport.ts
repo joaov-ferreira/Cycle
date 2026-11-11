@@ -33,7 +33,7 @@ export const planImport: typeof enPlanImport = {
   input: {
     title: 'Importar periodização',
     pasteLabel: 'Texto da periodização',
-    hint: 'Cole uma periodização em texto simples ou JSON. Respostas de chatbots de IA podem ser coladas como estão.',
+    hint: 'Cole uma periodização em texto simples ou JSON. Respostas de chatbots de IA podem ser coladas como estão. Comece uma linha com + para juntar o exercício anterior em um bi-set e adicione uma linha como rir: 3-0 para aumentar o esforço a cada semana.',
     exampleTitle: 'Exemplo em texto simples',
     example:
       '# Minha periodização\nciclo: 6+1\nsessoes: 2\n\n## Superior\nSupino reto com barra | 4x6-10 | rir 2 | descanso 150\nPuxada alta | 3x8-12\n\n## Inferior\nAgachamento livre | 4x6-10',
@@ -67,6 +67,7 @@ export const planImport: typeof enPlanImport = {
     duplicateKey: 'Esta chave está duplicada ou igual ao id de um exercício da biblioteca.',
     missingPlanName: 'A periodização precisa de um nome (uma linha começando com #).',
     exerciseOutsideWorkout: 'Este exercício não está dentro de um treino (uma linha começando com ##).',
+    supersetWithoutPrevious: 'Uma linha com “+” precisa de um exercício antes dela no mesmo treino.',
     invalidExerciseLine: 'Não foi possível ler esta linha de exercício. Use: nome | 4x8-12.',
     invalidDirective: 'Não foi possível ler esta configuração.',
     emptyWorkout: 'Este treino não tem exercícios.',
@@ -110,6 +111,16 @@ export const planImport: typeof enPlanImport = {
     activate: 'Ativar esta periodização',
     save: 'Salvar periodização',
     edit: 'Editar texto',
+    saveTargetLabel: 'O que fazer com esta periodização',
+    saveAsNew: 'Salvar como nova periodização',
+    updatePlan: 'Atualizar “{{name}}”',
+    updateNote: 'O histórico de treinos e a posição no ciclo são mantidos, e a versão anterior fica arquivada.',
+    update: 'Atualizar periodização',
+    backupName: '{{name}} (antes da atualização {{date}})',
+    supersetOf2: 'Bi-set',
+    supersetOf3: 'Tri-set',
+    supersetOf4: 'Série gigante',
+    rirRamp: 'Rampa de esforço: RIR {{start}} → {{end}}',
     saveError: 'Não foi possível salvar a periodização.',
     planIssues: 'A periodização não é válida',
     issue: '{{path}}: {{message}}',
@@ -127,6 +138,9 @@ export const planImport: typeof enPlanImport = {
     unknownExercise: 'exercício desconhecido',
     duplicateId: 'id duplicado',
     zeroLoadNotAllowed: '0 kg não é permitido para este exercício',
+    supersetNotAdjacent: 'Os exercícios do mesmo grupo (bi-set, tri-set ou série gigante) precisam estar em sequência.',
+    supersetSize: 'Um bi-set, tri-set ou série gigante precisa de 2 a 4 exercícios.',
+    invalidRirRamp: 'A rampa de esforço precisa de valores de RIR de 0 a 5, começando igual ou acima do valor final.',
   },
 
   export: {

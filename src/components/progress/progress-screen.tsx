@@ -13,8 +13,10 @@ import { useAppStore } from '@/state/app-store-context';
 import { selectFindExercise, selectSeries, selectTrainedExerciseIds } from '@/state/selectors';
 
 import { Button, Screen, SegmentedControl } from '../ui';
+import { CalendarTab } from './calendar-tab';
 import { LineChart } from './line-chart';
 import { PersonalRecordsCard } from './personal-records-card';
+import { VolumeTab } from './volume-tab';
 import { WeeklyVolumeCard } from './weekly-volume-card';
 
 export type ProgressScreenProps = {
@@ -28,13 +30,51 @@ export type ProgressScreenProps = {
 
 const NBSP = ' ';
 
-/** Progress (SPEC §9): an exercise's chart, its records and the weekly sets per muscle group. */
+type ProgressTab = 'exercises' | 'volume' | 'calendar';
+
+/** Progress (SPEC §9, SPEC-v3 §10): Exercises (default) | Volume | Calendar. */
 export function ProgressScreen({ initialExerciseId, now, onOpenExercise, onOpenWorkout }: ProgressScreenProps) {
+  const { t } = useI18n();
+  const clock = useMemo(() => now ?? new Date(), [now]);
+  const [tab, setTab] = useState<ProgressTab>('exercises');
+
+  return (
+    <Screen title={t('progress.title')} testID="screen-progress">
+      <SegmentedControl
+        label={t('progress.tabs.group')}
+        options={[
+          { value: 'exercises', label: t('progress.tabs.exercises') },
+          { value: 'volume', label: t('progress.tabs.volume') },
+          { value: 'calendar', label: t('progress.tabs.calendar') },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
+      {tab === 'exercises' ? (
+        <ExercisesTab
+          initialExerciseId={initialExerciseId}
+          clock={clock}
+          onOpenExercise={onOpenExercise}
+          onOpenWorkout={onOpenWorkout}
+        />
+      ) : null}
+      {tab === 'volume' ? <VolumeTab now={clock} /> : null}
+      {tab === 'calendar' ? <CalendarTab now={clock} /> : null}
+    </Screen>
+  );
+}
+
+/** An exercise's chart, its records and the weekly sets per muscle group. */
+function ExercisesTab({
+  initialExerciseId,
+  clock,
+  onOpenExercise,
+  onOpenWorkout,
+}: Pick<ProgressScreenProps, 'initialExerciseId' | 'onOpenExercise' | 'onOpenWorkout'> & { clock: Date }) {
   const { t, formatKg, formatNumber } = useI18n();
   const nameOf = useExerciseName();
   const findExercise = useAppStore(selectFindExercise);
   const trained = useAppStore(selectTrainedExerciseIds);
-  const clock = useMemo(() => now ?? new Date(), [now]);
 
   const [chosenExerciseId, setChosenExerciseId] = useState<string | undefined>(initialExerciseId);
   const [chosenPeriod, setChosenPeriod] = useState<Period>('all');
@@ -54,7 +94,7 @@ export function ProgressScreen({ initialExerciseId, now, onOpenExercise, onOpenW
   );
 
   return (
-    <Screen title={t('progress.title')} testID="screen-progress">
+    <>
       {selectedId === null || !exercise ? (
         <EmptyState title={t('progress.empty.title')} testID="progress-empty" />
       ) : (
@@ -122,7 +162,7 @@ export function ProgressScreen({ initialExerciseId, now, onOpenExercise, onOpenW
           <WeeklyVolumeCard now={clock} />
         </>
       )}
-    </Screen>
+    </>
   );
 }
 

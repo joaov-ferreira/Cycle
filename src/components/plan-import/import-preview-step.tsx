@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { layout, radius, spacing } from '@/constants/theme';
 import type { CustomExerciseInput, Exercise } from '@/domain/exercise';
 import { normalizeName } from '@/domain/exercise-match';
-import type { Plan } from '@/domain/plan';
+import { PLAN_LIMITS, supersetLayout, type Plan } from '@/domain/plan';
 import {
   resolveDraft,
   unresolvedReferences,
@@ -28,6 +28,8 @@ export type ImportPreviewStepProps = {
   /** Every exercise (built-in first, then custom), archived ones included. */
   exercises: readonly Exercise[];
   onImported: (plan: Plan) => void;
+  /** The plan to offer updating (else the active plan); preselects "Update plan" when valid. */
+  updatePlanId?: number;
   /** Back to the text, which stays as it was. */
   onEditText: () => void;
 };
@@ -48,11 +50,27 @@ function pendingExercise(id: string, input: CustomExerciseInput): Exercise {
 }
 
 /** Step 2 of the import (SPEC §4.3): preview, resolution of unknown names, save. */
-export function ImportPreviewStep({ draft, exercises, onImported, onEditText }: ImportPreviewStepProps) {
-  const { t, locale } = useI18n();
+export function ImportPreviewStep({
+  draft,
+  exercises,
+  onImported,
+  updatePlanId,
+  onEditText,
+}: ImportPreviewStepProps) {
+  const { t, locale, formatDate, formatNumber } = useI18n();
   const { colors } = useTheme();
   const targetLabel = useTargetLabel();
   const importPlan = useAppStore((s) => s.importPlan);
+  const updatePlanFromImport = useAppStore((s) => s.updatePlanFromImport);
+  const target = useAppStore((s) => {
+    const requested = updatePlanId === undefined ? undefined : s.plans.find((p) => p.id === updatePlanId);
+    if (requested) return requested;
+    return s.activePlanId === null ? undefined : s.plans.find((p) => p.id === s.activePlanId);
+  });
+  const [mode, setMode] = useState<'new' | 'update'>(
+    updatePlanId !== undefined && target?.id === updatePlanId ? 'update' : 'new',
+  );
+  const updating = mode === 'update' && target !== undefined;
   const [resolutions, setResolutions] = useState<Record<string, Resolution>>({});
   const [selecting, setSelecting] = useState<string | null>(null);
   const [creating, setCreating] = useState<string | null>(null);
@@ -132,6 +150,13 @@ export function ImportPreviewStep({ draft, exercises, onImported, onEditText }: 
     return [t('planImport.preview.saveError')];
   };
 
+  /** "<name> (before update <date>)", the name shortened so the whole fits the plan-name limit. */
+  const backupNameFor = (name: string): string => {
+    const date = formatDate(new Date());
+    const room = PLAN_LIMITS.planName.max - t('planImport.preview.backupName', { name: '', date }).length;
+    return t('planImport.preview.backupName', { name: name.slice(0, Math.max(room, 1)).trimEnd(), date });
+  };
+
   const save = async () => {
     if (busy || remaining > 0) return;
     const result = resolveDraft(draft, resolutions);
@@ -139,12 +164,41 @@ export function ImportPreviewStep({ draft, exercises, onImported, onEditText }: 
     setBusy(true);
     setSaveErrors([]);
     try {
-      const plan = await importPlan(result.pending, { activate });
+      const plan =
+        updating && target
+          ? await updatePlanFromImport(target.id, result.pending, { backupName: backupNameFor(target.name) })
+          : await importPlan(result.pending, { activate });
       onImported(plan);
     } catch (error) {
       setSaveErrors(describeSaveError(error));
       setBusy(false);
     }
+  };
+
+  const supersetHeading = (size: 2 | 3 | 4): string =>
+    size === 2
+      ? t('planImport.preview.supersetOf2')
+      : size === 3
+        ? t('planImport.preview.supersetOf3')
+        : t('planImport.preview.supersetOf4');
+
+  const renderLine = (exercise: DraftExercise) => {
+    const shown = lineName(exercise);
+    return (
+      <View key={exercise.id} style={styles.row}>
+        <View style={styles.rowName}>
+          <Text>{shown.name}</Text>
+          {shown.creates ? (
+            <Text variant="caption" tone="accent">
+              {t('planImport.preview.willBeCreated')}
+            </Text>
+          ) : null}
+        </View>
+        <Text tone="secondary" tabular>
+          {targetLabel(exercise.sets, exercise.repMin, exercise.repMax)}
+        </Text>
+      </View>
+    );
   };
 
   const creatingItem = creating ? unresolved.find((item) => item.normalized === creating) : undefined;
@@ -164,6 +218,14 @@ export function ImportPreviewStep({ draft, exercises, onImported, onEditText }: 
           })}
         </Text>
         <Text>{t('planImport.preview.sessionsPerWeek', { count: draft.sessionsPerWeek })}</Text>
+        {draft.cycle.rirRamp ? (
+          <Text>
+            {t('planImport.preview.rirRamp', {
+              start: formatNumber(draft.cycle.rirRamp.start),
+              end: formatNumber(draft.cycle.rirRamp.end),
+            })}
+          </Text>
+        ) : null}
       </Card>
 
       {unresolved.length > 0 ? (
@@ -192,36 +254,65 @@ export function ImportPreviewStep({ draft, exercises, onImported, onEditText }: 
           <Text variant="caption" tone="secondary">
             {t('planImport.preview.workoutExercises', { count: workout.exercises.length })}
           </Text>
-          {workout.exercises.map((exercise) => {
-            const shown = lineName(exercise);
+          {supersetLayout(workout.exercises).map((block) => {
+            const lines = block.indices.map((index) => renderLine(workout.exercises[index]));
+            if (block.label === null) return lines;
+            const size = Math.min(Math.max(block.indices.length, 2), 4) as 2 | 3 | 4;
             return (
-              <View key={exercise.id} style={styles.row}>
-                <View style={styles.rowName}>
-                  <Text>{shown.name}</Text>
-                  {shown.creates ? (
-                    <Text variant="caption" tone="accent">
-                      {t('planImport.preview.willBeCreated')}
-                    </Text>
-                  ) : null}
-                </View>
-                <Text tone="secondary" tabular>
-                  {targetLabel(exercise.sets, exercise.repMin, exercise.repMax)}
+              <View
+                key={workout.exercises[block.indices[0]].id}
+                testID="import-superset"
+                style={[styles.superset, { borderColor: colors.accent }]}>
+                <Text variant="label" tone="accent">
+                  {supersetHeading(size)}
                 </Text>
+                {lines}
               </View>
             );
           })}
         </Card>
       ))}
 
-      <Pressable
-        accessibilityRole="switch"
-        accessibilityLabel={t('planImport.preview.activate')}
-        accessibilityState={{ checked: activate }}
-        onPress={() => setActivate((value) => !value)}
-        style={[styles.toggle, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-        <Text style={styles.rowName}>{t('planImport.preview.activate')}</Text>
-        <Text tone={activate ? 'accent' : 'secondary'}>{activate ? t('common.yes') : t('common.no')}</Text>
-      </Pressable>
+      {target ? (
+        <View style={styles.section} accessibilityRole="radiogroup" accessibilityLabel={t('planImport.preview.saveTargetLabel')}>
+          <Text variant="label">{t('planImport.preview.saveTargetLabel')}</Text>
+          {(['new', 'update'] as const).map((option) => {
+            const label =
+              option === 'new'
+                ? t('planImport.preview.saveAsNew')
+                : t('planImport.preview.updatePlan', { name: target.name });
+            const selected = mode === option;
+            return (
+              <Pressable
+                key={option}
+                accessibilityRole="radio"
+                accessibilityLabel={label}
+                accessibilityState={{ checked: selected }}
+                onPress={() => setMode(option)}
+                style={[
+                  styles.toggle,
+                  { borderColor: selected ? colors.accent : colors.border, backgroundColor: colors.surface },
+                ]}>
+                <Text style={styles.rowName}>{label}</Text>
+                <Text tone={selected ? 'accent' : 'secondary'}>{selected ? '●' : '○'}</Text>
+              </Pressable>
+            );
+          })}
+          {updating ? <Text tone="secondary">{t('planImport.preview.updateNote')}</Text> : null}
+        </View>
+      ) : null}
+
+      {updating ? null : (
+        <Pressable
+          accessibilityRole="switch"
+          accessibilityLabel={t('planImport.preview.activate')}
+          accessibilityState={{ checked: activate }}
+          onPress={() => setActivate((value) => !value)}
+          style={[styles.toggle, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+          <Text style={styles.rowName}>{t('planImport.preview.activate')}</Text>
+          <Text tone={activate ? 'accent' : 'secondary'}>{activate ? t('common.yes') : t('common.no')}</Text>
+        </Pressable>
+      )}
 
       {remaining > 0 ? (
         <Text tone="secondary" accessibilityLiveRegion="polite">
@@ -237,7 +328,9 @@ export function ImportPreviewStep({ draft, exercises, onImported, onEditText }: 
           ))}
         </Card>
       ) : null}
-      <Button label={t('planImport.preview.save')} onPress={save} disabled={remaining > 0 || busy} />
+      <Button
+        label={updating ? t('planImport.preview.update') : t('planImport.preview.save')}
+        onPress={save} disabled={remaining > 0 || busy} />
 
       <ExerciseSelectModal
         visible={selectingItem !== undefined}
@@ -270,6 +363,7 @@ const styles = StyleSheet.create({
   section: { gap: spacing.sm },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md },
   rowName: { flex: 1 },
+  superset: { gap: spacing.xs, borderLeftWidth: 3, paddingLeft: spacing.md },
   toggle: {
     minHeight: layout.minTouchTarget,
     flexDirection: 'row',

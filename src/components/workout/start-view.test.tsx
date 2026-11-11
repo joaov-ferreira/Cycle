@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
-import { samplePlanContent, seedCompletedWorkout } from '@/test-utils/seed';
+import { samplePlanContent, seedCompletedWorkout, v3PlanContent } from '@/test-utils/seed';
 
 import { renderWorkout, seedBenchTopOfRange } from './workout-test-utils';
 
@@ -52,6 +52,20 @@ describe('WorkoutScreen: nothing in progress', () => {
     });
     const bench = within(await screen.findByTestId('preview-pe-bench'));
     expect(bench.getByText('3 × 8–12 · RIR 2 · 120 s')).toBeOnTheScreen();
+  });
+
+  it('shows the week target RIR of the ramp, not the row RIR', async () => {
+    const content = v3PlanContent();
+    content.workouts[0].exercises = content.workouts[0].exercises.map((e) => ({ ...e, targetRir: 4 }));
+    await renderWorkout({ planContent: content });
+    const bench = within(await screen.findByTestId('preview-pe-bench'));
+    expect(bench.getByText('3 × 8–12 · RIR 3 this week · 120 s')).toBeOnTheScreen();
+  });
+
+  it('says "nesta semana" with a ramp in Portuguese', async () => {
+    await renderWorkout({ language: 'pt-BR', planContent: v3PlanContent() });
+    const bench = within(await screen.findByTestId('preview-pe-bench'));
+    expect(bench.getByText(/RIR 3 nesta semana/)).toBeOnTheScreen();
   });
 
   it('lets the user pick another workout of the plan', async () => {

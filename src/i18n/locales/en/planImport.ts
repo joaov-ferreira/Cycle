@@ -35,7 +35,7 @@ export const planImport = {
   input: {
     title: 'Import plan',
     pasteLabel: 'Plan text',
-    hint: 'Paste a plan as plain text or JSON. Answers from AI chatbots can be pasted as they are.',
+    hint: 'Paste a plan as plain text or JSON. Answers from AI chatbots can be pasted as they are. Start a line with + to join the previous exercise in a superset, and add a line such as rir: 3-0 to raise the effort week by week.',
     exampleTitle: 'Plain-text example',
     example:
       '# My plan\ncycle: 6+1\nsessions: 2\n\n## Upper\nBarbell Bench Press | 4x6-10 | rir 2 | rest 150\nLat Pulldown | 3x8-12\n\n## Lower\nBarbell Back Squat | 4x6-10',
@@ -70,6 +70,7 @@ export const planImport = {
     duplicateKey: 'This key is duplicated or equals a built-in exercise id.',
     missingPlanName: 'The plan needs a name (a line starting with #).',
     exerciseOutsideWorkout: 'This exercise is not inside a workout (a line starting with ##).',
+    supersetWithoutPrevious: 'A “+” line needs an exercise before it in the same workout.',
     invalidExerciseLine: 'This exercise line could not be read. Use: name | 4x8-12.',
     invalidDirective: 'This setting could not be read.',
     emptyWorkout: 'This workout has no exercises.',
@@ -115,6 +116,16 @@ export const planImport = {
     activate: 'Activate this plan',
     save: 'Save plan',
     edit: 'Edit text',
+    saveTargetLabel: 'What to do with this plan',
+    saveAsNew: 'Save as a new plan',
+    updatePlan: 'Update “{{name}}”',
+    updateNote: 'The workout history and the cycle position are kept, and the previous version is archived.',
+    update: 'Update plan',
+    backupName: '{{name}} (before update {{date}})',
+    supersetOf2: 'Superset',
+    supersetOf3: 'Superset',
+    supersetOf4: 'Superset',
+    rirRamp: 'Effort ramp: RIR {{start}} → {{end}}',
     saveError: 'The plan could not be saved.',
     planIssues: 'The plan is not valid',
     issue: '{{path}}: {{message}}',
@@ -132,6 +143,9 @@ export const planImport = {
     unknownExercise: 'unknown exercise',
     duplicateId: 'duplicated id',
     zeroLoadNotAllowed: '0 kg is not allowed for this exercise',
+    supersetNotAdjacent: 'Exercises of the same superset must be next to each other.',
+    supersetSize: 'A superset needs 2 to 4 exercises.',
+    invalidRirRamp: 'The effort ramp needs RIR values from 0 to 5, starting at or above the final value.',
   },
 
   // ---- Export ----

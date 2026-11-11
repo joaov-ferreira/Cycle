@@ -1,14 +1,16 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { spacing } from '@/constants/theme';
 import { useT } from '@/i18n';
 import { selectDeloadAdvice, selectHomeSummary } from '@/state/selectors';
+import { selectBackupReminder, selectWeekStreak } from '@/state/selectors-v3';
 import { WorkoutInProgressError } from '@/state/errors';
 import { useAppStore } from '@/state/app-store-context';
 
 import { Button, Card, Screen, Text } from '../ui';
 import { CycleSummary } from './cycle-summary';
+import { BackupReminderCard, CycleCompleteBanner, StreakLine } from './home-notices';
 import { NextWorkoutCard } from './next-workout-card';
 import { RecentWorkouts } from './recent-workouts';
 import { ResumeCard } from './resume-card';
@@ -24,15 +26,34 @@ export type HomeScreenProps = {
   onNewPlan: (kind: NewPlanKind) => void;
   /** Opens the Plan tab. */
   onOpenPlan: () => void;
+  /** Opens a cycle's report (`/plans/<id>/cycles/<n>`). */
+  onOpenCycleReport?: (planId: number, cycleNumber: number) => void;
+  /** Opens Settings (`/settings`), where the backup lives. */
+  onOpenSettings?: () => void;
+  /** The reference time for the streak and the backup reminder (defaults to the current time). */
+  now?: Date;
 };
 
 /** Runs a store action; a failure shows a localized message instead of crashing. */
 export type RunAction = (action: () => Promise<unknown>, next?: () => void) => void;
 
 /** Home (SPEC §10): resume or next workout, cycle summary with deload advice, recent workouts. */
-export function HomeScreen({ onOpenWorkout, onOpenWorkoutDetail, onNewPlan, onOpenPlan }: HomeScreenProps) {
+export function HomeScreen({
+  onOpenWorkout,
+  onOpenWorkoutDetail,
+  onNewPlan,
+  onOpenPlan,
+  onOpenCycleReport,
+  onOpenSettings,
+  now,
+}: HomeScreenProps) {
   const t = useT();
+  const clock = useMemo(() => now ?? new Date(), [now]);
   const summary = useAppStore(selectHomeSummary);
+  const streak = useAppStore((s) => selectWeekStreak(s, clock));
+  const backupDue = useAppStore((s) => selectBackupReminder(s, clock));
+  const completedCycle = useAppStore((s) => s.completedCycle);
+  const dismissCompletedCycle = useAppStore((s) => s.dismissCompletedCycle);
   const advice = useAppStore(selectDeloadAdvice);
   const startPlanWorkout = useAppStore((s) => s.startPlanWorkout);
   const startFreeWorkout = useAppStore((s) => s.startFreeWorkout);
@@ -57,6 +78,14 @@ export function HomeScreen({ onOpenWorkout, onOpenWorkoutDetail, onNewPlan, onOp
         <Text tone="danger" accessibilityRole="alert">
           {error}
         </Text>
+      ) : null}
+
+      {completedCycle ? (
+        <CycleCompleteBanner
+          completed={completedCycle}
+          onOpenReport={() => onOpenCycleReport?.(completedCycle.planId, completedCycle.cycleNumber)}
+          onDismiss={dismissCompletedCycle}
+        />
       ) : null}
 
       {summary.inProgress ? <ResumeCard workout={summary.inProgress} onPress={onOpenWorkout} /> : null}
@@ -86,6 +115,8 @@ export function HomeScreen({ onOpenWorkout, onOpenWorkoutDetail, onNewPlan, onOp
         </Card>
       )}
 
+      <StreakLine weeks={streak} />
+
       {!inProgress ? (
         <Button
           variant="secondary"
@@ -97,6 +128,8 @@ export function HomeScreen({ onOpenWorkout, onOpenWorkoutDetail, onNewPlan, onOp
       {summary.recentWorkouts.length > 0 ? (
         <RecentWorkouts workouts={summary.recentWorkouts} onOpen={onOpenWorkoutDetail} />
       ) : null}
+
+      {backupDue ? <BackupReminderCard onOpenSettings={() => onOpenSettings?.()} /> : null}
     </Screen>
   );
 }

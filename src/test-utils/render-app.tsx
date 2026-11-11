@@ -15,7 +15,7 @@ import { createMemoryRepositories } from '@/data/memory/memory-repositories';
 import type { Repositories } from '@/data/repositories';
 import type { LanguageSetting } from '@/i18n/locale';
 import { createAppStore } from '@/state/app-store';
-import type { AppStore } from '@/state/types';
+import type { AppStore, RestNotifier } from '@/state/types';
 
 export type RenderInAppOptions = {
   language?: LanguageSetting;
@@ -26,21 +26,30 @@ export type RenderInAppOptions = {
   store?: AppStore;
   /** Clock for the store (ignored when `store` is given: it already has its own). */
   now?: () => Date;
+  /** Rest-end notifier for the store (ignored when `store` is given), e.g. `createFakeNotifier()`. */
+  notifier?: RestNotifier;
+  /** App version written into backups (ignored when `store` is given). */
+  appVersion?: string;
   /** Runs against the repositories (default profile id given) before the app boots. */
   seed?: (repos: Repositories, profileId: number) => Promise<unknown>;
 };
 
 export async function renderInApp(ui: ReactElement, options: RenderInAppOptions = {}) {
-  const { language = 'en', onboarded = true, seed, now } = options;
+  const { language = 'en', onboarded = true, seed, now, notifier, appVersion } = options;
   if (options.store && !options.repos) throw new Error('renderInApp: `store` requires its `repos`');
   const repos = options.repos ?? createMemoryRepositories({ clock: now });
   const profile = await ensureDefaultProfile(repos, 'Default');
   await repos.settings.update(profile.id, { language, onboardingCompleted: onboarded });
   await seed?.(repos, profile.id);
-  const store = options.store ?? createAppStore(repos, { now });
+  const store = options.store ?? createAppStore(repos, { now, notifier, appVersion });
   await store.getState().init('Default');
   await render(
-    <AppProviders openRepositories={() => Promise.resolve(repos)} store={store}>
+    <AppProviders
+      openRepositories={() => Promise.resolve(repos)}
+      store={store}
+      notifier={notifier}
+      appVersion={appVersion}
+    >
       {ui}
     </AppProviders>,
   );

@@ -134,6 +134,56 @@ describe('docs/cycle-plan.schema.json', () => {
     });
     expect(bounds(exercise.note ?? {})).toEqual({ max: PLAN_LIMITS.note.max });
   });
+
+  it('superset label limits equal PLAN_LIMITS.supersetGroup', () => {
+    const exercise = SCHEMA.$defs.planExercise?.properties ?? {};
+    expect(bounds(exercise.superset ?? {})).toEqual(PLAN_LIMITS.supersetGroup);
+  });
+
+  it('cycle.rirRamp start and end ranges equal PLAN_LIMITS.rirRamp', () => {
+    const ramp = SCHEMA.$defs.cycle?.properties?.rirRamp?.properties ?? {};
+    expect(bounds(ramp.start ?? {})).toEqual(PLAN_LIMITS.rirRamp);
+    expect(bounds(ramp.end ?? {})).toEqual(PLAN_LIMITS.rirRamp);
+  });
+});
+
+describe('superset and cycle.rirRamp as the documents describe them', () => {
+  const document = (overrides: { cycle?: object; exercises?: object[] } = {}) =>
+    JSON.stringify({
+      format: 'cycle-plan',
+      version: 1,
+      name: 'Ramp plan',
+      sessionsPerWeek: 3,
+      cycle: { loadWeeks: 4, deloadWeeks: 1, rirRamp: { start: 3, end: 0 }, ...overrides.cycle },
+      workouts: [
+        {
+          name: 'A',
+          exercises: overrides.exercises ?? [
+            { exercise: 'barbell-bench-press', sets: 3, reps: '8-12', superset: 'A' },
+            { exercise: 'lat-pulldown', sets: 3, reps: '8-12', superset: 'A' },
+            { exercise: 'barbell-back-squat', sets: 3, reps: '6-10' },
+          ],
+        },
+      ],
+    });
+
+  it('imports consecutive exercises with the same label as one superset and keeps the ramp', () => {
+    const result = parsePlanImport(document(), listExercises());
+    if (!result.ok) throw new Error(`must import: ${JSON.stringify(result.errors)}`);
+    const exercises = result.draft.workouts[0].exercises;
+    expect(exercises.map((exercise) => exercise.supersetGroup)).toEqual(['A', 'A', undefined]);
+    expect(result.draft.cycle.rirRamp).toEqual({ start: 3, end: 0 });
+  });
+
+  it('accepts rirRamp null (no ramp)', () => {
+    const result = parsePlanImport(document({ cycle: { rirRamp: null } }), listExercises());
+    if (!result.ok) throw new Error('must import');
+    expect(result.draft.cycle.rirRamp).toBeUndefined();
+  });
+
+  it('rejects a ramp that rises', () => {
+    expect(parsePlanImport(document({ cycle: { rirRamp: { start: 0, end: 3 } } }), listExercises()).ok).toBe(false);
+  });
 });
 
 describe('generated prompt and the built-in library', () => {

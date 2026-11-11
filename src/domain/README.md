@@ -10,6 +10,13 @@ Everything that decides something, with no framework in sight.
   `progression.ts` (double progression, stall detection), `metrics.ts` (e1RM, volume, work load, session score).
 - `workout.ts` (logged workout model and validation), `workout-builder.ts` (draft from a plan workout),
   `stats.ts` (chart series, personal records, weekly muscle sets), `period.ts`, `chart-scale.ts`.
+- v3 (SPEC-v3): `rest-timer.ts` (timer derived from timestamps, superset rule, adjust/skip), `plates.ts`
+  (plates per side, integer grams), `warmup.ts` (50/70/85 % ramp), `cycle-report.ts` (adherence, volume,
+  per-exercise change, stalled, records, weekly sets per muscle), `body.ts` (body metric validation, series
+  and stats), `insights.ts` (calendar, week streak, weekly trends), `backup.ts` (the `cycle-backup`
+  document: build, tolerant parse with `{ code, path }` errors, summary, file name, id remapping),
+  `logbook-csv.ts` (CSV export) and `exercise-similar.ts` (similar exercises). `cycle.ts` also holds the
+  RIR ramp (`weekTargetRir`) and `plan.ts` the superset layout (`supersetLayout`) and its validation.
 - `rounding.ts`, `number-validation.ts`, `validation.ts` — generic helpers.
 
 Dependency rules:

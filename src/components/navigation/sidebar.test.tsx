@@ -69,8 +69,8 @@ async function renderWide(initialUrl = '/', width = 1280) {
   return renderRouter(routes, { initialUrl, wrapper });
 }
 
-const EN_SECTIONS = ['Home', 'Plan', 'Workout', 'Progress', 'Exercises', 'History', 'Settings'];
-const PT_SECTIONS = ['Início', 'Periodização', 'Treino', 'Progresso', 'Exercícios', 'Histórico', 'Configurações'];
+const EN_SECTIONS = ['Home', 'Plan', 'Workout', 'Progress', 'Exercises', 'History', 'Body', 'Settings'];
+const PT_SECTIONS = ['Início', 'Periodização', 'Treino', 'Progresso', 'Exercícios', 'Histórico', 'Corpo', 'Configurações'];
 
 beforeEach(() => setDeviceLocale('en-US'));
 

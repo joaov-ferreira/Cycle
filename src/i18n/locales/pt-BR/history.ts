@@ -47,4 +47,15 @@ export const history: typeof enHistory = {
   deleteTitle: 'Excluir este treino?',
   deleteMessage: 'Ele é removido do histórico e do progresso. O ciclo da periodização não muda.',
   deleteConfirm: 'Excluir treino',
+  dropSetLine: 'Drop-set · {{weight}} × {{reps}}',
+  dropSets: {
+    one: '{{count}} drop-set',
+    other: '{{count}} drop-sets',
+  },
+  supersetTwo: 'Bi-set',
+  supersetThree: 'Tri-set',
+  supersetFour: 'Série gigante',
+  repeatWorkout: 'Repetir treino',
+  repeatFailed: 'Não foi possível iniciar o treino. Tente novamente.',
+  workoutInProgress: 'Termine ou descarte o treino em andamento primeiro',
 };

@@ -3,6 +3,7 @@ import {
   canCompleteWorkout,
   finalizeExercises,
   hasSetErrors,
+  validateSetOrder,
   toExerciseSession,
   validateNote,
   validateSet,
@@ -303,6 +304,7 @@ describe('workoutSummary (SPEC §7.4, §13 step 4)', () => {
       durationSeconds: 3750,
       exerciseCount: 2,
       workingSets: 6,
+      dropSets: 0,
       volumeKg: 2340,
     });
   });
@@ -319,6 +321,7 @@ describe('workoutSummary (SPEC §7.4, §13 step 4)', () => {
       durationSeconds: 3750,
       exerciseCount: 2,
       workingSets: 2,
+      dropSets: 0,
       volumeKg: 300,
     });
   });
@@ -327,7 +330,7 @@ describe('workoutSummary (SPEC §7.4, §13 step 4)', () => {
     const summary = workoutSummary(
       completedWorkout({ status: 'in_progress', completedAt: null, exercises: [] }),
     );
-    expect(summary).toEqual({ durationSeconds: null, exerciseCount: 0, workingSets: 0, volumeKg: 0 });
+    expect(summary).toEqual({ durationSeconds: null, exerciseCount: 0, workingSets: 0, dropSets: 0, volumeKg: 0 });
   });
 
   it('truncates the duration to whole seconds', () => {
@@ -361,6 +364,7 @@ describe('toExerciseSession (SPEC §7.1, §9)', () => {
       phase: 'deload',
       cycleNumber: 3,
       planId: 2,
+      targetRir: null,
       sets: [done(30, 10)],
     });
   });
@@ -379,5 +383,126 @@ describe('toExerciseSession (SPEC §7.1, §9)', () => {
 
   it('returns null when the exercise is not in the workout', () => {
     expect(toExerciseSession(sessionWorkout(), 'squat')).toBeNull();
+  });
+});
+
+const dropDone = (weightKg: number | null, reps: number | null): LoggedSet => ({
+  kind: 'drop',
+  weightKg,
+  reps,
+  rir: null,
+  done: true,
+});
+
+describe('drop sets (SPEC-v3 §4.2)', () => {
+  it('validateSet applies the same field rules to a drop set', () => {
+    expect(validateSet(dropDone(32.5, 8), 'barbell')).toEqual({});
+    expect(validateSet(dropDone(null, 8), 'barbell')).toEqual({ weightKg: 'required' });
+    expect(validateSet(dropDone(0, 8), 'barbell')).toEqual({ weightKg: 'zeroLoadNotAllowed' });
+    expect(validateSet(dropDone(0, 8), 'bodyweight')).toEqual({});
+    expect(validateSet(dropDone(30, 0), 'barbell')).toEqual({ reps: 'outOfRange' });
+    expect(validateSet(dropDone(30.123, null), 'barbell')).toEqual({
+      weightKg: 'tooManyDecimals',
+      reps: 'required',
+    });
+  });
+
+  describe('validateSetOrder', () => {
+    it('accepts drop sets after a working set or another drop set', () => {
+      expect(validateSetOrder([working(), dropDone(32, 8), dropDone(25, 6)])).toEqual([]);
+    });
+    it('accepts a list without drop sets', () => {
+      expect(validateSetOrder([warmupDone, working()])).toEqual([]);
+      expect(validateSetOrder([])).toEqual([]);
+    });
+    it('rejects a drop set first in the list', () => {
+      expect(validateSetOrder([dropDone(32, 8), working()])).toEqual([
+        { index: 0, code: 'dropWithoutWorkingSet' },
+      ]);
+    });
+    it('rejects a drop set right after a warm-up set', () => {
+      expect(validateSetOrder([warmupDone, dropDone(32, 8)])).toEqual([
+        { index: 1, code: 'dropWithoutWorkingSet' },
+      ]);
+    });
+    it('rejects every drop set of a chain that has no working set before it', () => {
+      expect(validateSetOrder([warmupDone, dropDone(32, 8), dropDone(25, 8), working(), dropDone(30, 8)])).toEqual([
+        { index: 1, code: 'dropWithoutWorkingSet' },
+        { index: 2, code: 'dropWithoutWorkingSet' },
+      ]);
+    });
+    it('a working set after a warm-up and a drop set after it is valid', () => {
+      expect(validateSetOrder([warmupDone, working(), dropDone(32, 8)])).toEqual([]);
+    });
+  });
+
+  describe('finalizeExercises', () => {
+    it('keeps a drop set that still follows a done working set', () => {
+      const input = [exerciseWith('bench', [done(40, 12), notDone(40, 12), dropDone(32.5, 8)])];
+      expect(finalizeExercises(input)).toEqual([exerciseWith('bench', [done(40, 12), dropDone(32.5, 8)])]);
+    });
+    it('drops a drop set that follows only a warm-up once undone sets are removed', () => {
+      const input = [exerciseWith('bench', [warmupDone, notDone(40, 12), dropDone(32.5, 8)])];
+      expect(finalizeExercises(input)).toEqual([exerciseWith('bench', [warmupDone])]);
+    });
+    it('drops the whole chain after a missing working set', () => {
+      const input = [exerciseWith('bench', [notDone(40, 12), dropDone(32.5, 8), dropDone(25, 8)])];
+      expect(finalizeExercises(input)).toEqual([]);
+    });
+    it('keeps a chain that follows a done working set', () => {
+      const sets = [done(40, 12), dropDone(32.5, 8), dropDone(25, 8)];
+      expect(finalizeExercises([exerciseWith('bench', sets)])).toEqual([exerciseWith('bench', sets)]);
+    });
+  });
+
+  describe('workoutSummary', () => {
+    it('volume grows with drop sets while working sets stay: 1700 kg, 3 working, 1 drop', () => {
+      const workout = completedWorkout({
+        exercises: [exerciseWith('bench', [done(40, 12), done(40, 12), done(40, 12), dropDone(32.5, 8)])],
+      });
+      expect(workoutSummary(workout)).toEqual({
+        durationSeconds: 3750,
+        exerciseCount: 1,
+        workingSets: 3,
+        dropSets: 1,
+        volumeKg: 1700,
+      });
+    });
+    it('does not count drop sets that are not done', () => {
+      const workout = completedWorkout({
+        exercises: [exerciseWith('bench', [done(40, 12), { ...dropDone(32.5, 8), done: false }])],
+      });
+      expect(workoutSummary(workout).dropSets).toBe(0);
+    });
+  });
+});
+
+describe('toExerciseSession targetRir (SPEC-v3 §5)', () => {
+  const withTarget = (exerciseId: string, targetRir: number | undefined): WorkoutExercise => ({
+    ...exerciseWith(exerciseId, [done(40, 12)]),
+    target: { sets: 3, repMin: 8, repMax: 12, ...(targetRir === undefined ? {} : { targetRir }) },
+  });
+  const workoutOf = (exercises: WorkoutExercise[]) =>
+    completedWorkout({ completedAt: '2026-11-10T11:00:00.000Z', exercises });
+
+  it('takes the RIR from the target snapshot', () => {
+    expect(toExerciseSession(workoutOf([withTarget('bench', 2)]), 'bench')?.targetRir).toBe(2);
+  });
+  it('is null without a target or without a RIR in it', () => {
+    expect(toExerciseSession(workoutOf([exerciseWith('bench', [done(40, 12)])]), 'bench')?.targetRir).toBeNull();
+    expect(toExerciseSession(workoutOf([withTarget('bench', undefined)]), 'bench')?.targetRir).toBeNull();
+  });
+  it('uses the first entry when the exercise appears several times', () => {
+    const entries = [withTarget('bench', 3), withTarget('bench', 1)];
+    expect(toExerciseSession(workoutOf(entries), 'bench')?.targetRir).toBe(3);
+  });
+  it('a target RIR of 0 is kept', () => {
+    expect(toExerciseSession(workoutOf([withTarget('bench', 0)]), 'bench')?.targetRir).toBe(0);
+  });
+  it('WorkoutExercise.supersetGroup is optional', () => {
+    const exercise: WorkoutExercise = { ...exerciseWith('bench', []), supersetGroup: 'A' };
+    const legacy: WorkoutExercise = exerciseWith('bench', []);
+    expect(exercise.supersetGroup).toBe('A');
+    expect(legacy.supersetGroup).toBeUndefined();
   });
 });

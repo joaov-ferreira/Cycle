@@ -145,3 +145,66 @@ describe('formatDuration', () => {
     expect(formatDuration(t, seconds)).toBe(expected);
   });
 });
+
+describe('WorkoutScreen: summary drop sets and sharing', () => {
+  const finishWithDrop = async ({ store }: WorkoutContext) => {
+    await seedCompletedWorkout(store, {
+      planWorkoutId: 'w-a',
+      logs: {
+        'barbell-bench-press': {
+          weightKg: 40,
+          reps: [12, 12, 12],
+          drop: { reps: 8 },
+        },
+      },
+    });
+  };
+
+  it('shows the drop-set count only when there is one', async () => {
+    await renderWorkout({ afterRender: finishWithDrop });
+    expect(within(await screen.findByTestId('summary-dropSets')).getByText('1')).toBeOnTheScreen();
+    expect(screen.getByText('Drop sets')).toBeOnTheScreen();
+  });
+
+  it('hides the drop-set row without drop sets', async () => {
+    await renderWorkout({ afterRender: finishSample });
+    await screen.findByTestId('summary-volume');
+    expect(screen.queryByTestId('summary-dropSets')).toBeNull();
+  });
+
+  it('shares the summary text in English', async () => {
+    const share = jest.fn().mockResolvedValue(undefined);
+    await renderWorkout({
+      afterRender: finishWithDrop,
+      screenProps: { share },
+    });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Share summary' }));
+    expect(share).toHaveBeenCalledTimes(1);
+    expect((share.mock.calls[0][0] as string).replace(/\u00a0/g, ' ')).toBe(
+      [
+        'A',
+        'Mar 2, 2026',
+        'Barbell Bench Press: 40 kg × 12, 12, 12 · drop 32.5 kg × 8',
+        'Total volume: 1,700 kg',
+      ].join('\n'),
+    );
+  });
+
+  it('shares the summary text in Portuguese', async () => {
+    const share = jest.fn().mockResolvedValue(undefined);
+    await renderWorkout({
+      language: 'pt-BR',
+      afterRender: finishWithDrop,
+      screenProps: { share },
+    });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Compartilhar resumo' }));
+    expect((share.mock.calls[0][0] as string).replace(/\u00a0/g, ' ')).toBe(
+      [
+        'A',
+        '2 de mar. de 2026',
+        'Supino reto com barra: 40 kg × 12, 12, 12 · drop 32,5 kg × 8',
+        'Volume total: 1.700 kg',
+      ].join('\n'),
+    );
+  });
+});

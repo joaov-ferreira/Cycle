@@ -28,6 +28,7 @@ describe('registered migrations', () => {
       [8, 'e1rm'],
       [9, 'e1rm_revisions'],
       [10, 'v2_logbook'],
+      [11, 'v3_companion'],
     ]);
   });
 
@@ -36,7 +37,7 @@ describe('registered migrations', () => {
     const again = await runMigrations(db, migrations);
     expect(again.applied).toEqual([]);
     const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version', []);
-    expect(version).toEqual({ user_version: 10 });
+    expect(version).toEqual({ user_version: 11 });
   });
 });
 
@@ -52,6 +53,12 @@ describe('001_init', () => {
       'e1rm_formula',
       'experience',
       'active_plan_id',
+      'default_rest_seconds',
+      'rest_notifications',
+      'keep_awake',
+      'bar_kg',
+      'plates',
+      'last_backup_at',
     ]);
   });
 
@@ -602,7 +609,7 @@ describe('009_e1rm_revisions', () => {
       [],
     );
     const result = await runMigrations(db, migrations);
-    expect(result.applied).toEqual([9, 10]);
+    expect(result.applied).toEqual([9, 10, 11]);
     expect(await db.getAllAsync('SELECT id, performed_session_id, revision, value_kg, formula FROM e1rm_history ORDER BY id', [])).toEqual([
       { id: 1, performed_session_id: 1, revision: 1, value_kg: 95.6, formula: 'rts' },
       { id: 2, performed_session_id: 2, revision: 1, value_kg: 100.4, formula: 'epley-rir' },

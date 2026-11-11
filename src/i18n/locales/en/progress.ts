@@ -4,6 +4,12 @@ export const progress = {
   empty: {
     title: 'Log a workout to see your progress',
   },
+  tabs: {
+    group: 'Progress section',
+    exercises: 'Exercises',
+    volume: 'Volume',
+    calendar: 'Calendar',
+  },
   exerciseGroup: 'Exercise',
   periodGroup: 'Period',
   metricGroup: 'Metric',

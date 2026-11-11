@@ -7,11 +7,18 @@ SQLite (`expo-sqlite`) database, versioned migrations and repositories.
   `PRAGMA user_version`; each migration runs in its own transaction. Append new files and
   register them in `migrations/index.ts`; never edit a released migration.
 - `repositories.ts` — repository **interfaces**, entity types and error classes: `profiles`, `settings`
-  (`language`, `theme`, `onboardingCompleted`, `experience`), `exercises` (custom exercises, increment
-  overrides), `plans` (plan CRUD, archive, active plan, cycle state) and `workouts` (draft, complete,
-  amend, delete, listings, exercise sessions). Repositories check structure and state only; business
+  (`language`, `theme`, `onboardingCompleted`, `experience`, rest/notification/keep-awake, bar and plates,
+  `lastBackupAt`), `exercises` (custom exercises, increment overrides, notes, bar weights), `plans` (plan
+  CRUD, archive, active plan, cycle state), `workouts` (draft, complete, amend, delete, listings, exercise
+  sessions; superset groups and `drop` sets), `bodyMetrics` (one value per date and kind) and `backup`
+  (`exportProfile`, and `restoreAsNewProfile` in one transaction with id remapping; SPEC-v3 §8). Repositories check structure and state only; business
   validation belongs to the caller. v1 tables (migrations 001–009) stay in the database untouched;
   migration 010 copies completed v1 sessions into `workouts` (SPEC §11.3) and no repository reads v1 tables.
+- `migrations/011_v3_companion.ts` — the v3 schema (SPEC-v3 §12): `body_metrics`, exercise notes and bar
+  weights, `workout_exercises.superset_group` and the new settings columns. Migrations 001–011 are
+  immutable.
+- `backup-shared.ts`, `logbook-shared.ts` — what both backup implementations share: the export, the
+  restore plan (what is written, decided before the first write) and the validation helpers.
 - `memory/` — in-memory implementation (tests).
 - `sqlite/` — SQLite implementation and `openAppDatabase()` / `openSqliteRepositories()`.
 - `repositories.contract.ts` — one behavioral test suite run against **both**

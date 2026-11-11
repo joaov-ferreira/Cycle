@@ -40,4 +40,17 @@ export const exercises = {
   inUse:
     'This exercise is used by a plan or a workout, so it cannot be deleted. Archive it instead.',
   saveFailed: 'Something went wrong. Try again.',
+  noteTitle: 'Exercise note',
+  noteHint: 'The note appears every time this exercise is logged.',
+  noNote: 'No note yet.',
+  editNote: 'Edit note',
+  noteLabel: 'Exercise note',
+  noteTooLong: 'Use at most {{max}} characters',
+  barTitle: 'Bar weight',
+  barLabel: 'bar weight',
+  resetBar: 'Use the default ({{value}})',
+  similarTitle: 'Similar exercises',
+  similarItem: '{{name}} · {{equipment}}',
+  openSimilar: 'Open {{name}}',
+  howTo: 'How to do it',
 };

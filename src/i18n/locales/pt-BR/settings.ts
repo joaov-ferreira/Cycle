@@ -20,6 +20,26 @@ export const settings: typeof enSettings = {
     advanced: 'Avançado',
     hint: 'Define o ciclo sugerido: {{loadWeeks}} semanas de carga + {{deloadWeeks}} de deload.',
   },
+  tools: {
+    title: 'Ferramentas de treino',
+    rest: 'Descanso padrão entre séries',
+    restOff: 'Desligado',
+    restNotifications: 'Notificações de descanso',
+    restNotificationsHint: 'Uma notificação quando o descanso termina com o app em segundo plano.',
+    keepAwake: 'Manter a tela ligada',
+    keepAwakeHint: 'Enquanto um treino está em andamento na aba Treino.',
+    bar: 'Peso da barra',
+    plates: 'Anilhas disponíveis',
+    errors: {
+      rest: 'O descanso deve ficar entre 0 e 10 minutos.',
+      bar: 'O peso da barra deve ficar entre 0 e 50 kg.',
+      plates: 'Escolha ao menos uma anilha.',
+    },
+  },
+  notification: {
+    title: 'Descanso terminado',
+    body: 'Próximo: {{exercise}} — série {{set}}',
+  },
   theme: {
     title: 'Tema',
     label: 'Tema do app',

@@ -38,6 +38,7 @@ type ExerciseRow = {
   plan_exercise_id: string | null;
   target: string | null;
   note: string;
+  superset_group: string | null;
 };
 
 type SetRow = {
@@ -56,6 +57,36 @@ const WORKOUT_COLUMNS =
 const CHUNK = 400;
 
 const placeholders = (count: number) => Array(count).fill('?').join(', ');
+
+/** Inserts the exercises and their sets of a workout, in order. */
+export async function insertWorkoutExercises(
+  db: SqlDatabase,
+  workoutId: number,
+  exercises: readonly WorkoutExercise[],
+): Promise<void> {
+  for (const [position, e] of exercises.entries()) {
+    const inserted = await db.runAsync(
+      `INSERT INTO workout_exercises (workout_id, position, exercise_id, plan_exercise_id, target, note, superset_group)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        workoutId,
+        position,
+        e.exerciseId,
+        e.planExerciseId,
+        e.target === null ? null : JSON.stringify(e.target),
+        e.note,
+        e.supersetGroup ?? null,
+      ],
+    );
+    for (const [setPosition, s] of e.sets.entries()) {
+      await db.runAsync(
+        `INSERT INTO workout_sets (workout_exercise_id, position, kind, weight_kg, reps, rir, done)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [inserted.lastInsertRowId, setPosition, s.kind, s.weightKg, s.reps, s.rir, s.done ? 1 : 0],
+      );
+    }
+  }
+}
 
 export function createSqliteWorkoutRepository(db: SqlDatabase, clock: () => Date): WorkoutRepository {
   async function requireProfile(profileId: number): Promise<void> {
@@ -91,7 +122,7 @@ export function createSqliteWorkoutRepository(db: SqlDatabase, clock: () => Date
       const where = `we.workout_id IN (${placeholders(ids.length)}) ${filter}`;
       const params = [...ids, ...extra];
       const entryRows = await db.getAllAsync<ExerciseRow>(
-        `SELECT we.id, we.workout_id, we.exercise_id, we.plan_exercise_id, we.target, we.note
+        `SELECT we.id, we.workout_id, we.exercise_id, we.plan_exercise_id, we.target, we.note, we.superset_group
          FROM workout_exercises we WHERE ${where} ORDER BY we.workout_id, we.position`,
         params,
       );
@@ -113,6 +144,7 @@ export function createSqliteWorkoutRepository(db: SqlDatabase, clock: () => Date
           planExerciseId: e.plan_exercise_id,
           target: e.target === null ? null : (JSON.parse(e.target) as WorkoutExercise['target']),
           note: e.note,
+          supersetGroup: e.superset_group,
           sets: setsByEntry.get(e.id) ?? [],
         });
         entriesByWorkout.set(e.workout_id, list);
@@ -152,27 +184,7 @@ export function createSqliteWorkoutRepository(db: SqlDatabase, clock: () => Date
   /** Replaces all exercises and sets of the workout. */
   async function replaceExercises(workoutId: number, exercises: WorkoutExercise[]): Promise<void> {
     await deleteExercises(workoutId);
-    for (const [position, e] of exercises.entries()) {
-      const inserted = await db.runAsync(
-        `INSERT INTO workout_exercises (workout_id, position, exercise_id, plan_exercise_id, target, note)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [
-          workoutId,
-          position,
-          e.exerciseId,
-          e.planExerciseId,
-          e.target === null ? null : JSON.stringify(e.target),
-          e.note,
-        ],
-      );
-      for (const [setPosition, s] of e.sets.entries()) {
-        await db.runAsync(
-          `INSERT INTO workout_sets (workout_exercise_id, position, kind, weight_kg, reps, rir, done)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [inserted.lastInsertRowId, setPosition, s.kind, s.weightKg, s.reps, s.rir, s.done ? 1 : 0],
-        );
-      }
-    }
+    await insertWorkoutExercises(db, workoutId, exercises);
   }
 
   async function selectCompleted(
@@ -303,6 +315,7 @@ export function createSqliteWorkoutRepository(db: SqlDatabase, clock: () => Date
           phase: w.phase,
           cycleNumber: w.cycleNumber,
           planId: w.planId,
+          targetRir: w.exercises[0]?.target?.targetRir ?? null,
           sets: w.exercises.flatMap((e) => e.sets),
         }),
       );

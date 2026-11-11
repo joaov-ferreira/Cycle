@@ -9,7 +9,7 @@ import { useT, type MessageKey } from '@/i18n';
 import { useTheme } from '../theme-provider';
 import { Text } from '../ui/Text';
 
-type SectionId = 'home' | 'plan' | 'workout' | 'progress' | 'exercises' | 'history' | 'settings';
+type SectionId = 'home' | 'plan' | 'workout' | 'progress' | 'exercises' | 'history' | 'body' | 'settings';
 
 type Section = {
   id: SectionId;
@@ -26,6 +26,7 @@ const SECTIONS: readonly Section[] = [
   { id: 'progress', label: 'tabs.progress', icon: { ios: 'chart.line.uptrend.xyaxis', android: 'trending_up', web: 'trending_up' }, href: '/progress' },
   { id: 'exercises', label: 'exercises.title', icon: { ios: 'figure.strengthtraining.traditional', android: 'sports_gymnastics', web: 'sports_gymnastics' }, href: '/exercises' },
   { id: 'history', label: 'history.title', icon: { ios: 'clock.arrow.circlepath', android: 'history', web: 'history' }, href: '/history' },
+  { id: 'body', label: 'body.title', icon: { ios: 'scalemass', android: 'monitor_weight', web: 'monitor_weight' }, href: '/body' },
   { id: 'settings', label: 'settings.title', icon: { ios: 'gearshape', android: 'settings', web: 'settings' }, href: '/settings' },
 ];
 
@@ -37,6 +38,7 @@ const SEGMENT_SECTIONS: Record<string, SectionId> = {
   progress: 'progress',
   exercises: 'exercises',
   history: 'history',
+  body: 'body',
   settings: 'settings',
 };
 

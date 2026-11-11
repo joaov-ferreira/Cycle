@@ -49,6 +49,7 @@ describe('buildWorkoutExercises', () => {
       exerciseId: 'bench-press',
       planExerciseId: 'p1',
       target: { sets: 4, repMin: 6, repMax: 10, targetRir: 2, restSeconds: 120 },
+      supersetGroup: null,
       note: '',
       sets: Array.from({ length: 4 }, () => ({
         kind: 'working',
@@ -70,6 +71,33 @@ describe('buildWorkoutExercises', () => {
     expect(result[2].sets).toHaveLength(2);
     expect(result[2].target?.sets).toBe(2);
     expect(result[2].sets[0].weightKg).toBeNull();
+  });
+});
+
+describe('buildWorkoutExercises supersets (SPEC-v3 §4.1)', () => {
+  it('copies the superset label of the plan exercise, or null', () => {
+    const workout: PlanWorkout = {
+      id: 'w1',
+      name: 'Upper',
+      exercises: [
+        { id: 'p1', exerciseId: 'bench-press', sets: 3, repMin: 8, repMax: 12, supersetGroup: 'A' },
+        { id: 'p2', exerciseId: 'fly', sets: 3, repMin: 12, repMax: 15, supersetGroup: 'A' },
+        { id: 'p3', exerciseId: 'dip', sets: 2, repMin: 8, repMax: 12 },
+      ],
+    };
+    expect(buildWorkoutExercises(workout, {}).map((e) => e.supersetGroup)).toEqual(['A', 'A', null]);
+  });
+});
+
+describe('buildWorkoutExercises week target RIR (SPEC-v3 §5)', () => {
+  it('options.targetRir replaces every exercise target RIR, set or not', () => {
+    const result = buildWorkoutExercises(planWorkout, {}, { targetRir: 0 });
+    expect(result.map((e) => e.target?.targetRir)).toEqual([0, 0, 0]);
+    expect(result[0].target).toEqual({ sets: 4, repMin: 6, repMax: 10, targetRir: 0, restSeconds: 120 });
+  });
+  it('without the option the plan targets are kept', () => {
+    const result = buildWorkoutExercises(planWorkout, {}, {});
+    expect(result.map((e) => e.target?.targetRir)).toEqual([2, undefined, undefined]);
   });
 });
 

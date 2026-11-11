@@ -9,7 +9,7 @@ import type { ReactNode } from 'react';
 import type { Repositories } from '@/data/repositories';
 import { appRoutes } from '@/test-utils/app-routes';
 import { createClock, DAY_MS } from '@/test-utils/clock';
-import { createTestStore, seedCompletedWorkout, seedPlan } from '@/test-utils/seed';
+import { createTestStore, seedCompletedCycle, seedCompletedWorkout, seedPlan, v3PlanContent } from '@/test-utils/seed';
 import type { AppStore } from '@/state/types';
 
 import { AppProviders } from '../app-providers';
@@ -302,6 +302,105 @@ describe('Exercise, history and More links', () => {
   });
 });
 
+/** The app with the v3 plan (superset, RIR ramp) whose first cycle was just completed in this session. */
+async function openAfterCycle(url = '/') {
+  setWindowWidth(390);
+  const clock = createClock(new Date(2026, 2, 2, 9, 0));
+  const { store, repos } = await createTestStore({ clock });
+  await seedPlan(store, v3PlanContent());
+  await seedCompletedCycle(store, clock);
+  clock.advance(DAY_MS);
+  return openWith(store, repos, url);
+}
+
+describe('v3 links: cycle report, Review with AI, backup, Body and repeat', () => {
+  it('Home banner "Cycle 1 complete" → the cycle report → Review with AI → Back, Back', async () => {
+    const { router } = await openAfterCycle();
+    expect(await screen.findByText('Cycle 1 complete')).toBeOnTheScreen();
+    await press('See report');
+    expect(await header('Cycle 1 report')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/plans/1/cycles/1');
+
+    await press('Review with AI');
+    expect(await header('Review with AI')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/plans/1/review');
+    await pressBack();
+    expect(router.getPathname()).toBe('/plans/1/cycles/1');
+    await pressBack();
+    expect(await screen.findByTestId('screen-home')).toBeOnTheScreen();
+  });
+
+  it('Home backup reminder → Settings', async () => {
+    const { router } = await openAfterCycle();
+    expect(await screen.findByText('Your logbook has no recent backup')).toBeOnTheScreen();
+    await press('Back up now');
+    expect(await header('Settings')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/settings');
+    expect(screen.getByRole('button', { name: 'Export backup' })).toBeOnTheScreen();
+  });
+
+  it('Plan detail → Review with AI, and → the report of a past cycle', async () => {
+    const { router } = await openAfterCycle('/plans/1');
+    await press('Review with AI');
+    expect(await header('Review with AI')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/plans/1/review');
+    await pressBack();
+    expect(await screen.findByTestId('screen-plan-detail')).toBeOnTheScreen();
+
+    await press('Open the report of cycle 1');
+    expect(await header('Cycle 1 report')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/plans/1/cycles/1');
+    await pressBack();
+    expect(router.getPathname()).toBe('/plans/1');
+  });
+
+  it('Plan tab → Review with AI', async () => {
+    const { router } = await openAfterCycle('/plan');
+    await press('Review with AI');
+    expect(await header('Review with AI')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/plans/1/review');
+  });
+
+  it('Review with AI → Import the answer opens the import with "Update plan" preselected', async () => {
+    const { router } = await openAfterCycle('/plans/1/review');
+    await press('Import the answer');
+    expect(await header('Import plan')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/plans/import');
+    expect(router.getSearchParams()).toMatchObject({ update: '1' });
+    await fireEvent.changeText(await screen.findByLabelText('Plan text'), '# Fresh plan\n\n## A\nSupino reto com barra | 3x8-12');
+    await press('Continue');
+    expect(await screen.findByRole('radio', { name: /^Update/ })).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Update plan' })).toBeOnTheScreen();
+  });
+
+  it('More → Body, and Back returns to More', async () => {
+    const { router } = await open({ url: '/more' });
+    await press('Body');
+    expect(await header('Body')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/body');
+    await pressBack();
+    expect(router.getPathname()).toBe('/more');
+  });
+
+  it('the wide-screen sidebar → Body', async () => {
+    const { router } = await open({ width: 1280 });
+    await fireEvent.press(await screen.findByTestId('sidebar-item-body'));
+    expect(await header('Body')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/body');
+    expect(screen.getByTestId('sidebar-item-body')).toBeSelected();
+  });
+
+  it('History detail → Repeat workout starts a free workout on the Workout tab', async () => {
+    const { router, store } = await open();
+    await fireEvent.press((await screen.findAllByRole('button', { name: 'B' }))[0]);
+    expect(await screen.findByTestId('screen-history-detail')).toBeOnTheScreen();
+    await press('Repeat workout');
+    expect(await screen.findByTestId('exercise-card-0')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/workout');
+    expect(store.getState().currentWorkout).not.toBeNull();
+  });
+});
+
 describe('wide-screen sidebar highlights the section of every route', () => {
   it.each([
     ['/', 'home'],
@@ -321,6 +420,9 @@ describe('wide-screen sidebar highlights the section of every route', () => {
     ['/history', 'history'],
     ['/history/1', 'history'],
     ['/settings', 'settings'],
+    ['/body', 'body'],
+    ['/plans/1/cycles/1', 'plan'],
+    ['/plans/1/review', 'plan'],
   ])('%s → %s', async (url, section) => {
     await open({ url, width: 1280 });
     expect(await screen.findByTestId(`sidebar-item-${section}`)).toBeSelected();

@@ -7,6 +7,13 @@ import { home } from './pt-BR/home';
 import { plan } from './pt-BR/plan';
 import { planImport } from './pt-BR/planImport';
 import { planEditor } from './pt-BR/planEditor';
+import { timer } from './pt-BR/timer';
+import { tools } from './pt-BR/tools';
+import { cycleReport } from './pt-BR/cycleReport';
+import { aiReview } from './pt-BR/aiReview';
+import { backup } from './pt-BR/backup';
+import { body } from './pt-BR/body';
+import { insights } from './pt-BR/insights';
 import { workout } from './pt-BR/workout';
 import { history } from './pt-BR/history';
 import { progress } from './pt-BR/progress';
@@ -27,6 +34,13 @@ export const ptBR: Catalog = {
   plan,
   planImport,
   planEditor,
+  timer,
+  tools,
+  cycleReport,
+  aiReview,
+  backup,
+  body,
+  insights,
   workout,
   history,
   progress,

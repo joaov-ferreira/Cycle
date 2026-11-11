@@ -1,9 +1,11 @@
 import type { CustomExerciseInput, Exercise } from '@/domain/exercise';
 import type { PlanContent } from '@/domain/plan';
 
-import type { SqlDatabase } from '../database';
+import type { SqlDatabase, SqlValue } from '../database';
 import {
+  assertExerciseBar,
   assertIncrementOverride,
+  normalizeExerciseNote,
   parseCustomExerciseId,
   planReferencesExercise,
   toCustomExercise,
@@ -13,6 +15,7 @@ import {
   ExerciseInUseError,
   ProfileNotFoundError,
   type ExerciseRepository,
+  type ExerciseSettingsEntry,
 } from '../repositories';
 
 type CustomRow = {
@@ -85,6 +88,34 @@ export function createSqliteExerciseRepository(
     return Object.fromEntries(rows.map((r) => [r.exercise_id, r.increment_kg]));
   }
 
+  /** Sets one settings column (NULL clears it) and drops the row once it holds no value at all. */
+  async function setSetting(
+    profileId: number,
+    exerciseId: string,
+    column: 'increment_kg' | 'note' | 'bar_kg',
+    value: SqlValue,
+  ): Promise<void> {
+    await db.withTransactionAsync(async () => {
+      if (value === null) {
+        await db.runAsync(
+          `UPDATE exercise_settings SET ${column} = NULL WHERE profile_id = ? AND exercise_id = ?`,
+          [profileId, exerciseId],
+        );
+      } else {
+        await db.runAsync(
+          `INSERT INTO exercise_settings (profile_id, exercise_id, ${column}) VALUES (?, ?, ?)
+           ON CONFLICT (profile_id, exercise_id) DO UPDATE SET ${column} = excluded.${column}`,
+          [profileId, exerciseId, value],
+        );
+      }
+      await db.runAsync(
+        `DELETE FROM exercise_settings WHERE profile_id = ? AND exercise_id = ?
+           AND increment_kg IS NULL AND note IS NULL AND bar_kg IS NULL`,
+        [profileId, exerciseId],
+      );
+    });
+  }
+
   const values = (input: CustomExerciseInput) => [
     input.name,
     input.primaryMuscle,
@@ -143,20 +174,39 @@ export function createSqliteExerciseRepository(
     getIncrementOverrides: overrides,
     async setIncrementOverride(profileId, exerciseId, incrementKg) {
       await requireProfile(profileId);
-      if (incrementKg === null) {
-        await db.runAsync('DELETE FROM exercise_settings WHERE profile_id = ? AND exercise_id = ?', [
-          profileId,
-          exerciseId,
-        ]);
-      } else {
-        assertIncrementOverride(incrementKg);
-        await db.runAsync(
-          `INSERT INTO exercise_settings (profile_id, exercise_id, increment_kg) VALUES (?, ?, ?)
-           ON CONFLICT (profile_id, exercise_id) DO UPDATE SET increment_kg = excluded.increment_kg`,
-          [profileId, exerciseId, incrementKg],
-        );
-      }
+      if (incrementKg !== null) assertIncrementOverride(incrementKg);
+      await setSetting(profileId, exerciseId, 'increment_kg', incrementKg);
       return overrides(profileId);
+    },
+    async getExerciseSettings(profileId) {
+      const rows = await db.getAllAsync<{
+        exercise_id: string;
+        increment_kg: number | null;
+        note: string | null;
+        bar_kg: number | null;
+      }>(
+        `SELECT exercise_id, increment_kg, note, bar_kg FROM exercise_settings
+         WHERE profile_id = ? ORDER BY exercise_id`,
+        [profileId],
+      );
+      return Object.fromEntries(
+        rows.map((row) => {
+          const entry: ExerciseSettingsEntry = {};
+          if (row.increment_kg !== null) entry.incrementKg = row.increment_kg;
+          if (row.note !== null) entry.note = row.note;
+          if (row.bar_kg !== null) entry.barKg = row.bar_kg;
+          return [row.exercise_id, entry];
+        }),
+      );
+    },
+    async setExerciseNote(profileId, exerciseId, note) {
+      await requireProfile(profileId);
+      await setSetting(profileId, exerciseId, 'note', normalizeExerciseNote(note));
+    },
+    async setExerciseBar(profileId, exerciseId, barKg) {
+      await requireProfile(profileId);
+      if (barKg !== null) assertExerciseBar(barKg);
+      await setSetting(profileId, exerciseId, 'bar_kg', barKg);
     },
   };
 }

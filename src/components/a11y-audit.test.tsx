@@ -11,7 +11,7 @@ import { layout } from '@/constants/theme';
 import type { AppStore } from '@/state/types';
 import { appRoutes } from '@/test-utils/app-routes';
 import { createClock, DAY_MS } from '@/test-utils/clock';
-import { createTestStore, seedCompletedWorkout, seedPlan } from '@/test-utils/seed';
+import { createTestStore, seedBodyMetrics, seedCompletedWorkout, seedPlan, v3PlanContent } from '@/test-utils/seed';
 
 import { AppProviders } from './app-providers';
 
@@ -117,6 +117,29 @@ const startWorkout = async (store: AppStore) => {
   await store.getState().startPlanWorkout();
 };
 
+/** The active plan becomes the v3 sample (superset A, RIR ramp 3 → 0) and workout A is started. */
+const startV3Workout = async (store: AppStore) => {
+  const state = store.getState();
+  await state.updatePlan(state.plans[0].id, v3PlanContent());
+  await store.getState().startPlanWorkout('w-a');
+};
+
+/**
+ * The logger with everything at once: a superset card, a warm-up, a drop set and a running rest timer
+ * (both exercises of the superset marked done).
+ */
+const loggerWithTimerSupersetAndDrop = async (store: AppStore) => {
+  await startV3Workout(store);
+  const actions = () => store.getState();
+  await actions().updateSet(0, 0, { weightKg: 40, reps: 10 });
+  await actions().addWarmupSets(0);
+  // The warm-up sets sit before the working ones: working set 1 of the bench is now row 3.
+  await actions().toggleSetDone(0, 3);
+  await actions().addDropSet(0, 3);
+  await actions().updateSet(1, 0, { weightKg: 50, reps: 10 });
+  await actions().toggleSetDone(1, 0);
+};
+
 const CASES: Case[] = [
   ['Home', '/', 'screen-home'],
   ['Home with a workout in progress', '/', 'screen-home', startWorkout],
@@ -138,7 +161,14 @@ const CASES: Case[] = [
   ['Custom exercise detail', '/exercises/custom-1', 'screen-exercise-detail'],
   ['History', '/history', 'screen-history'],
   ['History detail', '/history/1', 'screen-history-detail'],
-  ['Settings', '/settings', 'screen-settings'],
+  ['Settings (tools and data)', '/settings', 'screen-settings'],
+  ['Body', '/body', 'screen-body'],
+  ['Cycle report', '/plans/1/cycles/1', 'screen-cycle-report'],
+  ['Review with AI', '/plans/1/review', 'screen-ai-review'],
+  ['Plan detail with a superset and a RIR ramp', '/plans/1', 'screen-plan-detail', async (store) => {
+    await store.getState().updatePlan(store.getState().plans[0].id, v3PlanContent());
+  }],
+  ['Logger with a superset card, a drop set and the rest timer', '/workout', 'rest-timer-bar', loggerWithTimerSupersetAndDrop],
 ];
 
 describe.each(['en-US', 'pt-BR'])('accessibility audit (%s)', (tag) => {
@@ -172,6 +202,31 @@ describe('accessibility audit: states that need a tap first', () => {
     await tap('Edit text');
     await tap('Create with AI');
     expect(await screen.findByRole('header', { name: 'Create with AI' })).toBeOnTheScreen();
+    expect(audit()).toEqual([]);
+  });
+
+  it('Progress → Volume and Calendar tabs', async () => {
+    await open('/progress');
+    await fireEvent.press((await screen.findAllByTestId('segment-volume'))[0]);
+    expect(await screen.findByText(/Last 8 weeks|No workouts in the last 8 weeks/)).toBeOnTheScreen();
+    expect(audit()).toEqual([]);
+    await fireEvent.press(screen.getAllByTestId('segment-calendar')[0]);
+    expect(await screen.findByTestId('calendar-grid')).toBeOnTheScreen();
+    expect(audit()).toEqual([]);
+  });
+
+  it('body screen with entries and the edit form', async () => {
+    await open('/body', async (store) => {
+      await seedBodyMetrics(store);
+    });
+    expect(await screen.findByTestId('body-entries')).toBeOnTheScreen();
+    expect(audit()).toEqual([]);
+  });
+
+  it('exercise menu of the logger', async () => {
+    await open('/workout', loggerWithTimerSupersetAndDrop);
+    await fireEvent.press((await screen.findAllByRole('button', { name: 'Exercise options' }))[0]);
+    expect(await screen.findByRole('button', { name: 'Edit exercise note' })).toBeOnTheScreen();
     expect(audit()).toEqual([]);
   });
 

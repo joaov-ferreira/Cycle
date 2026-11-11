@@ -36,6 +36,12 @@ export const planEditor = {
   /** Main line of an exercise row, e.g. `3 × 8–12`. */
   summary: '{{sets}} × {{min}}–{{max}}',
   removeExercise: 'Remove {{exercise}}',
+  superset: { two: 'Superset', three: 'Tri-set', four: 'Giant set' },
+  linkNext: 'Link with next',
+  linkNextOf: 'Link {{exercise}} with the next exercise',
+  linkLimit: 'A superset has at most 4 exercises.',
+  unlink: 'Unlink',
+  unlinkOf: 'Unlink {{exercise}} from the previous exercise',
   setsOf: '{{exercise}} sets',
   repMinLabel: 'Min reps',
   repMinOf: '{{exercise}} minimum reps',
@@ -82,6 +88,9 @@ export const planEditor = {
     unknownExercise: 'This exercise no longer exists',
     duplicateId: 'Duplicate identifier',
     zeroLoadNotAllowed: 'Only bodyweight and band exercises take 0 kg',
+    supersetNotAdjacent: 'Exercises of the same superset must be next to each other.',
+    supersetSize: 'A superset needs 2 to 4 exercises.',
+    invalidRirRamp: 'The effort ramp needs RIR values from 0 to 5, starting at or above the final value.',
     /** Issue that belongs to no visible field; `{{message}}` is the specific text. */
     other: 'Plan settings: {{message}}',
   },

@@ -54,13 +54,27 @@ export function setVolume(weightKg: number, reps: number): number {
   return (toGrams(weightKg) * reps) / GRAMS_PER_KG;
 }
 
-/** Total volume of the counted sets. */
+/**
+ * Total volume: the counted sets plus the done drop sets with a weight and at least one rep
+ * (SPEC-v3 §4.2). Drop sets count for volume only.
+ */
 export function volume(sets: readonly LoggedSet[]): number {
   let grams = 0;
-  for (const set of countedSets(sets)) {
-    grams += toGrams(set.weightKg) * set.reps;
+  for (const set of sets) {
+    const counts = set.kind === 'drop' ? set.done : set.kind === 'working' && set.done;
+    if (counts && set.weightKg !== null && set.reps !== null && set.reps >= 1) {
+      grams += toGrams(set.weightKg) * set.reps;
+    }
   }
   return grams / GRAMS_PER_KG;
+}
+
+/** Fraction of the previous load used by a drop set (SPEC-v3 §4.2). */
+const DROP_SET_FACTOR = 0.8;
+
+/** Suggested weight of a drop set: 80 % of `weightKg`, rounded to the increment (ties down). */
+export function dropSetLoad(weightKg: number, incrementKg: number): number {
+  return roundToIncrementTiesDown(Math.round(weightKg * GRAMS_PER_KG * DROP_SET_FACTOR) / GRAMS_PER_KG, incrementKg);
 }
 
 /**

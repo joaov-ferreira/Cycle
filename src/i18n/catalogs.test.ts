@@ -27,6 +27,13 @@ const NAMESPACES = [
   'plan',
   'planImport',
   'planEditor',
+  'timer',
+  'tools',
+  'cycleReport',
+  'aiReview',
+  'backup',
+  'body',
+  'insights',
   'workout',
   'history',
   'progress',
@@ -90,4 +97,24 @@ describe('translation catalogs', () => {
       }
     },
   );
+});
+
+describe('pt-BR terminology of the v3 features', () => {
+  const texts = leafEntries(catalogs['pt-BR'] as unknown as Record<string, unknown>).flatMap(([key, value]) =>
+    (typeof value === 'string' ? [value] : Object.values(value as Record<string, string>)).map(
+      (text) => [key, text] as const,
+    ),
+  );
+
+  it.each([
+    ['superset', /superset/i],
+    ['giant set', /giant/i],
+    ['"Descanso encerrado" (the rest is "terminado")', /descanso encerrado/i],
+    ['plates', /\bplates?\b/i],
+    ['warm-up', /warm-?up/i],
+    ['cycle report', /relat[óo]rio de ciclo/i],
+  ])('never uses the English or an inconsistent term: %s', (_name, pattern) => {
+    const offenders = texts.filter(([, text]) => pattern.test(text.replace(PLACEHOLDER, ''))).map(([key]) => key);
+    expect(offenders).toEqual([]);
+  });
 });

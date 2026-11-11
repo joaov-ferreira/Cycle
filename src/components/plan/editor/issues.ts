@@ -14,7 +14,8 @@ export type ExerciseFieldName =
   | 'targetRir'
   | 'restSeconds'
   | 'startLoadKg'
-  | 'note';
+  | 'note'
+  | 'supersetGroup';
 
 export type IssueTarget =
   | { kind: 'plan'; field: PlanFieldName }
@@ -33,6 +34,7 @@ const EXERCISE_FIELDS: readonly string[] = [
   'restSeconds',
   'startLoadKg',
   'note',
+  'supersetGroup',
 ];
 
 const WORKOUT_PATH = /^workouts\[(\d+)\]\.(name|exercises)$/;
@@ -83,6 +85,8 @@ function limitsFor(path: string, target: IssueTarget): Limits {
         return PLAN_LIMITS.startLoadKg;
       case 'note':
         return PLAN_LIMITS.note;
+      case 'supersetGroup':
+        return PLAN_LIMITS.supersetGroup;
       default:
         return {};
     }
@@ -138,6 +142,12 @@ function baseMessage(
       return t('planEditor.issues.duplicateId');
     case 'zeroLoadNotAllowed':
       return t('planEditor.issues.zeroLoadNotAllowed');
+    case 'supersetNotAdjacent':
+      return t('planEditor.issues.supersetNotAdjacent');
+    case 'supersetSize':
+      return t('planEditor.issues.supersetSize');
+    case 'invalidRirRamp':
+      return t('planEditor.issues.invalidRirRamp');
   }
 }
 

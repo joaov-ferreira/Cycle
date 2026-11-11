@@ -27,6 +27,19 @@ export const home = {
     },
     summary: '{{sets}} · {{volume}}',
   },
+  streak: {
+    one: '{{count}} week in a row',
+    other: '{{count}} weeks in a row',
+  },
+  cycleComplete: {
+    title: 'Cycle {{number}} complete',
+    report: 'See report',
+    dismiss: 'Dismiss',
+  },
+  backup: {
+    message: 'Your logbook has no recent backup',
+    action: 'Back up now',
+  },
   error: {
     generic: 'Something went wrong. Try again.',
     workoutInProgress: 'Finish or discard the workout in progress first.',

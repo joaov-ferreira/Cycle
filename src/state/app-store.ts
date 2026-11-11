@@ -9,23 +9,31 @@ import {
   type SettingsPatch,
   type ThemeSetting,
 } from '@/data/repositories';
-import { validateProfileName, type ProfileNameError } from '@/domain/validation';
+import { validateProfileName } from '@/domain/validation';
 import type { LanguageSetting } from '@/i18n/locale';
 
+import { InvalidProfileNameError } from './errors';
+import { createBackupActions } from './slices/backup';
+import { createBodyActions } from './slices/body';
 import { createExerciseActions } from './slices/exercises';
 import { createPlanActions } from './slices/plans';
+import { createRest } from './slices/rest';
+import { incrementOverridesOf, createSettingsActions } from './slices/settings';
 import { createWorkoutActions } from './slices/workouts';
 import type { AppState, AppStore, AppStoreOptions, StoreContext } from './types';
 
-/** Thrown for a profile name rejected by `validateProfileName`; `code` is the error code. */
-export class InvalidProfileNameError extends Error {
-  constructor(readonly code: ProfileNameError) {
-    super(`Invalid profile name: ${code}`);
-    this.name = 'InvalidProfileNameError';
-  }
-}
-
-export type { AppState, AppStatus, AppStore, AppStoreOptions, FinishResult, SetPatch } from './types';
+export { InvalidProfileNameError };
+export type {
+  AppState,
+  AppStatus,
+  AppStore,
+  AppStoreOptions,
+  CompletedCycle,
+  FinishResult,
+  RestNotifier,
+  RestState,
+  SetPatch,
+} from './types';
 
 /**
  * App-wide store (zustand). One instance per app run, created with the repositories to use
@@ -50,7 +58,19 @@ export function createAppStore(repos: Repositories, options: AppStoreOptions = {
       return run;
     }
 
-    const ctx: StoreContext = { repos, now, get, set, requireReady, enqueue };
+    const rest = createRest({ get, set, now, notifier: options.notifier });
+    const ctx: StoreContext = {
+      repos,
+      now,
+      get,
+      set,
+      requireReady,
+      enqueue,
+      updateSettings,
+      loadProfile,
+      rest: rest.control,
+      appVersion: options.appVersion ?? '0.0.0',
+    };
 
     async function updateSettings(patch: SettingsPatch) {
       const profile = requireReady();
@@ -66,30 +86,45 @@ export function createAppStore(repos: Repositories, options: AppStoreOptions = {
 
     /** Loads everything belonging to `profile` in one go, so state never mixes profiles. */
     async function loadProfile(profile: Profile) {
-      const [profiles, settings, customExercises, incrementOverrides, plans, activePlanId, currentWorkout, workouts] =
-        await Promise.all([
-          repos.profiles.list(),
-          repos.settings.get(profile.id),
-          repos.exercises.listCustom(profile.id),
-          repos.exercises.getIncrementOverrides(profile.id),
-          repos.plans.list(profile.id, { includeArchived: true }),
-          repos.plans.getActiveId(profile.id),
-          repos.workouts.getInProgress(profile.id),
-          repos.workouts.listCompleted(profile.id),
-        ]);
+      const [
+        profiles,
+        settings,
+        customExercises,
+        exerciseSettings,
+        plans,
+        activePlanId,
+        currentWorkout,
+        workouts,
+        bodyMetrics,
+      ] = await Promise.all([
+        repos.profiles.list(),
+        repos.settings.get(profile.id),
+        repos.exercises.listCustom(profile.id),
+        repos.exercises.getExerciseSettings(profile.id),
+        repos.plans.list(profile.id, { includeArchived: true }),
+        repos.plans.getActiveId(profile.id),
+        repos.workouts.getInProgress(profile.id),
+        repos.workouts.listCompleted(profile.id),
+        repos.bodyMetrics.list(profile.id),
+      ]);
+      rest.control.clear(); // the previous profile's timer (and its notification)
       set({
         status: 'ready',
         profile,
         profiles,
         settings,
         customExercises,
-        incrementOverrides,
+        exerciseSettings,
+        incrementOverrides: incrementOverridesOf(exerciseSettings),
         plans,
         activePlanId,
         currentWorkout,
         workouts,
+        bodyMetrics,
         deloadAdviceDismissed: false,
         lastFinish: null,
+        restTimer: null,
+        completedCycle: null,
       });
     }
 
@@ -100,12 +135,16 @@ export function createAppStore(repos: Repositories, options: AppStoreOptions = {
       settings: null,
       customExercises: [],
       incrementOverrides: {},
+      exerciseSettings: {},
       plans: [],
       activePlanId: null,
       currentWorkout: null,
       workouts: [],
       deloadAdviceDismissed: false,
       lastFinish: null,
+      restTimer: null,
+      completedCycle: null,
+      bodyMetrics: [],
       async init(defaultProfileName) {
         set({ status: 'loading' });
         try {
@@ -141,6 +180,10 @@ export function createAppStore(repos: Repositories, options: AppStoreOptions = {
         await repos.profiles.setActiveId(id);
         await loadProfile(profile);
       },
+      ...createSettingsActions(ctx),
+      ...rest.actions,
+      ...createBodyActions(ctx),
+      ...createBackupActions(ctx),
       ...createExerciseActions(ctx),
       ...createPlanActions(ctx),
       ...createWorkoutActions(ctx),

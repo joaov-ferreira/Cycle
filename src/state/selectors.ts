@@ -6,9 +6,11 @@
 import {
   cycleTimeline,
   deloadAdvice,
+  weekTargetRir,
   type DeloadAdvice,
   type TimelineCell,
 } from '@/domain/cycle';
+import { DEFAULT_SETTINGS } from '@/data/repositories';
 import { incrementFor, type Exercise, type MuscleGroup } from '@/domain/exercise';
 import type { Period } from '@/domain/period';
 import type { Plan, PlanExercise, PlanWorkout } from '@/domain/plan';
@@ -87,6 +89,16 @@ export function selectIncrement(state: AppState, exerciseId: string): number {
   return incrementFor(exercise ?? { equipment: 'other' }, state.incrementOverrides[exerciseId]);
 }
 
+/** The persistent note of an exercise (SPEC-v3 §11); empty when it has none. */
+export function selectExerciseNote(state: AppState, exerciseId: string): string {
+  return state.exerciseSettings[exerciseId]?.note ?? '';
+}
+
+/** Bar weight for the plate calculator: the exercise's own, else the profile's. */
+export function selectBarKg(state: AppState, exerciseId: string): number {
+  return state.exerciseSettings[exerciseId]?.barKg ?? state.settings?.barKg ?? DEFAULT_SETTINGS.barKg;
+}
+
 /** "Last time" of an exercise: its newest completed session (never the workout in progress). */
 export function selectLastSession(state: AppState, exerciseId: string): ExerciseSession | null {
   return selectExerciseSessions(state, exerciseId)[0] ?? null;
@@ -98,12 +110,15 @@ function suggestionFor(
   planExercise: PlanExercise,
   exerciseId: string,
   phase: Plan['cycleState']['phase'],
+  targetRir: number | undefined,
 ): Suggestion | null {
   const exercise = selectExerciseById(state, exerciseId);
   if (!exercise) return null;
   // A replaced exercise does not inherit the start load chosen for the original one.
   const { startLoadKg, ...rest } = planExercise;
-  const target = exerciseId === planExercise.exerciseId ? { ...rest, startLoadKg } : rest;
+  const target = exerciseId === planExercise.exerciseId ? { ...rest, startLoadKg } : { ...rest };
+  // The week's ramp value replaces the plan exercise's own target RIR (SPEC-v3 §5).
+  if (targetRir !== undefined) target.targetRir = targetRir;
   return suggest({
     target,
     equipment: exercise.equipment,
@@ -125,8 +140,9 @@ export const selectSuggestions = memoSelector(
     const workout = plan?.workouts.find((w) => w.id === planWorkoutId);
     const result: Record<string, Suggestion> = {};
     if (!plan || !workout) return result;
+    const weekRir = weekTargetRir(plan.cycle, plan.cycleState);
     for (const pe of workout.exercises) {
-      const suggestion = suggestionFor(s, plan, pe, pe.exerciseId, plan.cycleState.phase);
+      const suggestion = suggestionFor(s, plan, pe, pe.exerciseId, plan.cycleState.phase, weekRir);
       if (suggestion) result[pe.id] = suggestion;
     }
     return result;
@@ -149,7 +165,8 @@ export const selectWorkoutSuggestions = memoSelector(
     for (const we of current.exercises) {
       const pe = planWorkout.exercises.find((e) => e.id === we.planExerciseId);
       if (!pe) continue;
-      const suggestion = suggestionFor(s, plan, pe, we.exerciseId, current.phase);
+      // The target RIR the workout was started with (snapshot), ramp included.
+      const suggestion = suggestionFor(s, plan, pe, we.exerciseId, current.phase, we.target?.targetRir);
       if (suggestion) result[pe.id] = suggestion;
     }
     return result;

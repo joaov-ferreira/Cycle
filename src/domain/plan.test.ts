@@ -3,6 +3,7 @@ import {
   DEFAULT_CYCLE,
   PLAN_LIMITS,
   emptyPlanContent,
+  supersetLayout,
   uniqueId,
   validatePlanContent,
   type CycleConfig,
@@ -25,11 +26,14 @@ describe('PLAN_LIMITS (SPEC §3.1)', () => {
       restSeconds: { min: 0, max: 900 },
       startLoadKg: { min: 0, max: 1000, maxDecimals: 2 },
       note: { max: 200 },
+      supersetGroup: { min: 1, max: 10 },
+      supersetSize: { min: 2, max: 4 },
       sessionsPerWeek: { min: 1, max: 14 },
       loadWeeks: { min: 1, max: 16 },
       deloadWeeks: { min: 0, max: 2 },
       deloadVolumeFactor: { min: 0.3, max: 1, step: 0.05 },
       deloadLoadFactor: { min: 0.5, max: 1, step: 0.05 },
+      rirRamp: { min: 0, max: 5 },
     });
   });
 });
@@ -178,6 +182,25 @@ describe('validatePlanContent (SPEC §3.1)', () => {
     expect(issuesAfter(change)).toEqual([expected]);
   });
 
+  describe('rirRamp', () => {
+    const rampIssue: PlanIssue = { path: 'cycle.rirRamp', code: 'invalidRirRamp' };
+    it('accepts valid ramps, absent and null', () => {
+      for (const ramp of [{ start: 3, end: 0 }, { start: 2, end: 2 }, { start: 5, end: 0 }, null, undefined]) {
+        expect(issuesAfter((c) => { c.cycle.rirRamp = ramp; })).toEqual([]);
+      }
+    });
+    it.each<[string, { start: number; end: number }]>([
+      ['start below end', { start: 1, end: 2 }],
+      ['start above 5', { start: 6, end: 0 }],
+      ['end below 0', { start: 3, end: -1 }],
+      ['non-integer start', { start: 2.5, end: 0 }],
+      ['non-integer end', { start: 3, end: 0.5 }],
+      ['NaN', { start: Number.NaN, end: 0 }],
+    ])('rejects %s', (_label, ramp) => {
+      expect(issuesAfter((c) => { c.cycle.rirRamp = ramp; })).toEqual([rampIssue]);
+    });
+  });
+
   it('flags too many workouts and too many exercises', () => {
     const many = issuesAfter((c) => {
       c.workouts = Array.from({ length: 15 }, (_, i) => ({
@@ -230,5 +253,119 @@ describe('emptyPlanContent', () => {
       sessionsPerWeek: 1,
       cycle: DEFAULT_CYCLE,
     });
+  });
+});
+
+describe('superset validation (SPEC-v3 §4.1)', () => {
+  /** One workout with `labels.length` exercises carrying the given labels (undefined = none). */
+  const withLabels = (labels: (string | undefined)[]) => (c: PlanContent) => {
+    c.workouts[0].exercises = labels.map((label, i) => ({
+      id: `w1e${i + 1}`,
+      exerciseId: 'bench',
+      sets: 3,
+      repMin: 8,
+      repMax: 12,
+      ...(label === undefined ? {} : { supersetGroup: label }),
+    }));
+  };
+
+  it('accepts a pair, a group of 4 and a label of 10 characters', () => {
+    expect(issuesAfter(withLabels(['A', 'A']))).toEqual([]);
+    expect(issuesAfter(withLabels(['A', 'A', 'A', 'A', undefined]))).toEqual([]);
+    expect(issuesAfter(withLabels(['a'.repeat(10), 'a'.repeat(10)]))).toEqual([]);
+    expect(issuesAfter(withLabels(['A', 'A', undefined, 'B', 'B', 'B']))).toEqual([]);
+  });
+
+  it('supersetSize: a label used by a single exercise, on that exercise', () => {
+    expect(issuesAfter(withLabels(['A', undefined, undefined]))).toEqual([
+      { path: 'workouts[0].exercises[0].supersetGroup', code: 'supersetSize' },
+    ]);
+  });
+
+  it('supersetSize: more than 4 exercises, on the first exercise of the group', () => {
+    expect(issuesAfter(withLabels([undefined, 'A', 'A', 'A', 'A', 'A']))).toEqual([
+      { path: 'workouts[0].exercises[1].supersetGroup', code: 'supersetSize' },
+    ]);
+  });
+
+  it('supersetNotAdjacent: reported on the later exercise', () => {
+    expect(issuesAfter(withLabels(['A', 'A', undefined, 'A']))).toEqual([
+      { path: 'workouts[0].exercises[3].supersetGroup', code: 'supersetNotAdjacent' },
+    ]);
+  });
+
+  it('supersetNotAdjacent when another label sits between the two', () => {
+    expect(issuesAfter(withLabels(['A', 'B', 'A', 'B']))).toEqual([
+      { path: 'workouts[0].exercises[2].supersetGroup', code: 'supersetNotAdjacent' },
+      { path: 'workouts[0].exercises[3].supersetGroup', code: 'supersetNotAdjacent' },
+    ]);
+  });
+
+  it('the same label in different workouts is independent', () => {
+    const issues = issuesAfter((c) => {
+      withLabels(['A', 'A'])(c);
+      c.workouts[1].exercises = [
+        { id: 'w2e1', exerciseId: 'bench', sets: 1, repMin: 1, repMax: 5, supersetGroup: 'A' },
+        { id: 'w2e2', exerciseId: 'bench', sets: 1, repMin: 1, repMax: 5, supersetGroup: 'A' },
+      ];
+    });
+    expect(issues).toEqual([]);
+  });
+
+  it('required for a blank label and tooLong beyond 10 characters (after trimming)', () => {
+    expect(issuesAfter(withLabels(['  ', undefined]))).toEqual([
+      { path: 'workouts[0].exercises[0].supersetGroup', code: 'required' },
+    ]);
+    expect(issuesAfter(withLabels(['a'.repeat(11), 'a'.repeat(11)]))).toEqual([
+      { path: 'workouts[0].exercises[0].supersetGroup', code: 'tooLong' },
+      { path: 'workouts[0].exercises[1].supersetGroup', code: 'tooLong' },
+    ]);
+    expect(issuesAfter(withLabels([' A ', 'A']))).toEqual([]);
+  });
+});
+
+describe('supersetLayout (SPEC-v3 §4.1)', () => {
+  const layout = (labels: (string | null | undefined)[]) =>
+    supersetLayout(labels.map((supersetGroup) => ({ supersetGroup })));
+
+  it('is one single block per exercise without groups', () => {
+    expect(layout([undefined, null, undefined])).toEqual([
+      { indices: [0], label: null },
+      { indices: [1], label: null },
+      { indices: [2], label: null },
+    ]);
+  });
+
+  it('is empty for no exercises', () => {
+    expect(layout([])).toEqual([]);
+  });
+
+  it('groups one pair', () => {
+    expect(layout(['A', 'A', undefined])).toEqual([
+      { indices: [0, 1], label: 'A' },
+      { indices: [2], label: null },
+    ]);
+  });
+
+  it('a group of 3 followed by a single', () => {
+    expect(layout(['A', 'A', 'A', null])).toEqual([
+      { indices: [0, 1, 2], label: 'A' },
+      { indices: [3], label: null },
+    ]);
+  });
+
+  it('a label repeated non-adjacently gives two separate blocks (and a lone label is a single)', () => {
+    expect(layout(['A', 'A', 'B', 'A', 'A'])).toEqual([
+      { indices: [0, 1], label: 'A' },
+      { indices: [2], label: null },
+      { indices: [3, 4], label: 'A' },
+    ]);
+  });
+
+  it('works for objects without the property at all', () => {
+    expect(supersetLayout([{}, {}])).toEqual([
+      { indices: [0], label: null },
+      { indices: [1], label: null },
+    ]);
   });
 });

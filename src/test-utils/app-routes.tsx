@@ -12,13 +12,16 @@ import PlanTabRoute from '@/app/(tabs)/plan';
 import ProgressRoute from '@/app/(tabs)/progress';
 import WorkoutRoute from '@/app/(tabs)/workout';
 import ExerciseDetailRoute from '@/app/exercises/[id]';
+import BodyRoute from '@/app/body';
 import ExercisesRoute from '@/app/exercises/index';
 import ExerciseNewRoute from '@/app/exercises/new';
 import HistoryDetailRoute from '@/app/history/[id]';
 import HistoryRoute from '@/app/history/index';
 import PlanEditRoute from '@/app/plans/[id]/edit';
 import PlanExportRoute from '@/app/plans/[id]/export';
+import CycleReportRoute from '@/app/plans/[id]/cycles/[cycle]';
 import PlanDetailRoute from '@/app/plans/[id]/index';
+import AiReviewRoute from '@/app/plans/[id]/review';
 import PlanImportRoute from '@/app/plans/import';
 import PlansRoute from '@/app/plans/index';
 import PlanNewRoute from '@/app/plans/new';
@@ -45,10 +48,13 @@ export const appRoutes = {
   'plans/[id]/index': PlanDetailRoute,
   'plans/[id]/edit': PlanEditRoute,
   'plans/[id]/export': PlanExportRoute,
+  'plans/[id]/cycles/[cycle]': CycleReportRoute,
+  'plans/[id]/review': AiReviewRoute,
   'exercises/index': ExercisesRoute,
   'exercises/new': ExerciseNewRoute,
   'exercises/[id]': ExerciseDetailRoute,
   'history/index': HistoryRoute,
   'history/[id]': HistoryDetailRoute,
   settings: SettingsRoute,
+  body: BodyRoute,
 };
