@@ -1,4 +1,4 @@
-import { createStore, type StoreApi } from 'zustand/vanilla';
+import { createStore } from 'zustand/vanilla';
 
 import { ensureDefaultProfile } from '@/data/bootstrap';
 import {
@@ -6,14 +6,16 @@ import {
   ProfileNotFoundError,
   type Profile,
   type Repositories,
-  type Settings,
   type SettingsPatch,
   type ThemeSetting,
 } from '@/data/repositories';
 import { validateProfileName, type ProfileNameError } from '@/domain/validation';
 import type { LanguageSetting } from '@/i18n/locale';
 
-export type AppStatus = 'idle' | 'loading' | 'ready' | 'error';
+import { createExerciseActions } from './slices/exercises';
+import { createPlanActions } from './slices/plans';
+import { createWorkoutActions } from './slices/workouts';
+import type { AppState, AppStore, AppStoreOptions, StoreContext } from './types';
 
 /** Thrown for a profile name rejected by `validateProfileName`; `code` is the error code. */
 export class InvalidProfileNameError extends Error {
@@ -23,36 +25,32 @@ export class InvalidProfileNameError extends Error {
   }
 }
 
-export type AppState = {
-  status: AppStatus;
-  /** The active profile. */
-  profile: Profile | null;
-  /** Every profile on the device, oldest first. */
-  profiles: Profile[];
-  settings: Settings | null;
-  /** Loads (or creates on first boot) the active profile and its settings. */
-  init: (defaultProfileName: string) => Promise<void>;
-  setLanguage: (language: LanguageSetting) => Promise<void>;
-  setTheme: (theme: ThemeSetting) => Promise<void>;
-  /** Creates a profile and makes it the active one. */
-  createProfile: (name: string) => Promise<void>;
-  renameProfile: (id: number, name: string) => Promise<void>;
-  switchProfile: (id: number) => Promise<void>;
-};
-
-export type AppStore = StoreApi<AppState>;
+export type { AppState, AppStatus, AppStore, AppStoreOptions, FinishResult, SetPatch } from './types';
 
 /**
  * App-wide store (zustand). One instance per app run, created with the repositories to use
- * (SQLite in the app, in-memory in tests) — no module-level singletons.
+ * (SQLite in the app, in-memory in tests) and an injectable clock — no module-level singletons.
  */
-export function createAppStore(repos: Repositories): AppStore {
+export function createAppStore(repos: Repositories, options: AppStoreOptions = {}): AppStore {
+  const now = options.now ?? (() => new Date());
+
   return createStore<AppState>()((set, get) => {
     function requireReady(): Profile {
       const { profile, status } = get();
       if (status !== 'ready' || !profile) throw new Error('App store is not ready');
       return profile;
     }
+
+    // Draft writes (and everything ordered with them) run strictly one after another, so a slow
+    // save can never overwrite a newer one.
+    let tail: Promise<unknown> = Promise.resolve();
+    function enqueue<T>(job: () => Promise<T>): Promise<T> {
+      const run = tail.then(job);
+      tail = run.catch(() => undefined);
+      return run;
+    }
+
+    const ctx: StoreContext = { repos, now, get, set, requireReady, enqueue };
 
     async function updateSettings(patch: SettingsPatch) {
       const profile = requireReady();
@@ -68,8 +66,31 @@ export function createAppStore(repos: Repositories): AppStore {
 
     /** Loads everything belonging to `profile` in one go, so state never mixes profiles. */
     async function loadProfile(profile: Profile) {
-      const [profiles, settings] = await Promise.all([repos.profiles.list(), repos.settings.get(profile.id)]);
-      set({ status: 'ready', profile, profiles, settings });
+      const [profiles, settings, customExercises, incrementOverrides, plans, activePlanId, currentWorkout, workouts] =
+        await Promise.all([
+          repos.profiles.list(),
+          repos.settings.get(profile.id),
+          repos.exercises.listCustom(profile.id),
+          repos.exercises.getIncrementOverrides(profile.id),
+          repos.plans.list(profile.id, { includeArchived: true }),
+          repos.plans.getActiveId(profile.id),
+          repos.workouts.getInProgress(profile.id),
+          repos.workouts.listCompleted(profile.id),
+        ]);
+      set({
+        status: 'ready',
+        profile,
+        profiles,
+        settings,
+        customExercises,
+        incrementOverrides,
+        plans,
+        activePlanId,
+        currentWorkout,
+        workouts,
+        deloadAdviceDismissed: false,
+        lastFinish: null,
+      });
     }
 
     return {
@@ -77,6 +98,14 @@ export function createAppStore(repos: Repositories): AppStore {
       profile: null,
       profiles: [],
       settings: null,
+      customExercises: [],
+      incrementOverrides: {},
+      plans: [],
+      activePlanId: null,
+      currentWorkout: null,
+      workouts: [],
+      deloadAdviceDismissed: false,
+      lastFinish: null,
       async init(defaultProfileName) {
         set({ status: 'loading' });
         try {
@@ -87,8 +116,11 @@ export function createAppStore(repos: Repositories): AppStore {
       },
       setLanguage: (language) => updateSettings({ language }),
       setTheme: (theme) => updateSettings({ theme }),
+      setExperience: (experience) => updateSettings({ experience }),
+      completeOnboarding: () => updateSettings({ onboardingCompleted: true }),
       async createProfile(name) {
         requireReady();
+        await tail;
         const profile = await repos.profiles.create({ name: checkedName(name) });
         await repos.profiles.setActiveId(profile.id);
         await loadProfile(profile);
@@ -103,11 +135,15 @@ export function createAppStore(repos: Repositories): AppStore {
       },
       async switchProfile(id) {
         requireReady();
+        await tail; // pending draft writes belong to the profile being left
         const profile = await repos.profiles.getById(id);
         if (!profile) throw new ProfileNotFoundError(id);
         await repos.profiles.setActiveId(id);
         await loadProfile(profile);
       },
+      ...createExerciseActions(ctx),
+      ...createPlanActions(ctx),
+      ...createWorkoutActions(ctx),
     };
   });
 }
