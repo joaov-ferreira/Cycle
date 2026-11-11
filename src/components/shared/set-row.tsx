@@ -239,6 +239,10 @@ const styles = StyleSheet.create({
   weight: { flexGrow: 1, flexShrink: 1, minWidth: SET_ROW_LAYOUT.weightMinWidth },
   input: {
     ...typography.body,
+    // Web: an <input> has an intrinsic minimum width and shrinks by default; pin it to its column.
+    minWidth: 0,
+    flexGrow: 0,
+    flexShrink: 0,
     minHeight: SET_ROW_LAYOUT.control,
     paddingHorizontal: spacing.xs,
     borderWidth: 1,

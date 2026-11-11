@@ -146,6 +146,8 @@ const styles = StyleSheet.create({
   input: {
     ...typography.body,
     flex: 1,
+    // Web: an <input> has an intrinsic minimum width; let it shrink inside a narrow row.
+    minWidth: 0,
     minHeight: layout.minTouchTarget,
     paddingHorizontal: spacing.md,
     borderWidth: 1,
