@@ -3,6 +3,7 @@
  * rules and the workout summary. Pure: no I/O, no display strings; errors are codes.
  */
 import type { Phase } from './cycle';
+import { RIR_STEP } from './effort';
 import { allowsZeroLoad, type Equipment } from './exercise';
 import { countedSets, volume } from './metrics';
 
@@ -13,7 +14,10 @@ export interface LoggedSet {
   weightKg: number | null;
   /** Integer 1–100. */
   reps: number | null;
-  /** Integer 0–10, optional. */
+  /**
+   * 0–10 in steps of 0.5 (half points), optional (SPEC-v4 §3.3). Always stored as RIR, even when
+   * the logger shows RPE; plan targets stay integers.
+   */
   rir: number | null;
   done: boolean;
 }
@@ -93,7 +97,7 @@ function hasAtMostDecimals(value: number, decimals: number): boolean {
 /**
  * Validates a set that is being marked done (SPEC §7.3): weight required, 0–1000 kg with at
  * most 2 decimals, zero only for zero-load equipment; reps required, integer 1–100; RIR
- * optional, integer 0–10. Returns an empty object when the set is valid.
+ * optional, 0–10 in steps of 0.5. Returns an empty object when the set is valid.
  */
 export function validateSet(set: LoggedSet, equipment: Equipment): SetErrors {
   const errors: SetErrors = {};
@@ -118,10 +122,11 @@ export function validateSet(set: LoggedSet, equipment: Equipment): SetErrors {
   }
 
   if (set.rir !== null) {
-    if (!Number.isInteger(set.rir)) {
-      errors.rir = 'notInteger';
-    } else if (set.rir < WORKOUT_LIMITS.rir.min || set.rir > WORKOUT_LIMITS.rir.max) {
+    if (set.rir < WORKOUT_LIMITS.rir.min || set.rir > WORKOUT_LIMITS.rir.max) {
       errors.rir = 'outOfRange';
+    } else if (!Number.isInteger(set.rir / RIR_STEP)) {
+      // half points: 0.5 steps (SPEC-v4 §3.3)
+      errors.rir = 'notInteger';
     }
   }
 
