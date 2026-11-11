@@ -9,6 +9,7 @@ import { createClock, DAY_MS, type TestClock } from '@/test-utils/clock';
 import { renderInApp } from '@/test-utils/render-app';
 import { createTestStore, samplePlanContent, seedCompletedWorkout, seedPlan } from '@/test-utils/seed';
 
+import { CycleCard } from '../plan/cycle-card';
 import { HomeScreen } from './home-screen';
 
 type Callbacks = {
@@ -216,7 +217,7 @@ describe('HomeScreen: deload advice', () => {
     );
     await renderHome(store, repos);
 
-    expect(await screen.findByText('Deload starts after this week.')).toBeOnTheScreen();
+    expect(await screen.findByText('The deload starts after this week.')).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Start deload now' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull();
   });
@@ -226,11 +227,11 @@ describe('HomeScreen: deload advice', () => {
     await seedStalledPlan(store, clock);
     await renderHome(store, repos);
 
-    expect(await screen.findByText('Progress has stalled on 2 exercises. A deload may help.')).toBeOnTheScreen();
+    expect(await screen.findByText('Progress has stalled on 2 exercises. Consider a deload now.')).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Start deload now' }));
 
     expect(store.getState().plans[0].cycleState.phase).toBe('deload');
-    expect(await screen.findByText('Deload week: fewer sets and lighter loads.')).toBeOnTheScreen();
+    expect(await screen.findByText('Deload week: lighter sets and loads so you recover.')).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Start deload now' })).toBeNull();
   });
 
@@ -242,7 +243,7 @@ describe('HomeScreen: deload advice', () => {
     await fireEvent.press(await screen.findByRole('button', { name: 'Dismiss' }));
 
     expect(store.getState().deloadAdviceDismissed).toBe(true);
-    expect(screen.queryByText('Progress has stalled on 2 exercises. A deload may help.')).toBeNull();
+    expect(screen.queryByText('Progress has stalled on 2 exercises. Consider a deload now.')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull();
   });
 
@@ -254,12 +255,12 @@ describe('HomeScreen: deload advice', () => {
 
     await fireEvent.press(await screen.findByRole('button', { name: 'End deload' }));
     const dialog = screen.getByTestId('confirm-dialog');
-    expect(within(dialog).getByText('End deload?')).toBeOnTheScreen();
+    expect(within(dialog).getByText('End the deload?')).toBeOnTheScreen();
     await fireEvent.press(within(dialog).getByRole('button', { name: 'End deload' }));
 
     expect(await screen.findByText('Cycle 2 · Load week 1 of 2')).toBeOnTheScreen();
     expect(store.getState().plans[0].cycleState).toMatchObject({ cycleNumber: 2, phase: 'load' });
-    expect(screen.queryByText('Deload week: fewer sets and lighter loads.')).toBeNull();
+    expect(screen.queryByText('Deload week: lighter sets and loads so you recover.')).toBeNull();
   });
 
   it('keeps the deload when the confirmation is cancelled', async () => {
@@ -363,8 +364,63 @@ describe('HomeScreen in Portuguese', () => {
 
     expect(await screen.findByText('Ciclo 1 · Semana de carga 4 de 8')).toBeOnTheScreen();
     expect(screen.getByText('Sessões nesta semana: 0/1')).toBeOnTheScreen();
-    expect(screen.getByText('O progresso estagnou em 2 exercícios. Um deload pode ajudar.')).toBeOnTheScreen();
+    expect(screen.getByText('A evolução estagnou em 2 exercícios. Considere um deload agora.')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Iniciar deload agora' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Dispensar' })).toBeOnTheScreen();
+  });
+});
+
+describe('HomeScreen: same wording as the plan screens', () => {
+  /** Renders Home and the plan's full cycle card side by side: every sentence must appear in both. */
+  async function renderBoth(store: AppStore, repos: Repositories, language: LanguageSetting) {
+    const plan = store.getState().plans[0];
+    await renderInApp(
+      <>
+        <HomeScreen {...callbacks()} />
+        <CycleCard plan={plan} />
+      </>,
+      { store, repos, language },
+    );
+  }
+
+  it.each([
+    ['en', 'Cycle 1 · Load week 1 of 2', 'Sessions this week: 0/2'],
+    ['pt-BR', 'Ciclo 1 · Semana de carga 1 de 2', 'Sessões nesta semana: 0/2'],
+  ] as const)('shows the same status and sessions text (%s)', async (language, status, sessions) => {
+    const { store, repos } = await setup();
+    await seedPlan(store);
+    await renderBoth(store, repos, language);
+    expect(await screen.findAllByText(status)).toHaveLength(2);
+    expect(screen.getAllByText(sessions)).toHaveLength(2);
+  });
+
+  it.each([
+    ['en', 'The deload starts after this week.'],
+    ['pt-BR', 'O deload começa depois desta semana.'],
+  ] as const)('shows the same upcoming-deload sentence (%s)', async (language, upcoming) => {
+    const { store, repos } = await setup();
+    await seedPlan(
+      store,
+      samplePlanContent({ sessionsPerWeek: 1, cycle: { ...DEFAULT_CYCLE, loadWeeks: 1, deloadWeeks: 1 } }),
+    );
+    await renderBoth(store, repos, language);
+    expect(await screen.findAllByText(upcoming)).toHaveLength(2);
+  });
+
+  it('shows the same in-deload sentence', async () => {
+    const { store, repos } = await setup();
+    await seedPlan(store);
+    await store.getState().startDeload(1);
+    await renderBoth(store, repos, 'en');
+    expect(await screen.findAllByText('Deload week: lighter sets and loads so you recover.')).toHaveLength(2);
+  });
+
+  it('shows the same early-deload advice and the same action labels', async () => {
+    const { store, repos, clock } = await setup();
+    await seedStalledPlan(store, clock);
+    await renderBoth(store, repos, 'en');
+    expect(await screen.findAllByText('Progress has stalled on 2 exercises. Consider a deload now.')).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Start deload now' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Dismiss' })).toHaveLength(2);
   });
 });

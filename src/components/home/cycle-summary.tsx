@@ -9,16 +9,19 @@ import { useAppStore } from '@/state/app-store-context';
 import type { HomeSummary } from '@/state/selectors';
 
 import { ConfirmDialog } from '../shared';
+import { adviceText, cycleStatusText } from '../plan/cycle-text';
 import { Button, Card, Text } from '../ui';
 import type { RunAction } from './home-screen';
 
 type CycleSummary = NonNullable<HomeSummary['cycle']>;
 
 /**
- * Cycle summary of the active plan (SPEC §5.5): position in the cycle, sessions of the training
- * week, and the deload advice with its actions. Tapping the summary opens the plan.
+ * Compact cycle summary of the active plan (SPEC §5.5): position in the cycle, sessions of the
+ * training week, and the deload advice with its actions. Tapping the summary opens the plan. The
+ * plan screens have the full `CycleCard` (timeline, settings); the wording comes from the same
+ * helpers and catalog keys (`plan.cycle.*`).
  */
-export function CycleCard({
+export function CycleSummary({
   plan,
   cycle,
   advice,
@@ -37,14 +40,8 @@ export function CycleCard({
   const dismissDeloadAdvice = useAppStore((s) => s.dismissDeloadAdvice);
   const [confirmingEnd, setConfirmingEnd] = useState(false);
 
-  const inDeload = cycle.phase === 'deload';
-  const cycleLabel = inDeload
-    ? t('home.cycle.deload', {
-        cycle: cycle.cycleNumber,
-        week: cycle.week,
-        total: Math.max(plan.cycle.deloadWeeks, 1),
-      })
-    : t('home.cycle.load', { cycle: cycle.cycleNumber, week: cycle.week, total: plan.cycle.loadWeeks });
+  const status = cycleStatusText(t, plan.cycle, plan.cycleState);
+  const advisory = adviceText(t, advice);
 
   return (
     <Card>
@@ -53,24 +50,24 @@ export function CycleCard({
           <Text variant="caption" tone="secondary">
             {plan.name}
           </Text>
-          <Text variant="heading">{cycleLabel}</Text>
+          <Text variant="heading">{status}</Text>
           <Text tone="secondary" tabular>
-            {t('home.cycle.sessions', { done: cycle.sessionsDoneThisWeek, total: cycle.sessionsPerWeek })}
+            {t('plan.cycle.sessions', { done: cycle.sessionsDoneThisWeek, total: cycle.sessionsPerWeek })}
           </Text>
         </View>
       </Pressable>
 
-      {advice.kind === 'upcoming' ? <Text tone="secondary">{t('home.advice.upcoming')}</Text> : null}
+      {advice.kind === 'upcoming' ? <Text tone="secondary">{advisory}</Text> : null}
 
       {advice.kind === 'inDeload' ? (
         <View style={styles.advice}>
-          <Text>{t('home.advice.inDeload')}</Text>
-          <Button variant="secondary" label={t('home.advice.endDeload')} onPress={() => setConfirmingEnd(true)} />
+          <Text>{advisory}</Text>
+          <Button variant="secondary" label={t('plan.cycle.endDeload')} onPress={() => setConfirmingEnd(true)} />
           <ConfirmDialog
             visible={confirmingEnd}
-            title={t('home.advice.endDeloadTitle')}
-            message={t('home.advice.endDeloadMessage', { cycle: cycle.cycleNumber + 1 })}
-            confirmLabel={t('home.advice.endDeload')}
+            title={t('plan.cycle.endDeloadTitle')}
+            message={t('plan.cycle.endDeloadMessage')}
+            confirmLabel={t('plan.cycle.endDeload')}
             onCancel={() => setConfirmingEnd(false)}
             onConfirm={() => {
               setConfirmingEnd(false);
@@ -82,13 +79,11 @@ export function CycleCard({
 
       {advice.kind === 'early' ? (
         <View style={styles.advice}>
-          <Text tone="accent">
-            {t('home.advice.early', { count: advice.stalledExerciseIds.length })}
-          </Text>
-          <Button label={t('home.advice.startDeload')} onPress={() => run(() => startDeload(plan.id))} />
+          <Text tone="accent">{advisory}</Text>
+          <Button label={t('plan.cycle.startDeload')} onPress={() => run(() => startDeload(plan.id))} />
           <Button
             variant="secondary"
-            label={t('home.advice.dismiss')}
+            label={t('plan.cycle.dismiss')}
             onPress={() => run(() => dismissDeloadAdvice())}
           />
         </View>

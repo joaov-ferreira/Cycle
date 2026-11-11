@@ -11,6 +11,7 @@ import { Chip, ConfirmDialog } from '../shared';
 import { useTheme } from '../theme-provider';
 import { Button, Card, Text } from '../ui';
 import { CycleSettings } from './cycle-settings';
+import { adviceText, cycleStatusText } from './cycle-text';
 
 type Pending = 'startDeload' | 'endDeload' | 'restart';
 
@@ -39,12 +40,7 @@ export function CycleCard({ plan }: { plan: Plan }) {
   const { cycleState: state, cycle } = plan;
   const timeline = useMemo(() => cycleTimeline(cycle, state), [cycle, state]);
   const inDeload = state.phase === 'deload';
-  const totalWeeks = timeline.filter((c) => c.phase === state.phase).length;
-  const status = t(inDeload ? 'plan.cycle.statusDeload' : 'plan.cycle.statusLoad', {
-    cycle: state.cycleNumber,
-    week: state.week,
-    total: totalWeeks,
-  });
+  const status = cycleStatusText(t, cycle, state);
 
   const attempt = async (job: () => Promise<unknown>) => {
     setError(null);
@@ -63,15 +59,7 @@ export function CycleCard({ plan }: { plan: Plan }) {
   };
 
   const early = isActive && advice.kind === 'early' ? advice : null;
-  const banner = !isActive
-    ? null
-    : advice.kind === 'upcoming'
-      ? t('plan.cycle.adviceUpcoming')
-      : advice.kind === 'inDeload'
-        ? t('plan.cycle.adviceInDeload')
-        : early
-          ? t('plan.cycle.adviceEarly', { count: early.stalledExerciseIds.length })
-          : null;
+  const banner = isActive ? adviceText(t, advice) : null;
 
   return (
     <Card testID="cycle-card">

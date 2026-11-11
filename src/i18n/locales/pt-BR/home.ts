@@ -14,24 +14,6 @@ export const home: typeof enHome = {
     deload: 'Deload',
     start: 'Iniciar',
   },
-  cycle: {
-    load: 'Ciclo {{cycle}} · Semana de carga {{week}} de {{total}}',
-    deload: 'Ciclo {{cycle}} · Semana de deload {{week}} de {{total}}',
-    sessions: 'Sessões nesta semana: {{done}}/{{total}}',
-  },
-  advice: {
-    upcoming: 'O deload começa depois desta semana.',
-    inDeload: 'Semana de deload: menos séries e cargas mais leves.',
-    early: {
-      one: 'O progresso estagnou em {{count}} exercício. Um deload pode ajudar.',
-      other: 'O progresso estagnou em {{count}} exercícios. Um deload pode ajudar.',
-    },
-    startDeload: 'Iniciar deload agora',
-    dismiss: 'Dispensar',
-    endDeload: 'Encerrar deload',
-    endDeloadTitle: 'Encerrar deload?',
-    endDeloadMessage: 'O próximo treino inicia o ciclo {{cycle}}, semana de carga 1.',
-  },
   noPlan: {
     title: 'Nenhuma periodização ativa',
     message: 'Crie uma periodização para ter cargas sugeridas e ciclos de carga e deload, ou registre um treino livre.',

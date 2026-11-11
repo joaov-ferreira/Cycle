@@ -8,7 +8,7 @@ import { WorkoutInProgressError } from '@/state/errors';
 import { useAppStore } from '@/state/app-store-context';
 
 import { Button, Card, Screen, Text } from '../ui';
-import { CycleCard } from './cycle-card';
+import { CycleSummary } from './cycle-summary';
 import { NextWorkoutCard } from './next-workout-card';
 import { RecentWorkouts } from './recent-workouts';
 import { ResumeCard } from './resume-card';
@@ -71,7 +71,7 @@ export function HomeScreen({ onOpenWorkout, onOpenWorkoutDetail, onNewPlan, onOp
             />
           ) : null}
           {summary.cycle ? (
-            <CycleCard
+            <CycleSummary
               plan={plan}
               cycle={summary.cycle}
               advice={advice}

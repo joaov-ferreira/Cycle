@@ -12,24 +12,6 @@ export const home = {
     deload: 'Deload',
     start: 'Start',
   },
-  cycle: {
-    load: 'Cycle {{cycle}} · Load week {{week}} of {{total}}',
-    deload: 'Cycle {{cycle}} · Deload week {{week}} of {{total}}',
-    sessions: 'Sessions this week: {{done}}/{{total}}',
-  },
-  advice: {
-    upcoming: 'Deload starts after this week.',
-    inDeload: 'Deload week: fewer sets and lighter loads.',
-    early: {
-      one: 'Progress has stalled on {{count}} exercise. A deload may help.',
-      other: 'Progress has stalled on {{count}} exercises. A deload may help.',
-    },
-    startDeload: 'Start deload now',
-    dismiss: 'Dismiss',
-    endDeload: 'End deload',
-    endDeloadTitle: 'End deload?',
-    endDeloadMessage: 'The next workout starts cycle {{cycle}}, load week 1.',
-  },
   noPlan: {
     title: 'No active plan',
     message: 'Create a plan for suggested loads and load/deload cycles, or log a free workout.',
