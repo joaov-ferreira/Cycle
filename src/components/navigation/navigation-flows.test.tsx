@@ -2,37 +2,17 @@
  * Cross-screen navigation on the real route files (SPEC §12): every link lands on the right
  * route and every Back returns to where the user came from.
  */
-import { Stack } from 'expo-router';
 import * as Localization from 'expo-localization';
 import { fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
 import type { ReactNode } from 'react';
 
-import TabsLayout from '@/app/(tabs)/_layout';
-import HomeRoute from '@/app/(tabs)/index';
-import MoreRoute from '@/app/(tabs)/more';
-import PlanTabRoute from '@/app/(tabs)/plan';
-import ProgressRoute from '@/app/(tabs)/progress';
-import WorkoutRoute from '@/app/(tabs)/workout';
-import ExerciseDetailRoute from '@/app/exercises/[id]';
-import ExercisesRoute from '@/app/exercises/index';
-import ExerciseNewRoute from '@/app/exercises/new';
-import HistoryDetailRoute from '@/app/history/[id]';
-import HistoryRoute from '@/app/history/index';
-import PlanEditRoute from '@/app/plans/[id]/edit';
-import PlanExportRoute from '@/app/plans/[id]/export';
-import PlanDetailRoute from '@/app/plans/[id]/index';
-import PlanImportRoute from '@/app/plans/import';
-import PlansRoute from '@/app/plans/index';
-import PlanNewRoute from '@/app/plans/new';
-import PlanTemplatesRoute from '@/app/plans/templates';
-import SettingsRoute from '@/app/settings';
 import type { Repositories } from '@/data/repositories';
+import { appRoutes } from '@/test-utils/app-routes';
 import { createClock, DAY_MS } from '@/test-utils/clock';
 import { createTestStore, seedCompletedWorkout, seedPlan } from '@/test-utils/seed';
 import type { AppStore } from '@/state/types';
 
 import { AppProviders } from '../app-providers';
-import { AppShell } from './app-shell';
 
 jest.mock('expo-localization', () => {
   const actual = jest.requireActual('expo-localization');
@@ -56,33 +36,6 @@ function setDeviceLocale(tag: string) {
   (Localization.getLocales as jest.Mock).mockReturnValue(locales);
   (Localization.useLocales as jest.Mock).mockReturnValue(locales);
 }
-
-const routes = {
-  _layout: () => (
-    <AppShell>
-      <Stack screenOptions={{ headerShown: false }} />
-    </AppShell>
-  ),
-  '(tabs)/_layout': TabsLayout,
-  '(tabs)/index': HomeRoute,
-  '(tabs)/plan': PlanTabRoute,
-  '(tabs)/workout': WorkoutRoute,
-  '(tabs)/progress': ProgressRoute,
-  '(tabs)/more': MoreRoute,
-  'plans/index': PlansRoute,
-  'plans/new': PlanNewRoute,
-  'plans/templates': PlanTemplatesRoute,
-  'plans/import': PlanImportRoute,
-  'plans/[id]/index': PlanDetailRoute,
-  'plans/[id]/edit': PlanEditRoute,
-  'plans/[id]/export': PlanExportRoute,
-  'exercises/index': ExercisesRoute,
-  'exercises/new': ExerciseNewRoute,
-  'exercises/[id]': ExerciseDetailRoute,
-  'history/index': HistoryRoute,
-  'history/[id]': HistoryDetailRoute,
-  settings: SettingsRoute,
-};
 
 type Setup = { seed?: boolean; url?: string; width?: number };
 
@@ -110,7 +63,7 @@ async function openWith(store: AppStore, repos: Repositories, url: string) {
       {children}
     </AppProviders>
   );
-  const router = await renderRouter(routes, { initialUrl: url, wrapper });
+  const router = await renderRouter(appRoutes, { initialUrl: url, wrapper });
   return { router, store };
 }
 
