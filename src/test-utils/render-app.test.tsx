@@ -6,7 +6,15 @@ import { selectActivePlan } from '@/state/selectors';
 
 import { createClock, fixedClock } from './clock';
 import { renderInApp } from './render-app';
-import { createTestStore, seedCompletedWorkout, seedPlan } from './seed';
+import {
+  createFakeNotifier,
+  createTestStore,
+  seedBodyMetrics,
+  seedCompletedCycle,
+  seedCompletedWorkout,
+  seedPlan,
+  v3PlanContent,
+} from './seed';
 
 function Probe() {
   const plan = useAppStore(selectActivePlan);
@@ -39,6 +47,57 @@ describe('renderInApp', () => {
     const { store } = await renderInApp(<Probe />, { now: fixedClock('2031-01-01T00:00:00.000Z') });
     const workout = await store.getState().startFreeWorkout('X');
     expect(workout.startedAt).toBe('2031-01-01T00:00:00.000Z');
+  });
+});
+
+describe('renderInApp v3 options', () => {
+  it('passes the notifier and the app version to the store it creates', async () => {
+    const notifier = createFakeNotifier();
+    const { store } = await renderInApp(<Probe />, { notifier, appVersion: '3.1.4' });
+    expect(JSON.parse((await store.getState().buildBackupFile()).text).appVersion).toBe('3.1.4');
+    await store.getState().startFreeWorkout('X');
+    await store.getState().addExercise('barbell-bench-press');
+    await store.getState().updateSet(0, 0, { weightKg: 40, reps: 10 });
+    await store.getState().toggleSetDone(0, 0);
+    expect(notifier.calls).toHaveLength(1);
+  });
+});
+
+describe('v3 seed helpers', () => {
+  it('v3PlanContent has a superset and a RIR ramp', () => {
+    const content = v3PlanContent();
+    expect(content.workouts[0].exercises.map((e) => e.supersetGroup)).toEqual(['A', 'A']);
+    expect(content.cycle.rirRamp).toEqual({ start: 3, end: 0 });
+  });
+
+  it('seeds a completed cycle, body metrics and a drop set', async () => {
+    const clock = createClock();
+    const { store } = await createTestStore({ clock });
+    await seedPlan(store, v3PlanContent({ cycle: { ...v3PlanContent().cycle, loadWeeks: 1, deloadWeeks: 0 } }));
+    await seedCompletedCycle(store, clock);
+    expect(store.getState().completedCycle).toEqual({ planId: 1, cycleNumber: 1 });
+    expect(store.getState().workouts).toHaveLength(2);
+    expect(await seedBodyMetrics(store)).toHaveLength(4);
+    const { summary } = await seedCompletedWorkout(store, {
+      name: 'Drop',
+      logs: { 'barbell-bench-press': { weightKg: 40, reps: [10], drop: { reps: 8 } } },
+    });
+    expect(summary.dropSets).toBe(1);
+  });
+
+  it('seedCompletedCycle needs an active plan', async () => {
+    const { store, clock } = await createTestStore();
+    await expect(seedCompletedCycle(store, clock)).rejects.toThrow('no active plan');
+  });
+
+  it('the fake notifier records and can fail', () => {
+    const ok = createFakeNotifier();
+    ok.scheduleRestEnd(5, { exerciseId: 'x', setNumber: 1 });
+    ok.cancelRestEnd();
+    expect(ok.calls).toEqual([{ type: 'schedule', atMs: 5, info: { exerciseId: 'x', setNumber: 1 } }, { type: 'cancel' }]);
+    const failing = createFakeNotifier({ failing: true });
+    expect(() => failing.cancelRestEnd()).toThrow('notifier failed');
+    expect(() => failing.scheduleRestEnd(1, { exerciseId: 'x', setNumber: 1 })).toThrow('notifier failed');
   });
 });
 

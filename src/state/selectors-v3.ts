@@ -59,9 +59,9 @@ export const selectWorkoutLayout = memoSelector(
 );
 
 /** Exercises to suggest in place of `exerciseId` (SPEC-v3 §11), best first. */
-export const selectSimilarExercises = memoSelector(
-  (s: AppState) => [s.customExercises],
-  (s, exerciseId: string, limit?: number): Exercise[] => {
+export const selectSimilarExercises = memoSelector<AppState, [exerciseId: string, limit?: number], Exercise[]>(
+  (s) => [s.customExercises],
+  (s, exerciseId, limit) => {
     const exercise = selectExerciseById(s, exerciseId);
     return exercise ? similarExercises(exercise, selectAllExercises(s), limit) : [];
   },
@@ -213,8 +213,8 @@ export const selectMonthWorkoutCount = (state: AppState, year: number, month: nu
 export const selectWeekStreak = (state: AppState, today: Date): number => weekStreak(state.workouts, today);
 
 /** Sessions, volume and sets per muscle for each of the last `weeks` (default 8) ISO weeks. */
-export const selectWeeklyTrends = memoSelector(
-  (s: AppState) => [s.workouts, s.customExercises],
-  (s, today: Date, weeks?: number): WeekTrend[] => weeklyTrends(s.workouts, selectFindExercise(s), today, weeks),
+export const selectWeeklyTrends = memoSelector<AppState, [today: Date, weeks?: number], WeekTrend[]>(
+  (s) => [s.workouts, s.customExercises],
+  (s, today, weeks) => weeklyTrends(s.workouts, selectFindExercise(s), today, weeks),
   (today, weeks) => `${today.getTime()}|${weeks ?? ''}`,
 );

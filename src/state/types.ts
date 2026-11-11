@@ -1,6 +1,7 @@
 import type { StoreApi } from 'zustand/vanilla';
 
 import type {
+  ExerciseSettingsEntry,
   Profile,
   Repositories,
   Settings,
@@ -23,7 +24,6 @@ import type {
   WorkoutSummary,
 } from '@/domain/workout';
 import type { LanguageSetting } from '@/i18n/locale';
-import type { ExerciseSettingsEntry } from '@/data/repositories';
 
 export type AppStatus = 'idle' | 'loading' | 'ready' | 'error';
 

@@ -119,8 +119,10 @@ function storable(workout: Workout): Workout {
 function withExercise(workout: Workout, index: number, change: (e: WorkoutExercise) => WorkoutExercise): Workout {
   const exercise = workout.exercises[index];
   if (!exercise) throw new WorkoutIndexError(index);
+  const changed = change(exercise);
+  if (changed === exercise) return workout; // nothing to do: no state change, no write
   const exercises = workout.exercises.slice();
-  exercises[index] = change(exercise);
+  exercises[index] = changed;
   return { ...workout, exercises };
 }
 
