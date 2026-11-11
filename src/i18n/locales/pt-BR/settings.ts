@@ -37,7 +37,7 @@ export const settings: typeof enSettings = {
     },
   },
   notification: {
-    title: 'Descanso encerrado',
+    title: 'Descanso terminado',
     body: 'Próximo: {{exercise}} — série {{set}}',
   },
   theme: {

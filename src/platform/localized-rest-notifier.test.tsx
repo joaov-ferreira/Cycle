@@ -48,7 +48,7 @@ describe('createLocalizedRestNotifier', () => {
       await notifier.scheduleRestEnd(atMs, { exerciseId: 'barbell-bench-press', setNumber: 1 });
     });
     const content = schedule.mock.calls[schedule.mock.calls.length - 1][0].content;
-    expect(content.title).toBe('Descanso encerrado');
+    expect(content.title).toBe('Descanso terminado');
     expect(content.body).toMatch(/^Próximo: .+ — série 1$/);
     expect(content.body).not.toContain('Barbell Bench Press');
   });

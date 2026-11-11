@@ -85,9 +85,9 @@ describe('issueMessage', () => {
     );
     expect(message('en', path, 'supersetSize')).toBe('A superset needs 2 to 4 exercises.');
     expect(message('pt-BR', path, 'supersetNotAdjacent')).toBe(
-      'Os exercícios do mesmo bi-set precisam estar em sequência.',
+      'Os exercícios do mesmo grupo (bi-set, tri-set ou série gigante) precisam estar em sequência.',
     );
-    expect(message('pt-BR', path, 'supersetSize')).toBe('Um bi-set precisa de 2 a 4 exercícios.');
+    expect(message('pt-BR', path, 'supersetSize')).toBe('Um bi-set, tri-set ou série gigante precisa de 2 a 4 exercícios.');
   });
 
   it('words the invalid RIR ramp issue in both locales', () => {
