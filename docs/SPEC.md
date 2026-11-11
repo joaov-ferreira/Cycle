@@ -146,6 +146,8 @@ interface PlanExercise {
   repMax: number;        // integer repMin–100
   targetRir?: number;    // integer 0–5
   restSeconds?: number;  // integer 0–900
+  startLoadKg?: number;  // 0–1000 kg, ≤ 2 decimals; suggested load while the exercise has no history
+                         // (0 only for zero-load equipment, §2.1)
   note?: string;         // ≤ 200 chars
 }
 interface PlanWorkout { id: string; name: string /* 1–40 chars */; exercises: PlanExercise[] /* 1–30 */ }
@@ -211,6 +213,10 @@ fully editable plan with texts in the current UI language.
 
 ### 4.1 JSON format (`cycle-plan`, version 1)
 
+The normative data specification is [`IMPORT_FORMAT.md`](./IMPORT_FORMAT.md) (properties, limits,
+defaults, error codes, versioning) with a JSON Schema in
+[`cycle-plan.schema.json`](./cycle-plan.schema.json). Summary:
+
 ```json
 {
   "format": "cycle-plan",
@@ -225,7 +231,7 @@ fully editable plan with texts in the current UI language.
   ],
   "workouts": [
     { "name": "Upper A", "exercises": [
-      { "exercise": "barbell-bench-press", "sets": 4, "repMin": 6, "repMax": 10, "rir": 2, "rest": 150, "note": "" },
+      { "exercise": "barbell-bench-press", "sets": 4, "repMin": 6, "repMax": 10, "rir": 2, "rest": 150, "startLoad": 60, "note": "" },
       { "exercise": "my-machine-row", "sets": 3, "reps": "8-12" },
       { "exercise": "Rosca direta", "sets": 3, "reps": 12 }
     ] }
@@ -241,6 +247,11 @@ fully editable plan with texts in the current UI language.
   `cycle` = `DEFAULT_CYCLE` (each missing field individually defaulted), `customExercises` `[]`,
   `rir`/`rest`/`note` absent.
 - `format` must be `"cycle-plan"` and `version` must be `1` (`unsupportedFormat`, `unsupportedVersion`).
+- Unknown properties are ignored. Structural errors are reported as `{ path, code }` with the codes of
+  IMPORT_FORMAT.md §5.
+- **Chatbot answers are accepted as pasted:** the importer takes the first fenced code block
+  (```` ```json ```` or ```` ``` ````) when there is one, otherwise the text from the first `{` to the
+  last `}`.
 
 ### 4.2 Plain-text format
 
@@ -275,7 +286,9 @@ Agachamento livre | 4x6-10
 
 ### 4.3 Parsing, name matching and resolution (`src/domain/plan-import.ts`, `exercise-match.ts`)
 
-- `detectFormat(text)`: trimmed text starting with `{` → JSON, otherwise plain text.
+- `detectFormat(text)`: JSON when the text contains a fenced code block whose content starts with
+  `{`, or when the trimmed text starts with `{`, or when it contains `"format"` followed by
+  `"cycle-plan"`; otherwise plain text. `extractJson(text)` implements the extraction rule of §4.1.
 - `normalizeName(text)`: lowercase, strip diacritics, replace every run of non-alphanumeric characters
   with a single space, trim. (`"Supino Reto c/ Barra"` → `"supino reto c barra"`.)
 - **Matching is exact on normalized text** against ids, both localized names and aliases. The matcher
@@ -300,6 +313,24 @@ Agachamento livre | 4x6-10
 `customExercises` entries with generated keys. Export → import of the result yields an equal
 `PlanContent` (round-trip test). The UI shares the JSON through the platform share sheet and also
 shows it in a selectable text field (the fallback on web).
+
+### 4.5 Plans created by AI assistants
+
+Users can have any AI chatbot write the plan file (IMPORT_FORMAT.md §8):
+
+- `buildAiPlanPrompt(exercises, locale)` (`src/library/ai-prompt.ts`, pure) returns the prompt: the
+  template of IMPORT_FORMAT.md §8.1 (`en`) or §8.2 (`pt-BR`) with `{{EXERCISES}}` replaced by one line
+  per non-archived exercise — `id — name — primary muscle — equipment` (name in the locale; muscle
+  and equipment as the format's enum values) — built-in exercises in library order, then the
+  profile's custom exercises.
+- `npm run docs:prompt` generates `docs/AI_PLAN_PROMPT.md` and `docs/AI_PLAN_PROMPT.pt-BR.md` from
+  the built-in library; a test fails when they are stale. Another test keeps
+  `cycle-plan.schema.json` consistent with the domain constants (enums and numeric limits) and
+  imports the example of IMPORT_FORMAT.md §7 without errors or unresolved exercises.
+- **Create with AI** on the import screen shows the prompt for the current profile and UI language
+  in a selectable field with a *Share* action, plus the four usage steps.
+- The README explains the flow step by step (copy the prompt → paste it in a chatbot with your goals
+  → copy the JSON answer or save it as `.json` → import it in the app) and links the prompt files.
 
 ---
 
@@ -391,6 +422,14 @@ or dismisses the suggestion (dismissal lasts until the next completed session).
 
 ## 6. Automatic load progression (`src/domain/progression.ts`, pure)
 
+**Method: double progression with RIR-based autoregulation.** Each plan exercise has a rep range.
+The user first progresses in **reps** at a fixed load; when every set reaches the top of the range
+the **load** goes up and the reps restart at the bottom of the range. A logged RIR well above the
+target makes the jump bigger; two sessions below the range bring the load down; three sessions
+without improvement flag a stall, which feeds the deload advice (§5.4). With `repMin = repMax` the
+same rules give classic linear progression. The method was chosen because it needs no 1RM test,
+works for every exercise and equipment, is safe for beginners and explainable in one sentence.
+
 ### 6.1 Metrics (`src/domain/metrics.ts`)
 
 Only **working sets that are done and have reps ≥ 1** count.
@@ -417,7 +456,7 @@ counted set are considered; let `last` be the newest and `previous` the one befo
 ```ts
 type Suggestion = {
   action: 'start' | 'increase' | 'hold' | 'decrease' | 'deload';
-  reason: 'noHistory' | 'hitTopOfRange' | 'hitTopOfRangeEasy' | 'progressReps' | 'belowRange'
+  reason: 'noHistory' | 'planStartLoad' | 'hitTopOfRange' | 'hitTopOfRangeEasy' | 'progressReps' | 'belowRange'
         | 'belowRangeTwice' | 'stalled' | 'deloadWeek';
   loadKg: number | null;   // null = no load to suggest (user chooses)
   sets: number;            // target.sets, or the deload sets
@@ -431,7 +470,8 @@ type Suggestion = {
 Rules, first match wins:
 
 1. **Deload phase** → `deload` / `deloadWeek` per §5.3.
-2. **No history** → `start` / `noHistory`, `loadKg: null`, `targetReps` = `repMin` × sets.
+2. **No history** → `start`, `targetReps` = `repMin` × sets; `loadKg` = the plan exercise's
+   `startLoadKg` with reason `planStartLoad` when it is set, otherwise `null` with reason `noHistory`.
 3. **Top of the range** — `setsAtWorkLoad.length ≥ target.sets` and every one of them has
    `reps ≥ repMax` → `increase`: `loadKg = workLoad + step`, `targetReps` = `repMin` × sets.
    `step` = one increment; **two increments** (`hitTopOfRangeEasy`) when every set at the work load has

@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/joaov-ferreira/Cycle/blob/main/docs/cycle-plan.schema.json",
+  "title": "CYCLE plan (cycle-plan v1)",
+  "description": "Training plan document imported by the CYCLE app. Normative text: docs/IMPORT_FORMAT.md. Unknown properties are ignored by the importer.",
+  "type": "object",
+  "required": ["format", "version", "name", "workouts"],
+  "properties": {
+    "format": { "const": "cycle-plan" },
+    "version": { "const": 1 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+    "description": { "type": "string", "maxLength": 500 },
+    "sessionsPerWeek": { "type": "integer", "minimum": 1, "maximum": 14 },
+    "cycle": { "$ref": "#/$defs/cycle" },
+    "customExercises": {
+      "type": "array",
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/customExercise" }
+    },
+    "workouts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 14,
+      "items": { "$ref": "#/$defs/workout" }
+    }
+  },
+  "$defs": {
+    "muscleGroup": {
+      "enum": [
+        "chest", "back", "shoulders", "traps", "biceps", "triceps", "forearms", "abs",
+        "lowerBack", "glutes", "quads", "hamstrings", "adductors", "abductors", "calves"
+      ]
+    },
+    "equipment": {
+      "enum": ["barbell", "dumbbell", "machine", "cable", "smith", "kettlebell", "bodyweight", "band", "other"]
+    },
+    "cycle": {
+      "type": "object",
+      "properties": {
+        "loadWeeks": { "type": "integer", "minimum": 1, "maximum": 16, "default": 6 },
+        "deloadWeeks": { "type": "integer", "minimum": 0, "maximum": 2, "default": 1 },
+        "deloadVolumeFactor": { "type": "number", "minimum": 0.3, "maximum": 1, "default": 0.5 },
+        "deloadLoadFactor": { "type": "number", "minimum": 0.5, "maximum": 1, "default": 0.9 }
+      }
+    },
+    "customExercise": {
+      "type": "object",
+      "required": ["key", "name", "primaryMuscle", "equipment"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1, "maxLength": 60, "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "primaryMuscle": { "$ref": "#/$defs/muscleGroup" },
+        "secondaryMuscles": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/muscleGroup" },
+          "default": []
+        },
+        "equipment": { "$ref": "#/$defs/equipment" },
+        "mechanics": { "enum": ["compound", "isolation"], "default": "compound" }
+      }
+    },
+    "workout": {
+      "type": "object",
+      "required": ["name", "exercises"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "exercises": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 30,
+          "items": { "$ref": "#/$defs/planExercise" }
+        }
+      }
+    },
+    "planExercise": {
+      "type": "object",
+      "required": ["exercise", "sets"],
+      "anyOf": [{ "required": ["reps"] }, { "required": ["repMin", "repMax"] }],
+      "properties": {
+        "exercise": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A customExercises key, a built-in exercise id, or an exercise name (IMPORT_FORMAT.md §3)."
+        },
+        "sets": { "type": "integer", "minimum": 1, "maximum": 20 },
+        "repMin": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "repMax": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "reps": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1, "maximum": 100 },
+            { "type": "string", "pattern": "^\\s*[0-9]{1,3}\\s*(-\\s*[0-9]{1,3}\\s*)?$" }
+          ]
+        },
+        "rir": { "type": "integer", "minimum": 0, "maximum": 5 },
+        "rest": { "type": "integer", "minimum": 0, "maximum": 900 },
+        "startLoad": { "type": "number", "minimum": 0, "maximum": 1000 },
+        "note": { "type": "string", "maxLength": 200 }
+      }
+    }
+  }
+}

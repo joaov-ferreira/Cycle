@@ -40,6 +40,7 @@
 | 4a | 4 | Built-in plan templates | haiku | ⬜ |
 | 4b | 4 | State store and selectors | sonnet | ⬜ |
 | 4c | 4 | Shared UI: exercise picker, set row, stepper | haiku | ⬜ |
+| 4d | 4 | AI prompt builder, generated prompt docs, schema consistency tests | haiku | ⬜ |
 | 5a | 5 | Exercises screens | sonnet | ⬜ |
 | 5b | 5 | Plan screens: list, detail, editor, cycle card | sonnet | ⬜ |
 | 5c | 5 | New-plan flow: templates gallery, import, export | sonnet | ⬜ |
@@ -114,7 +115,9 @@ if stage 3b's `normalizeName` is not available (same rule as SPEC §4.3).
 
 Owns: `src/domain/exercise-match.ts`, `src/domain/plan.ts` (adds `validatePlanContent` and helpers
 below the stage 2 types), `src/domain/plan-import.ts`, `src/domain/plan-export.ts`.
-SPEC §3.1 validation, §4.1–§4.4: `normalizeName`, `matchExercise`, `suggestExercises`, `detectFormat`,
+SPEC §3.1 validation, §4.1–§4.4 and `docs/IMPORT_FORMAT.md` (normative for the JSON format: limits,
+defaults, error codes, `startLoad`, ignoring unknown properties, extracting JSON from a chatbot
+answer): `normalizeName`, `matchExercise`, `suggestExercises`, `detectFormat`,
 JSON and plain-text parsers with line-numbered error codes, the import draft
 (resolved / newCustom / unresolved) and `resolveDraft` (apply the user's choices → `PlanContent` +
 custom exercises to create), `exportPlan`, round-trip test. Tests use a small fixture exercise list
@@ -167,6 +170,15 @@ Memoized selectors: all exercises (built-in + custom), suggestions for a plan wo
 home summary, history list/filters, exercise sessions, progress series, PRs, weekly muscle sets.
 Store tests run on the in-memory repositories; test utilities to seed a plan and logged workouts.
 
+### 4d — AI prompt and format docs · haiku
+
+Owns: `src/library/ai-prompt.ts` (+ test), `scripts/generate-ai-prompt.*`, `docs/AI_PLAN_PROMPT.md`,
+`docs/AI_PLAN_PROMPT.pt-BR.md`, `src/library/import-format.test.ts`, the `docs:prompt` script entry in
+`package.json` (the only edit allowed there).
+SPEC §4.5 and IMPORT_FORMAT.md §8: `buildAiPlanPrompt` with the two templates copied verbatim from
+the spec, the generator script, the staleness test, the schema-consistency test and the test that
+imports the IMPORT_FORMAT.md §7 example against the real library.
+
 ### 4c — Shared UI · haiku
 
 Owns: `src/components/shared/**`, i18n namespaces `picker` and `common`.
@@ -184,7 +196,7 @@ in stage 1) and its i18n namespace(s). Screens read and write only through the s
 - **5b — Plan · sonnet.** `src/components/plan/**`, routes `(tabs)/plan`, `plans/index`,
   `plans/[id]`, `plans/[id]/edit`; namespace `plan`. SPEC §3.2, §5.5.
 - **5c — New plan, import, export · sonnet.** `src/components/plan-import/**`, routes `plans/new`,
-  `plans/templates`, `plans/import`; namespace `planImport`. SPEC §3.3, §4.3–§4.4. Adds
+  `plans/templates`, `plans/import`; namespace `planImport`. SPEC §3.3, §4.3–§4.5 (including the **Create with AI** prompt view). Adds
   `expo-document-picker` (and `expo-file-system` only if required to read the picked file) with
   `npx expo install`, after reading the SDK 58 docs. This is the only stage of the wave allowed to
   touch `package.json`/`package-lock.json`/`app.json`.
@@ -204,7 +216,9 @@ in stage 1) and its i18n namespace(s). Screens read and write only through the s
   number formatting in pt-BR, empty states, wide-screen sidebar.
 - Run the app on web (`npx expo start --web`) and fix what the tests did not catch; regenerate the
   README screenshots in `docs/images/` (remove the v1 ones).
-- Rewrite `README.md` for v2 (features, import formats with examples, architecture, commands, APK).
+- Rewrite `README.md` for v2 (features, how load progression works, import formats with examples,
+  architecture, commands, APK), including the section **"Create a plan with an AI chatbot"**: the four
+  steps of IMPORT_FORMAT.md §8.3, links to the prompt files and to the data specification.
 - Coverage thresholds hold; remove dead code and unused keys.
 
 ## Stage 7 — Final review and release · orchestrator
