@@ -82,6 +82,8 @@ export const planEditor = {
     unknownExercise: 'This exercise no longer exists',
     duplicateId: 'Duplicate identifier',
     zeroLoadNotAllowed: 'Only bodyweight and band exercises take 0 kg',
+    supersetNotAdjacent: 'Exercises of the same superset must be next to each other.',
+    supersetSize: 'A superset needs 2 to 4 exercises.',
     /** Issue that belongs to no visible field; `{{message}}` is the specific text. */
     other: 'Plan settings: {{message}}',
   },

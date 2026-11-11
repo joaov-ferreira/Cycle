@@ -70,6 +70,7 @@ export const planImport = {
     duplicateKey: 'This key is duplicated or equals a built-in exercise id.',
     missingPlanName: 'The plan needs a name (a line starting with #).',
     exerciseOutsideWorkout: 'This exercise is not inside a workout (a line starting with ##).',
+    supersetWithoutPrevious: 'A “+” line needs an exercise before it in the same workout.',
     invalidExerciseLine: 'This exercise line could not be read. Use: name | 4x8-12.',
     invalidDirective: 'This setting could not be read.',
     emptyWorkout: 'This workout has no exercises.',
@@ -132,6 +133,8 @@ export const planImport = {
     unknownExercise: 'unknown exercise',
     duplicateId: 'duplicated id',
     zeroLoadNotAllowed: '0 kg is not allowed for this exercise',
+    supersetNotAdjacent: 'Exercises of the same superset must be next to each other.',
+    supersetSize: 'A superset needs 2 to 4 exercises.',
   },
 
   // ---- Export ----
