@@ -1,8 +1,7 @@
-import { useRouter } from 'expo-router';
-
+import { useGoBack } from '@/components/navigation/use-go-back';
 import { CalculatorScreen } from '@/components/maxes/calculator-screen';
 
 export default function OneRepMaxRoute() {
-  const router = useRouter();
-  return <CalculatorScreen onBack={() => router.back()} />;
+  const goBack = useGoBack('/more');
+  return <CalculatorScreen onBack={goBack} />;
 }
