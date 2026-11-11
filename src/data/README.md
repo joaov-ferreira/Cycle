@@ -14,6 +14,11 @@ SQLite (`expo-sqlite`) database, versioned migrations and repositories.
   (`exportProfile`, and `restoreAsNewProfile` in one transaction with id remapping; SPEC-v3 §8). Repositories check structure and state only; business
   validation belongs to the caller. v1 tables (migrations 001–009) stay in the database untouched;
   migration 010 copies completed v1 sessions into `workouts` (SPEC §11.3) and no repository reads v1 tables.
+- `migrations/011_v3_companion.ts` — the v3 schema (SPEC-v3 §12): `body_metrics`, exercise notes and bar
+  weights, `workout_exercises.superset_group` and the new settings columns. Migrations 001–011 are
+  immutable.
+- `backup-shared.ts`, `logbook-shared.ts` — what both backup implementations share: the export, the
+  restore plan (what is written, decided before the first write) and the validation helpers.
 - `memory/` — in-memory implementation (tests).
 - `sqlite/` — SQLite implementation and `openAppDatabase()` / `openSqliteRepositories()`.
 - `repositories.contract.ts` — one behavioral test suite run against **both**
