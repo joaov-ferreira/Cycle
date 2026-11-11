@@ -11,7 +11,13 @@ import type {
 import type { BackupSummary } from '@/domain/backup';
 import type { BodyMetric, BodyMetricInput } from '@/domain/body';
 import type { CycleConfig, Experience } from '@/domain/cycle';
+import type { E1rmFormula } from '@/domain/e1rm';
+import type { EffortScale } from '@/domain/effort';
 import type { CustomExerciseInput, Exercise } from '@/domain/exercise';
+import type { TrainingFocus } from '@/domain/focus';
+import type { ProgramParams } from '@/domain/program';
+import type { ReferenceMax, ReferenceMaxOrigin } from '@/domain/reference-max';
+import type { RoundingMode } from '@/domain/rounding';
 import type { Plan, PlanContent } from '@/domain/plan';
 import type { PendingImport } from '@/domain/plan-import';
 import type { RestTimer } from '@/domain/rest-timer';
@@ -24,6 +30,36 @@ import type {
   WorkoutSummary,
 } from '@/domain/workout';
 import type { LanguageSetting } from '@/i18n/locale';
+
+/** What `addReferenceMax` takes (SPEC-v4 §2): origin defaults to `manual`, time to the store clock. */
+export type ReferenceMaxDraft = {
+  exerciseId: string;
+  kg: number;
+  origin?: ReferenceMaxOrigin;
+  /** ISO 8601 timestamp. */
+  effectiveAt?: string;
+};
+
+/** A 1RM entered in a flow (onboarding, program wizard). */
+export type MaxEntry = { exerciseId: string; kg: number };
+
+/** What `completeOnboarding` accepts (SPEC-v4 §10.1); everything is optional. */
+export type OnboardingOptions = { focus?: TrainingFocus; maxes?: MaxEntry[] };
+
+/** What `startProgram` takes (SPEC-v4 §10.2). */
+export type StartProgramInput = {
+  programId: string;
+  name: string;
+  /** Role id → exercise id. */
+  roles: Record<string, string>;
+  params?: ProgramParams;
+  accessories: boolean;
+  /** 1RMs to save before the plan is created (origin `maxOrigin`, default `manual`). */
+  maxes?: MaxEntry[];
+  maxOrigin?: ReferenceMaxOrigin;
+  /** Language of the workout (day) names; default `en`. */
+  locale?: 'en' | 'pt-BR';
+};
 
 export type AppStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -87,6 +123,8 @@ export type AppState = {
   completedCycle: CompletedCycle | null;
   /** Body measurements, oldest date first. */
   bodyMetrics: BodyMetric[];
+  /** Every reference 1RM record of the profile (SPEC-v4 §2), oldest effective time first. */
+  referenceMaxes: ReferenceMax[];
 
   // ---- Boot and settings ----
   /** Loads (or creates on first boot) the active profile and its settings. */
@@ -94,7 +132,16 @@ export type AppState = {
   setLanguage: (language: LanguageSetting) => Promise<void>;
   setTheme: (theme: ThemeSetting) => Promise<void>;
   setExperience: (experience: Experience) => Promise<void>;
-  completeOnboarding: () => Promise<void>;
+  /**
+   * Marks the onboarding as done. Optionally sets the training focus and saves 1RMs (origin
+   * `onboarding`). Throws `ReferenceMaxValidationError` (nothing saved) for an invalid 1RM.
+   */
+  completeOnboarding: (options?: OnboardingOptions) => Promise<void>;
+  /** SPEC-v4 §10.6 settings: updated optimistically, rolled back and `SettingsValidationError` on failure. */
+  setFocus: (focus: TrainingFocus) => Promise<void>;
+  setE1rmFormula: (formula: E1rmFormula) => Promise<void>;
+  setEffortScale: (scale: EffortScale) => Promise<void>;
+  setRoundingMode: (mode: RoundingMode) => Promise<void>;
   /** Settings (SPEC-v3 §1, §2). Throw `SettingsValidationError { field }` for a rejected value. */
   setDefaultRestSeconds: (seconds: number) => Promise<void>;
   setRestNotifications: (on: boolean) => Promise<void>;
@@ -105,6 +152,17 @@ export type AppState = {
   createProfile: (name: string) => Promise<void>;
   renameProfile: (id: number, name: string) => Promise<void>;
   switchProfile: (id: number) => Promise<void>;
+
+  // ---- Reference 1RMs (SPEC-v4 §2) ----
+  /**
+   * Adds a record (nothing is overwritten). Throws `ReferenceMaxValidationError`. Gives the active
+   * workout's prescribed exercises that lacked this 1RM their loads (SPEC-v4 §7).
+   */
+  addReferenceMax: (input: ReferenceMaxDraft) => Promise<ReferenceMax>;
+  /** Throws `ReferenceMaxNotFoundError`. */
+  deleteReferenceMax: (id: number) => Promise<void>;
+  /** "Use as new 1RM" (SPEC-v4 §7): `addReferenceMax` with origin `fromE1rm`. */
+  useEstimateAsMax: (exerciseId: string, kg: number) => Promise<ReferenceMax>;
 
   // ---- Exercises ----
   /** Throws `CustomExerciseValidationError`. */
@@ -139,6 +197,19 @@ export type AppState = {
   setCycleConfig: (planId: number, cycle: CycleConfig) => Promise<Plan>;
   startDeload: (planId: number) => Promise<void>;
   startNewCycle: (planId: number) => Promise<void>;
+  /**
+   * Programs (SPEC-v4 §10.2): validates, saves the 1RMs, creates the plan with `programToPlan`,
+   * activates it and returns its id. Throws `UnknownProgramError`, `PlanValidationError` or
+   * `ReferenceMaxValidationError`, saving nothing.
+   */
+  startProgram: (input: StartProgramInput) => Promise<number>;
+  /** Moves every program block forward by the cycle length (SPEC-v4 §5.2) and saves the plan. */
+  advanceProgramBlocks: (planId: number) => Promise<Plan>;
+  /**
+   * Completes a rest day: advances the cycle state like a finished session, without a workout.
+   * Throws `PlanNotFoundError`, `NotARestDayError`.
+   */
+  completeRestDay: (planId: number) => Promise<void>;
   dismissDeloadAdvice: () => Promise<void>;
   dismissCompletedCycle: () => void;
   /**

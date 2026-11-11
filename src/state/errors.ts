@@ -6,6 +6,7 @@ import type { BackupError } from '@/domain/backup';
 import type { BodyMetricErrors } from '@/domain/body';
 import type { CustomExerciseErrors } from '@/domain/exercise-match';
 import type { PlanIssue } from '@/domain/plan';
+import type { ReferenceMaxError } from '@/domain/reference-max';
 import type { SetErrors } from '@/domain/workout';
 import type { ProfileNameError } from '@/domain/validation';
 
@@ -129,7 +130,15 @@ export class UnknownExerciseError extends Error {
 /** The repository rejected a settings value (rest, bar weight or plates); `field` names the setting. */
 export class SettingsValidationError extends Error {
   readonly code = 'SETTINGS_INVALID';
-  constructor(readonly field: 'defaultRestSeconds' | 'barKg' | 'platesKg') {
+  constructor(readonly field:
+      | 'defaultRestSeconds'
+      | 'barKg'
+      | 'platesKg'
+      | 'focus'
+      | 'e1rmFormula'
+      | 'effortScale'
+      | 'roundingMode',
+  ) {
     super(`Invalid setting: ${field}`);
     this.name = 'SettingsValidationError';
   }
@@ -163,5 +172,35 @@ export class BackupParseError extends Error {
   constructor(readonly errors: BackupError[]) {
     super(`Invalid backup: ${errors.map((e) => (e.path ? `${e.code}@${e.path}` : e.code)).join(', ')}`);
     this.name = 'BackupParseError';
+  }
+}
+
+/** A reference 1RM failed `validateMaxKg` (or has an empty exercise id). */
+export class ReferenceMaxValidationError extends Error {
+  readonly code = 'REFERENCE_MAX_INVALID';
+  constructor(
+    readonly reason: ReferenceMaxError,
+    readonly exerciseId?: string,
+  ) {
+    super(`Invalid reference max: ${reason}`);
+    this.name = 'ReferenceMaxValidationError';
+  }
+}
+
+/** `startProgram` with an id that is not in the program library. */
+export class UnknownProgramError extends Error {
+  readonly code = 'UNKNOWN_PROGRAM';
+  constructor(readonly programId: string) {
+    super(`Unknown program ${programId}`);
+    this.name = 'UnknownProgramError';
+  }
+}
+
+/** `completeRestDay` when the plan's next workout is not a rest day. */
+export class NotARestDayError extends Error {
+  readonly code = 'NOT_A_REST_DAY';
+  constructor(readonly planId: number) {
+    super(`The next workout of plan ${planId} is not a rest day`);
+    this.name = 'NotARestDayError';
   }
 }

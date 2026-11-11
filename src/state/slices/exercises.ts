@@ -3,6 +3,7 @@ import { validateCustomExercise } from '@/domain/exercise-match';
 import { CustomExerciseValidationError } from '../errors';
 import { selectAllExercises } from '../selectors';
 import type { AppState, StoreContext } from '../types';
+import { reloadReferenceMaxes } from './reference-maxes';
 import { reloadExerciseSettings } from './settings';
 
 export type ExerciseActions = Pick<
@@ -48,6 +49,7 @@ export function createExerciseActions(ctx: StoreContext): ExerciseActions {
       const profile = requireReady();
       await repos.exercises.deleteCustom(profile.id, id);
       set({ customExercises: get().customExercises.filter((e) => e.id !== id) });
+      await reloadReferenceMaxes(ctx, profile.id); // its reference maxes are deleted with it
     },
 
     async setIncrementOverride(exerciseId, incrementKg) {
