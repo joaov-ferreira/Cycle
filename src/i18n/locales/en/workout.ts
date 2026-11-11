@@ -22,6 +22,23 @@ export const workout = {
   targetRest: '{{seconds}} s',
   /** Target RIR when the plan's RIR ramp sets it for the week. */
   targetRirWeek: 'RIR {{rir}} this week',
+  targetRpe: 'RPE {{rpe}}',
+  targetRpeWeek: 'RPE {{rpe}} this week',
+  // ---- Prescription of a percent exercise (SPEC-v4 §7) ----
+  rxOriginProgram: '{{program}} · week {{week}} · day {{day}}',
+  rxOriginProgramLabel: '{{program}} · {{label}} · week {{week}} · day {{day}}',
+  rxOriginScheme: 'Percent of 1RM · week {{week}}',
+  rxMax: '1RM {{kg}}',
+  rxMaxBasis: '1RM {{kg}} ({{exercise}})',
+  rxAsWritten: 'In the program: {{name}}',
+  rxMissingMax: 'Set the 1RM to get loads',
+  rxMaxInput: '1RM of {{exercise}}',
+  rxSaveMax: 'Save 1RM',
+  rxMaxErrors: {
+    required: 'Enter the 1RM',
+    outOfRange: 'Use a value up to {{max}} kg',
+    tooManyDecimals: 'Use at most {{max}} decimal places',
+  },
   // ---- Workout in progress ----
   started: 'Started {{time}}',
   exerciseOptions: 'Exercise options',

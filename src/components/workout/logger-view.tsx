@@ -9,6 +9,7 @@ import { canCompleteWorkout, type Workout } from '@/domain/workout';
 import { useI18n, type MessageKey } from '@/i18n';
 import {
   selectActivePlan,
+  selectEffectiveWorkout,
   selectAllExercises,
   selectFindExercise,
   selectSimilarExercises,
@@ -52,6 +53,15 @@ export function WorkoutLogger({ workout, now, vibrate, openUrl }: WorkoutLoggerP
   const suggestions: Record<string, Suggestion> = useAppStore(selectWorkoutSuggestions);
   const plan = useAppStore(selectActivePlan);
   const layoutBlocks = useAppStore(selectWorkoutLayout);
+  const effectiveWorkout = useAppStore((s) => {
+    const source = s.plans.find((p) => p.id === workout.planId);
+    const index = source ? source.workouts.findIndex((w) => w.id === workout.planWorkoutId) : -1;
+    if (!source || index < 0) return null;
+    return selectEffectiveWorkout(s, source.id, index, {
+      phase: workout.phase,
+      cycleWeek: workout.cycleWeek ?? source.cycleState.week,
+    });
+  });
   const allExercises = useAppStore(selectAllExercises);
   const findExercise = useAppStore(selectFindExercise);
   const addExercise = useAppStore((s) => s.addExercise);
@@ -70,6 +80,10 @@ export function WorkoutLogger({ workout, now, vibrate, openUrl }: WorkoutLoggerP
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
 
+  const effectiveById = useMemo(
+    () => new Map((effectiveWorkout?.workout.exercises ?? []).map((e) => [e.id, e])),
+    [effectiveWorkout],
+  );
   const selectable = useMemo(() => allExercises.filter((exercise) => !exercise.archived), [allExercises]);
   const inWorkoutIds = useMemo(() => workout.exercises.map((e) => e.exerciseId), [workout.exercises]);
 
@@ -163,6 +177,7 @@ export function WorkoutLogger({ workout, now, vibrate, openUrl }: WorkoutLoggerP
                 index={index}
                 exercise={item}
                 suggestion={item.planExerciseId ? suggestions[item.planExerciseId] : undefined}
+                effective={item.planExerciseId ? effectiveById.get(item.planExerciseId) : undefined}
                 deloadLoadFactor={deloadLoadFactor}
                 rirThisWeek={rirThisWeek}
                 grouped={block.label !== null}
