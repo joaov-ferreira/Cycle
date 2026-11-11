@@ -13,6 +13,16 @@ export const home: typeof enHome = {
     title: 'Próximo treino',
     deload: 'Deload',
     start: 'Iniciar',
+    exercises: 'Exercícios',
+    automatic: '{{sets}}×{{min}}–{{max}}',
+    automaticFixed: '{{sets}}×{{reps}}',
+    restDay: 'Dia de descanso',
+    markRestDone: 'Marcar dia de descanso como concluído',
+  },
+  missingMaxes: {
+    title: '1RMs em falta',
+    message: 'Estes exercícios precisam de um 1RM para ter cargas: {{names}}',
+    action: 'Definir 1RMs',
   },
   noPlan: {
     title: 'Nenhuma periodização ativa',

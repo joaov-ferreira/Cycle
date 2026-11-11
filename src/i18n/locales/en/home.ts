@@ -11,6 +11,16 @@ export const home = {
     title: 'Next workout',
     deload: 'Deload',
     start: 'Start',
+    exercises: 'Exercises',
+    automatic: '{{sets}}×{{min}}–{{max}}',
+    automaticFixed: '{{sets}}×{{reps}}',
+    restDay: 'Rest day',
+    markRestDone: 'Mark rest day as done',
+  },
+  missingMaxes: {
+    title: 'Missing 1RMs',
+    message: 'These lifts need a 1RM to get loads: {{names}}',
+    action: 'Set 1RMs',
   },
   noPlan: {
     title: 'No active plan',

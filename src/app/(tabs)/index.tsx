@@ -17,6 +17,7 @@ export default function HomeRoute() {
       onNewPlan={(kind) => router.push(NEW_PLAN_ROUTES[kind])}
       onOpenPlan={() => router.navigate('/plan')}
       onOpenCycleReport={(planId, cycleNumber) => router.push(`/plans/${planId}/cycles/${cycleNumber}` as Href)}
+      onOpenMaxes={() => router.push('/maxes' as Href)}
       onOpenSettings={() => router.push('/settings' as Href)}
     />
   );
