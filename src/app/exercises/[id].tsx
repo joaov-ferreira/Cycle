@@ -15,6 +15,7 @@ export default function ExerciseDetailRoute() {
       onOpenWorkout={(workoutId) =>
         router.push({ pathname: '/history/[id]', params: { id: String(workoutId) } })
       }
+      onOpenExercise={(id) => router.push({ pathname: '/exercises/[id]', params: { id } })}
     />
   );
 }

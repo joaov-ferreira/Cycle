@@ -19,7 +19,12 @@ async function setup(
 ) {
   const ctx = await createTestStore({ clock: createClock() });
   await options.prepare?.(ctx);
-  const callbacks = { onBack: jest.fn(), onOpenProgress: jest.fn(), onOpenWorkout: jest.fn() };
+  const callbacks = {
+    onBack: jest.fn(),
+    onOpenProgress: jest.fn(),
+    onOpenWorkout: jest.fn(),
+    onOpenExercise: jest.fn(),
+  };
   await renderInApp(<ExerciseDetailScreen exerciseId={options.exerciseId ?? BENCH} {...callbacks} />, {
     store: ctx.store,
     repos: ctx.repos,
