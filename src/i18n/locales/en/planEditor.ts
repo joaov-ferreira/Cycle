@@ -36,6 +36,12 @@ export const planEditor = {
   /** Main line of an exercise row, e.g. `3 × 8–12`. */
   summary: '{{sets}} × {{min}}–{{max}}',
   removeExercise: 'Remove {{exercise}}',
+  superset: { two: 'Superset', three: 'Tri-set', four: 'Giant set' },
+  linkNext: 'Link with next',
+  linkNextOf: 'Link {{exercise}} with the next exercise',
+  linkLimit: 'A superset has at most 4 exercises.',
+  unlink: 'Unlink',
+  unlinkOf: 'Unlink {{exercise}} from the previous exercise',
   setsOf: '{{exercise}} sets',
   repMinLabel: 'Min reps',
   repMinOf: '{{exercise}} minimum reps',
