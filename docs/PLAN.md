@@ -33,12 +33,12 @@ AGENTS.md as the extension of `docs/SPEC.md`.
 | Stage | Wave | Scope | Model | Status |
 |---|---|---|---|---|
 | 0 | — | Spec v3, plan v3 | orchestrator | ✅ |
-| 1a | 1 | Gym tools domain: rest timer, plates, warm-ups, similar exercises | haiku | ⬜ |
-| 1b | 1 | Supersets and drop sets: model, validation, metrics, import/export | sonnet | ⬜ |
-| 1c | 1 | Insights: calendar, streak, weekly trends | haiku | ⬜ |
-| 1d | 1 | Backup document, restore mapping, CSV | sonnet | ⬜ |
-| 1e | 1 | Body metrics domain | haiku | ⬜ |
-| 1f | 1 | AI review prompt builder | haiku | ⬜ |
+| 1a | 1 | Gym tools domain: rest timer, plates, warm-ups, similar exercises | haiku | ✅ |
+| 1b | 1 | Supersets and drop sets: model, validation, metrics, import/export | sonnet | ✅ |
+| 1c | 1 | Insights: calendar, streak, weekly trends | haiku | ✅ |
+| 1d | 1 | Backup document, restore mapping, CSV | sonnet | ✅ |
+| 1e | 1 | Body metrics domain | haiku | ✅ |
+| 1f | 1 | AI review prompt builder | haiku | ✅ |
 | 2a | 2 | RIR ramp and cycle report | sonnet | ⬜ |
 | 2b | 2 | Persistence: migration 011, repositories, bulk export/import | sonnet | ⬜ |
 | 3 | 3 | State store: timer, tools settings, supersets, ramp, reports, backup, body, insights | sonnet | ⬜ |
