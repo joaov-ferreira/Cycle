@@ -17,6 +17,13 @@ Everything that decides something, with no framework in sight.
   document: build, tolerant parse with `{ code, path }` errors, summary, file name, id remapping),
   `logbook-csv.ts` (CSV export) and `exercise-similar.ts` (similar exercises). `cycle.ts` also holds the
   RIR ramp (`weekTargetRir`) and `plan.ts` the superset layout (`supersetLayout`) and its validation.
+- v4 (SPEC-v4, strength mode): `reference-max.ts` (per-exercise reference 1RM records, `floorToHalfKg`), `e1rm.ts`
+  + `rts-table.ts` (Epley, Brzycki and RTS estimates with confidence), `effort.ts` (RIR ↔ RPE), `focus.ts`,
+  `scheme-set.ts` + `percent-scheme.ts` (percent schemes on a plan exercise: validation, scheme week,
+  deload transform), `program.ts` (program schema, parameters, `expandProgramDay`), `program-plan.ts`
+  (`expandWorkout`, `programToPlan`, `advanceProgramBlocks`, fidelity warnings), `prescription.ts` (loads from
+  percentages, tonnage, prescribed vs actual), `strength.ts` (strength dashboard). `cycle-report.ts`,
+  `stats.ts` and `metrics.ts` take the e1RM formula (default `epley`).
 - `rounding.ts`, `number-validation.ts`, `validation.ts` — generic helpers.
 
 Dependency rules:
