@@ -715,8 +715,9 @@ becomes `2.0.0`.
     Settings).
   - Wide screens (≥ 900 px): sidebar with Home, Plan, Workout, Progress, Exercises, History, Settings.
 - Routes: `(tabs)/index|plan|workout|progress|more`, `plans/index`, `plans/new`, `plans/templates`,
-  `plans/import`, `plans/[id]`, `plans/[id]/edit`, `exercises/index`, `exercises/new`,
-  `exercises/[id]`, `history/index`, `history/[id]`, `settings`.
+  `plans/import`, `plans/[id]`, `plans/[id]/edit` (the literal id `scratch` creates a new plan),
+  `plans/[id]/export`, `exercises/index`, `exercises/new`, `exercises/[id]`, `history/index`,
+  `history/[id]`, `settings`. The Progress tab accepts the search param `exerciseId`.
 
 ### 12.1 Internationalization
 

@@ -55,7 +55,7 @@ when the plan is saved.
 
 | Property | Type | Required | Rule |
 |---|---|---|---|
-| `key` | string | yes | 1–60 characters, lowercase letters, digits and `-`; unique in the document; must not be a built-in exercise id |
+| `key` | string | yes | 1–60 characters in kebab-case (lowercase letters and digits separated by single hyphens, e.g. `hammer-row`); unique in the document; must not be a built-in exercise id. Readers also accept leading, trailing or doubled hyphens |
 | `name` | string | yes | 1–60 characters |
 | `primaryMuscle` | string | yes | one of the muscle groups below |
 | `secondaryMuscles` | string[] | no | muscle groups, without the primary one, no duplicates (default `[]`) |
