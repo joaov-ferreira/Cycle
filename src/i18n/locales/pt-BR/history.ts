@@ -29,6 +29,7 @@ export const history: typeof enHistory = {
   notes: 'Notas: {{notes}}',
   setLine: '{{weight}} × {{reps}}',
   rir: 'RIR {{rir}}',
+  rpe: 'RPE {{value}}',
   exerciseNote: 'Nota: {{note}}',
   exerciseVolume: 'Volume: {{volume}}',
   e1rm: 'e1RM ≈ {{value}} (estimativa)',

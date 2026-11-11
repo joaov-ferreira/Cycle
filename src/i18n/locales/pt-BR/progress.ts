@@ -11,6 +11,7 @@ export const progress: typeof enProgress = {
     exercises: 'Exercícios',
     volume: 'Volume',
     calendar: 'Calendário',
+    strength: 'Força',
   },
   exerciseGroup: 'Exercício',
   periodGroup: 'Período',

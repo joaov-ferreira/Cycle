@@ -9,6 +9,7 @@ export const progress = {
     exercises: 'Exercises',
     volume: 'Volume',
     calendar: 'Calendar',
+    strength: 'Strength',
   },
   exerciseGroup: 'Exercise',
   periodGroup: 'Period',

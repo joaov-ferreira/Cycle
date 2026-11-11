@@ -8,14 +8,21 @@ import { EmptyState } from '@/components/shared/empty-state';
 import { allowsZeroLoad } from '@/domain/exercise';
 import { metricsFor, type Metric } from '@/domain/stats';
 import { PERIODS, type Period } from '@/domain/period';
-import { useI18n } from '@/i18n';
+import { useI18n, type MessageKey } from '@/i18n';
 import { useAppStore } from '@/state/app-store-context';
-import { selectFindExercise, selectSeries, selectTrainedExerciseIds } from '@/state/selectors';
+import {
+  selectFindExercise,
+  selectFocus,
+  selectSeries,
+  selectStrengthVisible,
+  selectTrainedExerciseIds,
+} from '@/state/selectors';
 
 import { Button, Screen, SegmentedControl } from '../ui';
 import { CalendarTab } from './calendar-tab';
 import { LineChart } from './line-chart';
 import { PersonalRecordsCard } from './personal-records-card';
+import { StrengthTab } from './strength-tab';
 import { VolumeTab } from './volume-tab';
 import { WeeklyVolumeCard } from './weekly-volume-card';
 
@@ -26,27 +33,56 @@ export type ProgressScreenProps = {
   now?: Date;
   onOpenExercise?: (exerciseId: string) => void;
   onOpenWorkout?: (workoutId: number) => void;
+  /** Opens the reference 1RM screen of an exercise (`/maxes/<exerciseId>`). */
+  onOpenMax?: (exerciseId: string) => void;
+  /** Opens the 1RMs screen (`/maxes`). */
+  onOpenMaxes?: () => void;
 };
 
 const NBSP = ' ';
 
-type ProgressTab = 'exercises' | 'volume' | 'calendar';
+type ProgressTab = 'exercises' | 'volume' | 'calendar' | 'strength';
 
-/** Progress (SPEC §9, SPEC-v3 §10): Exercises (default) | Volume | Calendar. */
-export function ProgressScreen({ initialExerciseId, now, onOpenExercise, onOpenWorkout }: ProgressScreenProps) {
+const BASE_TABS: ProgressTab[] = ['exercises', 'volume', 'calendar'];
+
+const TAB_LABELS: Record<ProgressTab, MessageKey> = {
+  exercises: 'progress.tabs.exercises',
+  volume: 'progress.tabs.volume',
+  calendar: 'progress.tabs.calendar',
+  strength: 'progress.tabs.strength',
+};
+
+/**
+ * Progress (SPEC §9, SPEC-v3 §10, SPEC-v4 §10.7): Exercises | Volume | Calendar, plus Strength once the
+ * profile has a reference 1RM or a strength focus: the first (default) tab with a strength focus, else the last.
+ */
+export function ProgressScreen({
+  initialExerciseId,
+  now,
+  onOpenExercise,
+  onOpenWorkout,
+  onOpenMax,
+  onOpenMaxes,
+}: ProgressScreenProps) {
   const { t } = useI18n();
   const clock = useMemo(() => now ?? new Date(), [now]);
-  const [tab, setTab] = useState<ProgressTab>('exercises');
+  const focus = useAppStore(selectFocus);
+  const strengthVisible = useAppStore(selectStrengthVisible);
+  const tabs: ProgressTab[] = !strengthVisible
+    ? BASE_TABS
+    : focus === 'strength'
+      ? ['strength', ...BASE_TABS]
+      : [...BASE_TABS, 'strength'];
+  const [chosenTab, setTab] = useState<ProgressTab | null>(null);
+  // A deep link to an exercise opens the Exercises tab even when Strength comes first.
+  const fallback: ProgressTab = initialExerciseId === undefined ? tabs[0] : 'exercises';
+  const tab = chosenTab !== null && tabs.includes(chosenTab) ? chosenTab : fallback;
 
   return (
     <Screen title={t('progress.title')} testID="screen-progress">
       <SegmentedControl
         label={t('progress.tabs.group')}
-        options={[
-          { value: 'exercises', label: t('progress.tabs.exercises') },
-          { value: 'volume', label: t('progress.tabs.volume') },
-          { value: 'calendar', label: t('progress.tabs.calendar') },
-        ]}
+        options={tabs.map((value) => ({ value, label: t(TAB_LABELS[value]) }))}
         value={tab}
         onChange={setTab}
       />
@@ -60,6 +96,7 @@ export function ProgressScreen({ initialExerciseId, now, onOpenExercise, onOpenW
       ) : null}
       {tab === 'volume' ? <VolumeTab now={clock} /> : null}
       {tab === 'calendar' ? <CalendarTab now={clock} /> : null}
+      {tab === 'strength' ? <StrengthTab now={clock} onOpenMax={onOpenMax} onOpenMaxes={onOpenMaxes} /> : null}
     </Screen>
   );
 }

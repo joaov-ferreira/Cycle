@@ -27,6 +27,7 @@ export const history = {
   notes: 'Notes: {{notes}}',
   setLine: '{{weight}} × {{reps}}',
   rir: 'RIR {{rir}}',
+  rpe: 'RPE {{value}}',
   exerciseNote: 'Note: {{note}}',
   exerciseVolume: 'Volume: {{volume}}',
   e1rm: 'e1RM ≈ {{value}} (estimate)',
