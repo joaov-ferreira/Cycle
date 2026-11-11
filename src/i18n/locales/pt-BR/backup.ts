@@ -1,4 +1,43 @@
 import type { backup as en } from '../en/backup';
 
 /** Brazilian Portuguese `backup` namespace, typed against the English source. */
-export const backup: typeof en = {};
+export const backup: typeof en = {
+  title: 'Dados',
+  lastBackup: 'Último backup: {{date}}',
+  noBackup: 'Nenhum backup ainda',
+  reminder: 'Faz tempo desde o último backup. Exporte um para manter seu diário seguro.',
+  export: 'Exportar backup',
+  exportDone: 'Backup exportado.',
+  exportFailed: 'Não foi possível salvar ou compartilhar o backup.',
+  restore: 'Restaurar backup',
+  restoreTitle: 'Restaurar este backup?',
+  summary: {
+    profile: 'Perfil: {{name}}',
+    exportedAt: 'Exportado em: {{date}}',
+    plans: 'Planos: {{count}}',
+    workouts: 'Treinos: {{count}}',
+    customExercises: 'Exercícios personalizados: {{count}}',
+    bodyMetrics: 'Registros corporais: {{count}}',
+    firstWorkout: 'Primeiro treino: {{date}}',
+    lastWorkout: 'Último treino: {{date}}',
+    newProfile: 'Um novo perfil será criado e nada neste aparelho será sobrescrito.',
+  },
+  confirmRestore: 'Restaurar',
+  restored: 'Restaurado. Você agora está usando o perfil "{{name}}".',
+  restoredName: '{{name}} (restaurado)',
+  csv: 'Exportar diário (CSV)',
+  csvDone: 'Diário exportado.',
+  csvFailed: 'Não foi possível salvar ou compartilhar o diário.',
+  csvEmpty: 'Conclua um treino para exportar seu diário.',
+  fileTooLarge: 'Este arquivo é grande demais para ser um backup.',
+  errors: {
+    invalidJson: 'O arquivo não é um JSON válido.',
+    notAnObject: 'O arquivo não contém um backup.',
+    unsupportedFormat: 'Este não é um arquivo de backup do CYCLE.',
+    unsupportedVersion: 'Este backup foi feito por uma versão mais nova do app. Atualize o app e tente de novo.',
+    invalidBackup: 'O backup está danificado ou incompleto (problema em {{path}}).',
+    invalidBackupNoPath: 'O backup está danificado ou incompleto.',
+    profileName: 'O nome do perfil para os dados restaurados não é válido.',
+    generic: 'Não foi possível restaurar o backup.',
+  },
+};

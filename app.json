@@ -52,7 +52,9 @@
         }
       ],
       "expo-sqlite",
-      "./plugins/with-release-signing"
+      "./plugins/with-release-signing",
+      "expo-notifications",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,
