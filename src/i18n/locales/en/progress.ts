@@ -1,6 +1,12 @@
 /** English `progress` namespace (source catalog). */
 export const progress = {
   title: 'Progress',
+  empty: {
+    title: 'Log a workout to see your progress',
+  },
+  exerciseGroup: 'Exercise',
+  periodGroup: 'Period',
+  metricGroup: 'Metric',
   periods: {
     '4w': '4 wks',
     '3m': '3 mo',
@@ -14,6 +20,34 @@ export const progress = {
     '6m': 'the last 6 months',
     '1y': 'the last year',
     all: 'all time',
+  },
+  metrics: {
+    e1rm: 'e1RM',
+    e1rmEstimate: 'e1RM (estimate)',
+    topWeight: 'Top weight',
+    volume: 'Volume',
+    reps: 'Reps',
+  },
+  units: {
+    reps: 'reps',
+  },
+  details: 'Exercise details',
+  personalRecords: {
+    title: 'Personal records',
+    weightValue: '{{weight}} × {{reps}}',
+    e1rmValue: 'e1RM ≈ {{value}} (estimate)',
+    rowLabel: '{{value}}, {{date}}',
+    empty: 'No records yet.',
+  },
+  weeklyVolume: {
+    title: 'Sets per muscle group',
+    thisWeek: 'This week',
+    lastWeek: 'Last week',
+    rowLabel: {
+      one: '{{muscle}}: {{current}} set this week, {{previous}} last week',
+      other: '{{muscle}}: {{current}} sets this week, {{previous}} last week',
+    },
+    empty: 'No sets logged in these two weeks.',
   },
   chart: {
     label: '{{label}} chart',
