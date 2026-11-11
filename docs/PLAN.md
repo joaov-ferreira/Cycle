@@ -41,7 +41,7 @@ Same method as v2 and v3:
 | 1c | 1 | Program schema and functions, program data restored from v1, library exercises for variations and accessories | sonnet | ✅ |
 | 2a | 2 | Plan model: percent schemes and program blocks, validation, `expandWorkout`, builder, `programToPlan`, import/export (JSON and text), hybrid template, AI prompt builders | sonnet | ✅ |
 | 2b | 2 | Persistence: migration 012, reference-max repository, settings, plan/workout fields, v1 carry-over, backup and CSV | sonnet | ✅ |
-| 3 | 3 | State store: reference maxes, settings, effective workouts and prescriptions, logging rules, rest days, block advance, strength selectors, cycle-report additions | sonnet | ⬜ |
+| 3 | 3 | State store: reference maxes, settings, effective workouts and prescriptions, logging rules, rest days, block advance, strength selectors, cycle-report additions | sonnet | ✅ |
 | 4a | 4 | Logger and summary: prescriptions, tick-to-confirm reps, AMRAP, e1RM line, missing-1RM dialog, rest day, effort scale input, "Use as new 1RM" | sonnet | ⬜ |
 | 4b | 4 | Plan editor and plan screen: program blocks, percent editor, fidelity warnings, periodization table | sonnet | ⬜ |
 | 4c | 4 | Programs: list, detail, start wizard; import preview additions | sonnet | ⬜ |
