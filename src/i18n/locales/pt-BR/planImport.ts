@@ -37,7 +37,7 @@ export const planImport: typeof enPlanImport = {
     hint: 'Cole uma periodização em texto simples ou JSON. Respostas de chatbots de IA podem ser coladas como estão.',
     exampleTitle: 'Exemplo em texto simples',
     example:
-      '# Minha periodização\nciclo: 6+1\nsessoes: 2\n\n## Superior\nSupino reto com barra | 4x6-10 | rir 2 | descanso 150\nPuxada na frente | 3x8-12\n\n## Inferior\nAgachamento livre | 4x6-10',
+      '# Minha periodização\nciclo: 6+1\nsessoes: 2\n\n## Superior\nSupino reto com barra | 4x6-10 | rir 2 | descanso 150\nPuxada alta | 3x8-12\n\n## Inferior\nAgachamento livre | 4x6-10',
     pickFile: 'Escolher arquivo',
     pickFileHint: '.json ou .txt, até 256 KB',
     createWithAi: 'Criar com IA',
