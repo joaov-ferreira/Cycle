@@ -8,15 +8,19 @@ Android, iOS and the web (Expo / React Native), works fully offline and keeps ev
 device. The interface is in English and Brazilian Portuguese.
 
 <p>
-  <img src="docs/images/home.png" alt="Home: next workout, cycle and recent workouts" width="200">
-  <img src="docs/images/workout.png" alt="The workout logger with sets filled in" width="200">
-  <img src="docs/images/plan.png" alt="A plan with its load/deload cycle card" width="200">
-  <img src="docs/images/progress.png" alt="Progress chart and personal records" width="200">
+  <img src="docs/images/workout.png" alt="The workout logger: a superset card, a drop set and the rest timer" width="200">
+  <img src="docs/images/plan.png" alt="A plan with its cycle card and the target RIR of every week" width="200">
+  <img src="docs/images/cycle-report.png" alt="The report of a completed cycle" width="200">
+  <img src="docs/images/calendar.png" alt="The training calendar with the week streak" width="200">
 </p>
 
 ## What is CYCLE
 
-CYCLE v2 is a general weight-training app (it replaces the v1 powerlifting periodization manager).
+CYCLE is a general weight-training app: plan your cycles, log every set, and let the app suggest the next
+load. Version 3 adds the tools you use during the workout and a loop to improve your plan with an AI
+assistant.
+
+**Planning**
 
 - **Exercise library:** more than 150 built-in exercises with English and Portuguese names, filters by
   muscle group and equipment, and your own custom exercises.
@@ -25,25 +29,58 @@ CYCLE v2 is a general weight-training app (it replaces the v1 powerlifting perio
 - **Load/deload cycles:** every plan has N load weeks followed by a deload. The app suggests a cycle for
   your experience level, tracks where you are, prescribes the deload and suggests an early deload when
   progress stalls.
-- **Logbook:** log each session set by set (weight, reps, optional RIR, warm-ups, notes). A draft survives
-  closing the app.
+- **Effort ramp:** optionally let the target RIR fall week by week (for example 3 → 0 over the load
+  weeks); the Plan screen shows the target of every week and the logger the target of this week.
+- **Supersets:** link 2 to 4 consecutive exercises (bi-set, tri-set, giant set) in the editor or the
+  import; the logger shows them as one card and rests only after the last exercise of the round.
+
+**During the workout**
+
+- **Logbook:** log each session set by set (weight, reps, optional RIR, notes). A draft survives closing
+  the app.
+- **Rest timer:** a countdown starts when you mark a set done (default 90 s, or the rest of the plan row),
+  with -15 s / +15 s / Skip, a vibration at the end and an optional notification when the app is in the
+  background. The screen can stay on during a workout.
+- **Plate calculator:** for barbell exercises, the plates to load on each side for the weight of a set
+  (configurable bar weight and available plates).
+- **Warm-up sets:** one tap adds a warm-up ramp (8 reps at 50 %, 5 at 70 %, 2 at 85 % of the working weight, rounded to the
+  exercise's load increment) before the working sets; warm-ups never count in volume or progression.
+- **Drop sets:** add a drop set to a working set (pre-filled at 80 % of its weight); it counts in the
+  volume but not as a working set.
+- **Exercise notes** that stay with an exercise ("seat on position 4"), and **similar exercises** shown
+  first when you replace an exercise.
 - **Automatic load progression:** for every exercise the app suggests the next load and reps from your
   history and explains why.
-- **History and progress:** past workouts (editable), per-exercise charts (e1RM, top weight, volume),
-  personal records and weekly sets per muscle group.
 
-The product is specified in [`docs/SPEC.md`](docs/SPEC.md) (source of truth).
+**After the workout**
+
+- **History and progress:** past workouts (editable, repeatable), per-exercise charts (e1RM, top weight,
+  volume), personal records, weekly volume and sets per muscle group, and a calendar with a week streak.
+- **Cycle report:** when a cycle ends, a report with adherence, the change of every exercise, stalled
+  exercises, records and weekly sets per muscle group; the reports of past cycles stay in the plan.
+- **Review with AI:** turns your plan and your results into a prompt for any chatbot and imports the
+  improved plan back (see below).
+- **Body tracking:** weight, body fat and measurements with charts, change and a 7-day average.
+- **Backup and restore:** export everything of a profile to a file and restore it into a new profile;
+  export the logbook as CSV.
+
+The product is specified in [`docs/SPEC.md`](docs/SPEC.md) (v2, the base) and
+[`docs/SPEC-v3.md`](docs/SPEC-v3.md) (v3; where it says otherwise, it wins).
 
 ## Screenshots
 
 | | | |
 |---|---|---|
 | ![Home](docs/images/home.png) | ![Plan](docs/images/plan.png) | ![Import preview](docs/images/import-preview.png) |
-| Home | Plan and cycle card | Import preview |
-| ![AI prompt](docs/images/ai-prompt.png) | ![Workout](docs/images/workout.png) | ![Summary](docs/images/summary.png) |
-| Create with AI | Workout logger | Workout summary |
-| ![History](docs/images/history.png) | ![Progress](docs/images/progress.png) | ![Exercises](docs/images/exercises.png) |
-| History | Progress | Exercises |
+| Home | Plan, cycle card with the RIR of every week | Import preview |
+| ![Workout](docs/images/workout.png) | ![Summary](docs/images/summary.png) | ![Cycle report](docs/images/cycle-report.png) |
+| Logger: superset, drop set and rest timer | Workout summary | Cycle report |
+| ![Review with AI](docs/images/ai-review.png) | ![AI prompt](docs/images/ai-prompt.png) | ![Progress](docs/images/progress.png) |
+| Review with AI | Create with AI | Progress |
+| ![Calendar](docs/images/calendar.png) | ![Body](docs/images/body.png) | ![Settings tools](docs/images/settings-tools.png) |
+| Calendar and streak | Body tracking | Workout tools in Settings |
+| ![Backup restore](docs/images/backup.png) | ![History](docs/images/history.png) | ![Exercises](docs/images/exercises.png) |
+| Restoring a backup | History | Exercises |
 | ![Workout in Portuguese](docs/images/workout-pt-BR.png) | ![Desktop layout](docs/images/desktop-plan.png) | |
 | Portuguese UI (`pt-BR`) | Wide screens get a sidebar | |
 
@@ -104,7 +141,12 @@ Barbell Back Squat | 4x6-10
 
 `# name` is the plan, `## name` starts a workout, `cycle: <load>+<deload>` and `sessions: <n>` are
 optional, and each exercise line is `name | sets x min-max` followed by optional `rir n`, `rest seconds`
-and a note. Portuguese keywords (`ciclo:`, `sessoes:`, `descanso`) work too.
+and a note. Portuguese keywords (`ciclo:`, `sessoes:`, `descanso`) work too. Two additions of v3:
+
+- A line that starts with **`+`** joins the previous exercise in a **superset** (up to 4 exercises):
+  `+ Dumbbell Fly | 3x12-15` after the bench press makes a bi-set.
+- A line **`rir: 3-0`** next to `cycle:` turns on the **effort ramp**: the target RIR falls from 3 in the
+  first load week to 0 in the last one and replaces the `rir` of the rows during the load weeks.
 
 **JSON** (`cycle-plan`, version 1):
 
@@ -114,15 +156,19 @@ and a note. Portuguese keywords (`ciclo:`, `sessoes:`, `descanso`) work too.
   "version": 1,
   "name": "Upper / Lower",
   "sessionsPerWeek": 4,
-  "cycle": { "loadWeeks": 5, "deloadWeeks": 1 },
+  "cycle": { "loadWeeks": 5, "deloadWeeks": 1, "rirRamp": { "start": 3, "end": 0 } },
   "workouts": [
     { "name": "Upper A", "exercises": [
       { "exercise": "barbell-bench-press", "sets": 4, "reps": "6-10", "rir": 2, "rest": 150, "startLoad": 60 },
-      { "exercise": "Rosca direta", "sets": 3, "reps": 12 }
+      { "exercise": "Rosca direta", "sets": 3, "reps": 12, "superset": "A" },
+      { "exercise": "Tríceps testa", "sets": 3, "reps": 12, "superset": "A" }
     ] }
   ]
 }
 ```
+
+`superset` is a label (up to 10 characters) shared by 2 to 4 **consecutive** exercises of a workout, and
+`cycle.rirRamp` (`start` ≥ `end`, both 0-5, or `null`) is the effort ramp. Both are optional.
 
 The full data specification (every property, limit, default and error code) is
 [`docs/IMPORT_FORMAT.md`](docs/IMPORT_FORMAT.md); the JSON Schema is
@@ -155,23 +201,65 @@ Current loads: bench press 70 kg for 8, squat 100 kg for 6.
 The prompt files are generated from the exercise library; after changing the library run
 `npm run docs:prompt` to regenerate them (a test fails when they are stale).
 
+## Review your plan with an AI chatbot
+
+Once you have trained for a while, let an assistant review how it went and adjust the plan:
+
+1. **Open the review.** In the app go to Plan → **Review with AI**, or open a cycle report (Home shows a
+   "Cycle complete" card when you finish a cycle) and tap **Review with AI**.
+2. **Write how you feel** in the notes field: pains, fatigue, schedule changes. Leave it empty if there is
+   nothing to say (the assistant then asks).
+3. **Copy or share the prompt.** It holds your plan as JSON, a summary of your recent sessions per
+   exercise (`40×12@2, 40×12@2, 40×11@1`, `d` marks a drop set), your adherence, the exercises that
+   stalled, your weekly sets per muscle group and the exercise list.
+4. **Paste it in ChatGPT, Claude, Gemini or any assistant.**
+5. **Copy the JSON answer** it gives you.
+6. **Import it:** tap **Import the answer** (or Plan → New → Import), paste the answer and choose
+   **Update plan**. The workout history and the position in the cycle are kept, and the previous version
+   of the plan is archived as "*name* (before update *date*)", so nothing is lost. Choose "Save as a new
+   plan" instead to keep both side by side.
+
+Only the plan text and a summary of your training leave the app, and only when you share or copy the
+prompt yourself; the app never sends anything to a server.
+
+## Backup and restore
+
+Settings → **Data** has three actions:
+
+- **Export backup** writes `cycle-backup-<profile>-<date>.json` with the whole profile (settings, custom
+  exercises, notes, plans and their cycle position, workouts, body measurements) and opens the share
+  sheet (a download on the web). Home and Settings remind you after 30 days without a backup.
+- **Restore backup** reads such a file, shows what it contains and, when you confirm, creates a **new
+  profile** named "*name* (restored)" and switches to it. Nothing on the device is overwritten, and a
+  failure leaves nothing behind.
+- **Export logbook (CSV)** writes one row per logged set (`date,workout,plan,phase,exercise_id,exercise,
+  set,kind,weight_kg,reps,rir`) for spreadsheets.
+
+The file is documented in [`docs/BACKUP_FORMAT.md`](docs/BACKUP_FORMAT.md).
+
 ## Tech stack and architecture
 
 - Expo SDK 58, React Native 0.88, TypeScript; Expo Router (every file in `src/app/` is a screen).
   Phones use five bottom tabs (Home, Plan, Workout, Progress, More); at widths of 900 px or more a
   sidebar replaces the tab bar.
 - `expo-sqlite` for local persistence (native and web) behind repository interfaces,
-  `expo-document-picker` to pick plan files, `zustand` for app state, in-house `t()` for translations,
-  `react-native-svg` for the charts, `jest-expo` + `@testing-library/react-native` for tests.
+  `expo-document-picker` to pick plan and backup files, `zustand` for app state, in-house `t()` for
+  translations, `react-native-svg` for the charts, `jest-expo` + `@testing-library/react-native` for tests.
+- Native modules added in v3 (each behind a small adapter in `src/platform/`, a development build or the
+  APK is needed, Expo Go ships some of them): `expo-notifications` (rest-end notification),
+  `expo-keep-awake` (screen on during a workout), `expo-sharing` and `expo-file-system` (share backups,
+  CSV files and prompts).
 
 Layers (SPEC §11.1); each folder has a `README.md`:
 
 ```
 src/
-  domain/      # pure logic: exercises, plans, import/export, cycle, progression, metrics, stats
-  library/     # pure data: the built-in exercises, plan templates, the AI prompt builder
+  domain/      # pure logic: exercises, plans, import/export, cycle, progression, metrics, stats,
+               # rest timer, plates, warm-ups, cycle report, backup, body, insights
+  library/     # pure data: the built-in exercises, plan templates, the AI prompt builders
   data/        # persistence: SQLite, migrations, repositories (interfaces + memory + SQLite)
   state/       # zustand store and selectors connecting data, domain and UI
+  platform/    # adapters for native modules: notifications, keep-awake, files, share
   components/  # UI: one folder per feature
   i18n/        # catalogs per namespace and locale, t(), formatters
   app/         # Expo Router routes (screens and layouts only)
@@ -179,8 +267,8 @@ src/
 
 `domain/` and `library/` are pure TypeScript (no React, Expo, data or i18n imports) and return codes,
 never display strings. `src/library/` holds the exercise registry (`listExercises()`,
-`findExercise(id)`), the six plan templates and `buildAiPlanPrompt`. Migrations `001`-`009` (v1) are
-immutable. `src/test-utils/` has test-only helpers.
+`findExercise(id)`), the six plan templates, `buildAiPlanPrompt` and `buildAiReviewPrompt`.
+Migrations `001`-`011` are immutable. `src/test-utils/` has test-only helpers.
 
 ## Running the app
 
@@ -217,17 +305,20 @@ npm test -- src/i18n              # only the tests under a path
 Thresholds (`jest.config.js`): 80 % of lines globally, 95 % in `src/domain/` and `src/library/`.
 Pure logic has exact hand-computed expectations; one repository contract suite runs against the
 in-memory and the SQLite implementation (Node's `node:sqlite`); UI tests use accessible queries in both
-languages; `src/e2e/spec-flow.test.tsx` drives the whole acceptance flow of SPEC §13 through the real
-routes; router tests follow every cross-screen link and an audit checks names, roles and touch targets.
+languages; `src/e2e/spec-flow.test.tsx` and `src/e2e/spec-flow-v3.test.tsx` drive the acceptance flows of
+SPEC §13 and SPEC-v3 §13 through the real routes; router tests follow every cross-screen link and an audit checks names, roles and touch targets.
 The project follows test-driven development, see [`AGENTS.md`](AGENTS.md).
 
 ## Data from v1 and limitations
 
 - Completed v1 sessions already on a device are copied into the v2 logbook by migration `010` (bench,
   squat and deadlift entries); the v1 tables stay untouched.
-- Units are kilograms only; there is no cloud sync or account; timed/cardio exercises, a rest timer and
-  supersets are out of scope (SPEC §15).
+- Units are kilograms only; there is no cloud sync or account; timed/cardio exercises, training-day
+  reminders and volume ramps are out of scope (SPEC §15, SPEC-v3 §14).
 - The app has been verified with automated tests and in a desktop browser, not yet on a physical device.
+  In particular the **rest-end notification**, **keep-awake** and the **share sheet / file saving** call
+  native modules that only run on a device or emulator: they are covered by tests with fake adapters,
+  not by a real device.
 
 ## Building the APK
 
@@ -280,7 +371,7 @@ Node 22, Android platform 37, build-tools 37.0.0, NDK 27.1.12297006 and CMake 3.
 ```bash
 docker build -t cycle-android docker/android
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD":/app cycle-android
-ls dist/        # cycle-2.0.0-<short-sha>-unsigned-debugkey.apk
+ls dist/        # cycle-3.0.0-<short-sha>-unsigned-debugkey.apk
 ```
 
 The first build downloads Gradle and the Android dependencies (several GB, 15 to 30 minutes);
@@ -307,13 +398,15 @@ This requires an Expo account. The repository does not contain an `eas.json`, so
 
 ## Project documents
 
-- [`docs/SPEC.md`](docs/SPEC.md): functional and technical specification (source of truth).
+- [`docs/SPEC.md`](docs/SPEC.md): functional and technical specification (v2, the base).
+- [`docs/SPEC-v3.md`](docs/SPEC-v3.md): the v3 specification (supersedes SPEC.md where it differs).
 - [`docs/PLAN.md`](docs/PLAN.md): staged implementation plan and status.
 - [`docs/DECISIONS.md`](docs/DECISIONS.md): architecture and data decisions (append only).
 - [`docs/IMPORT_FORMAT.md`](docs/IMPORT_FORMAT.md) and
   [`docs/cycle-plan.schema.json`](docs/cycle-plan.schema.json): the plan file format.
+- [`docs/BACKUP_FORMAT.md`](docs/BACKUP_FORMAT.md): the backup file format.
 - [`docs/AI_PLAN_PROMPT.md`](docs/AI_PLAN_PROMPT.md), [`docs/AI_PLAN_PROMPT.pt-BR.md`](docs/AI_PLAN_PROMPT.pt-BR.md):
-  the chatbot prompts.
+  the chatbot prompts for creating a plan (the review prompt is built in the app).
 - [`AGENTS.md`](AGENTS.md): development rules (TDD, commits, Expo guidelines).
 
 ## Internationalization
@@ -326,8 +419,9 @@ and applies right away, without a restart. Choose it in More → Settings → La
 ### Adding a string
 
 Catalogs are split by namespace (`app`, `tabs`, `navigation`, `common`, `home`, `plan`,
-`planImport`, `workout`, `history`, `progress`, `exercises`, `picker`, `onboarding`, `settings`,
-`profile`, `validation`): one file per namespace and locale, composed in `src/i18n/locales/en.ts`
+`planImport`, `planEditor`, `workout`, `timer`, `tools`, `cycleReport`, `aiReview`, `backup`, `body`,
+`insights`, `history`, `progress`, `exercises`, `picker`, `onboarding`, `settings`, `profile`,
+`validation`): one file per namespace and locale, composed in `src/i18n/locales/en.ts`
 and `src/i18n/locales/pt-BR.ts`.
 
 1. Add the key to the namespace file in `src/i18n/locales/en/<namespace>.ts` (the source
