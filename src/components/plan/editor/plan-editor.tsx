@@ -10,6 +10,7 @@ import {
   type PlanIssue,
 } from '@/domain/plan';
 import { useI18n } from '@/i18n';
+import { findProgram } from '@/library';
 import { PlanValidationError } from '@/state/errors';
 import { useAppStore } from '@/state/app-store-context';
 import { selectAllExercises, selectFindExercise } from '@/state/selectors';
@@ -25,7 +26,10 @@ import {
   newPlanExercise,
   newWorkoutId,
   pickWorkoutName,
+  removeBlock,
 } from './draft-ops';
+import { newBlockId } from './block-ops';
+import { EditorContextProvider, type PickRequest } from './editor-context';
 import { issueMessage, parseIssuePath } from './issues';
 import { MultilineField } from './multiline-field';
 import { linkWithNext, normalizeSupersets, unlinkAt } from './superset-ops';
@@ -70,7 +74,7 @@ export function PlanEditor({ initial, planId, onSaved, onCancel }: PlanEditorPro
   const [invalidLoads, setInvalidLoads] = useState<ReadonlySet<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [newExerciseIds, setNewExerciseIds] = useState<ReadonlySet<string>>(new Set());
-  const [pickerWorkout, setPickerWorkout] = useState<string | null>(null);
+  const [picker, setPicker] = useState<PickRequest | null>(null);
   const [removingWorkout, setRemovingWorkout] = useState<number | null>(null);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
 
@@ -78,7 +82,7 @@ export function PlanEditor({ initial, planId, onSaved, onCancel }: PlanEditorPro
 
   const issues = useMemo<PlanIssue[]>(() => {
     if (!attempted) return [];
-    return storeIssues ?? validatePlanContent(normalize(draft), findExercise);
+    return storeIssues ?? validatePlanContent(normalize(draft), findExercise, { findProgram });
   }, [attempted, storeIssues, draft, findExercise]);
 
   const messages = useMemo(() => {
@@ -138,12 +142,12 @@ export function PlanEditor({ initial, planId, onSaved, onCancel }: PlanEditorPro
   };
 
   const askToRemoveWorkout = (index: number) => {
-    if (draft.workouts[index].exercises.length === 0) removeWorkout(index);
+    const workout = draft.workouts[index];
+    if (workout.exercises.length === 0 && (workout.programs ?? []).length === 0) removeWorkout(index);
     else setRemovingWorkout(index);
   };
 
   const addExercise = (workoutId: string, exerciseId: string) => {
-    setPickerWorkout(null);
     const created = newPlanExercise(draft, exerciseId);
     setNewExerciseIds((current) => new Set(current).add(created.id));
     edit((content) => ({
@@ -171,7 +175,7 @@ export function PlanEditor({ initial, planId, onSaved, onCancel }: PlanEditorPro
       return;
     }
     const content = normalize(draft);
-    if (validatePlanContent(content, findExercise).length > 0) return;
+    if (validatePlanContent(content, findExercise, { findProgram }).length > 0) return;
     setSaving(true);
     try {
       const plan = planId === null ? await createPlan(content) : await updatePlan(planId, content);
@@ -187,12 +191,23 @@ export function PlanEditor({ initial, planId, onSaved, onCancel }: PlanEditorPro
   const cancel = () => (dirty ? setConfirmingDiscard(true) : onCancel());
 
   const removing = removingWorkout === null ? null : draft.workouts[removingWorkout];
+  const editorContext = useMemo(
+    () => ({
+      pickExercise: setPicker,
+      exerciseLabel,
+      exerciseExists: (exerciseId: string) => findExercise(exerciseId) !== undefined,
+    }),
+    // `exerciseLabel` is rebuilt every render but only depends on these two.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [findExercise, locale, t],
+  );
   const removingName = removing
     ? removing.name.trim() || t('planEditor.workoutFallback', { number: (removingWorkout ?? 0) + 1 })
     : '';
   const hasIssues = issues.length > 0;
 
   return (
+    <EditorContextProvider value={editorContext}>
     <Screen title={planId === null ? t('planEditor.newTitle') : t('planEditor.title')} testID="screen-plan-edit">
       <View style={styles.actions}>
         <Button variant="secondary" label={t('common.cancel')} onPress={cancel} />
@@ -271,7 +286,29 @@ export function PlanEditor({ initial, planId, onSaved, onCancel }: PlanEditorPro
           onRename={(name) => changeWorkout(index, (w) => ({ ...w, name }))}
           onMove={(delta) => editWorkouts((content) => ({ ...content, workouts: moveItem(content.workouts, index, delta) }))}
           onRemove={() => askToRemoveWorkout(index)}
-          onAddExercise={() => setPickerWorkout(workout.id)}
+          onAddExercise={() =>
+            setPicker({
+              title: t('planEditor.pickerTitle'),
+              onSelect: (exerciseId) => addExercise(workout.id, exerciseId),
+            })
+          }
+          newBlockId={newBlockId(draft)}
+          findProgram={findProgram}
+          onAddBlock={(block) =>
+            changeWorkout(index, (w) => ({ ...w, programs: [...(w.programs ?? []), block] }))
+          }
+          onChangeBlock={(blockIndex, block) =>
+            changeWorkout(index, (w) => ({
+              ...w,
+              programs: (w.programs ?? []).map((b, i) => (i === blockIndex ? block : b)),
+            }))
+          }
+          onMoveBlock={(blockIndex, delta) =>
+            changeWorkout(index, (w) => ({ ...w, programs: moveItem(w.programs ?? [], blockIndex, delta) }))
+          }
+          onRemoveBlock={(blockIndex) =>
+            changeWorkout(index, (w) => removeBlock(w, blockIndex))
+          }
           onChangeExercise={(exerciseIndex, next) =>
             changeWorkout(index, (w) => ({
               ...w,
@@ -308,18 +345,24 @@ export function PlanEditor({ initial, planId, onSaved, onCancel }: PlanEditorPro
       />
 
       <ExerciseSelectModal
-        visible={pickerWorkout !== null}
-        title={t('planEditor.pickerTitle')}
+        visible={picker !== null}
+        title={picker?.title ?? ''}
         exercises={allExercises}
-        onSelect={(exercise) => pickerWorkout !== null && addExercise(pickerWorkout, exercise.id)}
-        onClose={() => setPickerWorkout(null)}
+        onSelect={(exercise) => {
+          const request = picker;
+          setPicker(null);
+          request?.onSelect(exercise.id);
+        }}
+        onClose={() => setPicker(null)}
         onCreateExercise={createCustomExercise}
       />
       <ConfirmDialog
         testID="remove-workout-dialog"
         visible={removing !== null}
         title={t('planEditor.removeWorkoutTitle', { name: removingName })}
-        message={t('planEditor.removeWorkoutMessage', { count: removing?.exercises.length ?? 0 })}
+        message={t('planEditor.removeWorkoutMessage', {
+          count: (removing?.exercises.length ?? 0) + (removing?.programs ?? []).length,
+        })}
         confirmLabel={t('common.remove')}
         destructive
         onConfirm={() => removingWorkout !== null && removeWorkout(removingWorkout)}
@@ -340,6 +383,7 @@ export function PlanEditor({ initial, planId, onSaved, onCancel }: PlanEditorPro
         onCancel={() => setConfirmingDiscard(false)}
       />
     </Screen>
+    </EditorContextProvider>
   );
 }
 

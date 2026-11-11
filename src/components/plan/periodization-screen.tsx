@@ -5,8 +5,7 @@ import { layout, radius, spacing } from '@/constants/theme';
 import { useI18n } from '@/i18n';
 import { selectPeriodization, useAppStore, type PeriodizationWeek } from '@/state';
 
-import { EmptyState } from '../shared';
-import { Chip } from '../shared';
+import { Chip, EmptyState } from '../shared';
 import { useTheme } from '../theme-provider';
 import { Button, Card, Screen, Text } from '../ui';
 import { PeriodizationCell } from './periodization-cell';
