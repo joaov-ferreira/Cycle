@@ -49,6 +49,9 @@ export default function RootLayout() {
             <Stack.Screen name="exercises/[id]" />
             <Stack.Screen name="history/index" />
             <Stack.Screen name="history/[id]" />
+            <Stack.Screen name="maxes/index" />
+            <Stack.Screen name="maxes/[exerciseId]" />
+            <Stack.Screen name="tools/one-rep-max" />
           </Stack>
         </AppShell>
         <OnboardingNavigation next={pendingNext} onDone={() => setPendingNext(null)} />

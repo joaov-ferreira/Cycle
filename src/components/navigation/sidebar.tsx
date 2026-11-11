@@ -9,7 +9,18 @@ import { useT, type MessageKey } from '@/i18n';
 import { useTheme } from '../theme-provider';
 import { Text } from '../ui/Text';
 
-type SectionId = 'home' | 'plan' | 'workout' | 'progress' | 'exercises' | 'history' | 'body' | 'settings';
+type SectionId =
+  | 'home'
+  | 'plan'
+  | 'workout'
+  | 'progress'
+  | 'programs'
+  | 'maxes'
+  | 'calculator'
+  | 'exercises'
+  | 'history'
+  | 'body'
+  | 'settings';
 
 type Section = {
   id: SectionId;
@@ -24,6 +35,9 @@ const SECTIONS: readonly Section[] = [
   { id: 'plan', label: 'tabs.plan', icon: { ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }, href: '/plan' },
   { id: 'workout', label: 'tabs.workout', icon: { ios: 'dumbbell', android: 'fitness_center', web: 'fitness_center' }, href: '/workout' },
   { id: 'progress', label: 'tabs.progress', icon: { ios: 'chart.line.uptrend.xyaxis', android: 'trending_up', web: 'trending_up' }, href: '/progress' },
+  { id: 'programs', label: 'navigation.programs', icon: { ios: 'list.bullet.rectangle', android: 'checklist', web: 'checklist' }, href: '/programs' },
+  { id: 'maxes', label: 'maxes.title', icon: { ios: 'trophy', android: 'emoji_events', web: 'emoji_events' }, href: '/maxes' },
+  { id: 'calculator', label: 'maxes.calculator.title', icon: { ios: 'plusminus', android: 'calculate', web: 'calculate' }, href: '/tools/one-rep-max' },
   { id: 'exercises', label: 'exercises.title', icon: { ios: 'figure.strengthtraining.traditional', android: 'sports_gymnastics', web: 'sports_gymnastics' }, href: '/exercises' },
   { id: 'history', label: 'history.title', icon: { ios: 'clock.arrow.circlepath', android: 'history', web: 'history' }, href: '/history' },
   { id: 'body', label: 'body.title', icon: { ios: 'scalemass', android: 'monitor_weight', web: 'monitor_weight' }, href: '/body' },
@@ -36,6 +50,9 @@ const SEGMENT_SECTIONS: Record<string, SectionId> = {
   plans: 'plan',
   workout: 'workout',
   progress: 'progress',
+  programs: 'programs',
+  maxes: 'maxes',
+  tools: 'calculator',
   exercises: 'exercises',
   history: 'history',
   body: 'body',
