@@ -9,6 +9,7 @@ import { selectActivePlan, useAppStore } from '@/state';
 import { ConfirmDialog } from '../shared';
 import { Button, Text } from '../ui';
 import { CycleCard } from './cycle-card';
+import { CycleHistory } from './cycle-history';
 import { PlanBadge } from './plan-badge';
 import { planSummary } from './plan-summary';
 import { PlanWorkouts } from './plan-workouts';
@@ -22,10 +23,22 @@ export type PlanDetailContentProps = {
   onDeleted?: () => void;
   /** Called with the id of a duplicate right after it is created. */
   onOpenPlan?: (id: number) => void;
+  /** Opens the Review with AI screen of the plan. */
+  onReviewWithAi?: (planId: number) => void;
+  /** Opens the report of one past or current cycle. */
+  onOpenCycle?: (planId: number, cycleNumber: number) => void;
 };
 
 /** Header, actions, cycle card and workouts of one plan (the body of the detail screen and Plan tab). */
-export function PlanDetailContent({ plan, onEditPlan, onExportPlan, onDeleted, onOpenPlan }: PlanDetailContentProps) {
+export function PlanDetailContent({
+  plan,
+  onEditPlan,
+  onExportPlan,
+  onDeleted,
+  onOpenPlan,
+  onReviewWithAi,
+  onOpenCycle,
+}: PlanDetailContentProps) {
   const { t } = useI18n();
   const isActive = useAppStore((s) => selectActivePlan(s)?.id === plan.id);
   const actions = usePlanActions();
@@ -63,6 +76,9 @@ export function PlanDetailContent({ plan, onEditPlan, onExportPlan, onDeleted, o
         {isActive || archived ? null : <Button label={t('plan.activate')} onPress={() => actions.activate(plan)} />}
         <Button variant="secondary" label={t('plan.edit')} onPress={() => onEditPlan(plan.id)} />
         <Button variant="secondary" label={t('plan.export')} onPress={() => onExportPlan(plan.id)} />
+        {onReviewWithAi ? (
+          <Button variant="secondary" label={t('plan.reviewWithAi')} onPress={() => onReviewWithAi(plan.id)} />
+        ) : null}
         <Button variant="secondary" label={t('plan.duplicate')} onPress={duplicate} />
         {archived ? (
           <Button variant="secondary" label={t('plan.restore')} onPress={() => actions.restore(plan)} />
@@ -73,6 +89,7 @@ export function PlanDetailContent({ plan, onEditPlan, onExportPlan, onDeleted, o
       </View>
 
       <CycleCard plan={plan} />
+      {onOpenCycle ? <CycleHistory plan={plan} onOpenCycle={onOpenCycle} /> : null}
       <PlanWorkouts plan={plan} />
 
       <ConfirmDialog
