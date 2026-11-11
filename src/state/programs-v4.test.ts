@@ -1,6 +1,6 @@
 /** SPEC-v4 §9, §10.1, §10.2: programs, templates, onboarding and the import/export flow. */
 import { DEFAULT_CYCLE } from '@/domain/cycle';
-import { parsePlanImport, resolveDraft, type PendingImport } from '@/domain/plan-import';
+import { parsePlanImport, PENDING_PREFIX, resolveDraft, type PendingImport } from '@/domain/plan-import';
 import { findPlanTemplate, instantiateTemplate, listExercises } from '@/library';
 import {
   BENCH,
@@ -263,6 +263,22 @@ describe('import and export with reference maxes (SPEC-v4 §9.1)', () => {
     expect(selectImportMaxesPreview(fresh.store.getState(), { ...pending, referenceMaxes: undefined })).toEqual({
       willSet: [],
       kept: [],
+    });
+  });
+
+  it('lists a 1RM of an exercise the import will create as set, without throwing', async () => {
+    const fresh = await createTestStore();
+    await seedReferenceMax(fresh.store, BENCH, 90);
+    const pending: PendingImport = {
+      ...pendingFrom(fresh.store.getState, (await exportedFromStrengthProfile()).text),
+      referenceMaxes: [
+        { exerciseId: `${PENDING_PREFIX}my-row`, kg: 70 },
+        { exerciseId: BENCH, kg: 100 },
+      ],
+    };
+    expect(selectImportMaxesPreview(fresh.store.getState(), pending)).toEqual({
+      willSet: [{ exerciseId: `${PENDING_PREFIX}my-row`, kg: 70 }],
+      kept: [{ exerciseId: BENCH, kg: 100, currentKg: 90 }],
     });
   });
 

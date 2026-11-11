@@ -11,7 +11,6 @@ import { estimate1rm } from '@/domain/e1rm';
 import type { Period } from '@/domain/period';
 import { exportPlan, serializePlan } from '@/domain/plan-export';
 import {
-  finalizeReferenceMaxes,
   parsePlanImport,
   type ParseResult,
   type PendingImport,
@@ -217,14 +216,15 @@ const previewCache = new WeakMap<PendingImport, { maxes: ReferenceMax[]; preview
 
 /**
  * What an import does with its reference maxes: set those of exercises without a 1RM, keep the
- * current value of the others. Exercises that will be created (`pending:` ids) have no 1RM yet.
+ * current value of the others. Exercises that will be created (`pending:<key>` ids) have no 1RM yet,
+ * so their values are always "will be set".
  */
 export function selectImportMaxesPreview(state: AppState, pending: PendingImport): ImportMaxesPreview {
   const cached = previewCache.get(pending);
   if (cached && cached.maxes === state.referenceMaxes) return cached.preview;
   const current = selectCurrentMaxes(state);
   const preview: ImportMaxesPreview = { willSet: [], kept: [] };
-  for (const { exerciseId, kg } of finalizeReferenceMaxes(pending, {})) {
+  for (const { exerciseId, kg } of pending.referenceMaxes ?? []) {
     const existing = current[exerciseId];
     if (existing) preview.kept.push({ exerciseId, kg, currentKg: existing.kg });
     else preview.willSet.push({ exerciseId, kg });

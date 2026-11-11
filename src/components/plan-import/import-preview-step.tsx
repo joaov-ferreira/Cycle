@@ -96,21 +96,7 @@ export function ImportPreviewStep({
 
   const resolved = useMemo(() => resolveDraft(draft, resolutions), [draft, resolutions]);
   const pendingImport = resolved.ok ? resolved.pending : null;
-  // The store's preview only knows existing exercises: those still to be created have no 1RM and
-  // are listed as "will be set" below.
-  const existingMaxes = useMemo(
-    () =>
-      pendingImport
-        ? {
-            ...pendingImport,
-            referenceMaxes: (pendingImport.referenceMaxes ?? []).filter(
-              (max) => !max.exerciseId.startsWith(PENDING_PREFIX),
-            ),
-          }
-        : null,
-    [pendingImport],
-  );
-  const maxesPreview = useAppStore((s) => (existingMaxes ? selectImportMaxesPreview(s, existingMaxes) : null));
+  const maxesPreview = useAppStore((s) => (pendingImport ? selectImportMaxesPreview(s, pendingImport) : null));
 
   const choose = (normalized: string, resolution: Resolution) => {
     setResolutions((current) => ({ ...current, [normalized]: resolution }));
@@ -298,7 +284,7 @@ export function ImportPreviewStep({
     return exercise ? exerciseName(exercise, locale) : exerciseId;
   };
   const keptMaxes = new Map((maxesPreview?.kept ?? []).map((max) => [max.exerciseId, max]));
-  const settingMaxes = (pendingImport?.referenceMaxes ?? []).filter((max) => !keptMaxes.has(max.exerciseId));
+  const settingMaxes = maxesPreview?.willSet ?? [];
 
   const creatingItem = creating ? unresolved.find((item) => item.normalized === creating) : undefined;
   const existingCreate = creating && resolutions[creating]?.kind === 'create' ? resolutions[creating] : undefined;
