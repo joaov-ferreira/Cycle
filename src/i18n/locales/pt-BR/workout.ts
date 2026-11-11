@@ -52,6 +52,7 @@ export const workout: typeof enWorkout = {
   dropSetWeight: 'Carga do drop-set',
   dropSetReps: 'Repetições do drop-set',
   dropSetRir: 'RIR do drop-set',
+  dropSetRpe: 'RPE do drop-set',
   dropSetDone: 'Drop-set concluído',
   removeDropSet: 'Remover drop-set',
   addDrop: '+ Drop',

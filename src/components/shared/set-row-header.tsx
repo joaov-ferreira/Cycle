@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { spacing } from '@/constants/theme';
+import type { EffortScale } from '@/domain/effort';
 import { useI18n } from '@/i18n';
 
 import { Text } from '../ui/Text';
@@ -10,7 +11,7 @@ import { SET_ROW_LAYOUT } from './set-row';
  * Column captions for the sets of one exercise: one line aligned with the columns of `SetRow`.
  * Rendered once per exercise, above its rows.
  */
-export function SetRowHeader({ testID }: { testID?: string }) {
+export function SetRowHeader({ testID, effortScale = 'rir' }: { testID?: string; effortScale?: EffortScale }) {
   const { t } = useI18n();
   return (
     <View testID={testID} style={styles.line}>
@@ -31,7 +32,7 @@ export function SetRowHeader({ testID }: { testID?: string }) {
       </View>
       <View style={styles.rir}>
         <Text variant="caption" tone="secondary" numberOfLines={1}>
-          {t('common.rir')}
+          {t(effortScale === 'rpe' ? 'common.rpe' : 'common.rir')}
         </Text>
       </View>
       <View style={styles.done} />

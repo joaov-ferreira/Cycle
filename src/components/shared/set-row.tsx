@@ -1,12 +1,18 @@
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { layout, radius, spacing, tabularNumbers, typography } from '@/constants/theme';
+import type { EffortScale } from '@/domain/effort';
+import type { PrescribedSet } from '@/domain/prescription';
 import { WORKOUT_LIMITS, type LoggedSet, type SetErrors } from '@/domain/workout';
-import { useI18n, type MessageKey } from '@/i18n';
+import { formatDecimalInput, normalizeDecimalInput, useI18n, type MessageKey } from '@/i18n';
 
 import { useTheme } from '../theme-provider';
 import { NumberInput } from '../ui/NumberInput';
 import { Text } from '../ui/Text';
+import { displayEffort, storedRir } from './effort';
+import { e1rmText, prescribedSetText } from './prescription-text';
+import { Tag } from './tag';
 
 export type SetRowChange = Partial<Pick<LoggedSet, 'weightKg' | 'reps' | 'rir'>>;
 
@@ -20,6 +26,14 @@ export type SetRowProps = {
   lastTime?: { weightKg: number; reps: number } | null;
   /** Error codes of the set (SPEC §7.3), shown under the row. */
   errors?: SetErrors;
+  /** The effort column shows and takes RIR (default) or RPE; the change is always reported as RIR. */
+  effortScale?: EffortScale;
+  /** The prescribed set this row corresponds to (SPEC-v4 §7): `% → kg`, AMRAP and unverified marks. */
+  prescribed?: PrescribedSet | null;
+  /** The set goes beyond the prescription. */
+  extra?: boolean;
+  /** Strength estimate of a done set, shown as `e1RM ≈ 96 kg`. */
+  estimateKg?: number | null;
   onChange: (change: SetRowChange) => void;
   onToggleDone: () => void;
   onToggleKind: () => void;
@@ -74,7 +88,7 @@ const REMOVE_HIT_SLOP = { top: 13, bottom: 13, left: 12, right: 12 };
 type IntegerFieldProps = {
   label: string;
   value: number | null;
-  placeholder?: number | null;
+  placeholder?: string | null;
   width: number;
   onChange: (value: number | null) => void;
 };
@@ -88,11 +102,80 @@ function IntegerField({ label, value, placeholder, width, onChange }: IntegerFie
       keyboardType="number-pad"
       inputMode="numeric"
       value={value === null ? '' : String(value)}
-      placeholder={placeholder === null || placeholder === undefined ? undefined : String(placeholder)}
+      placeholder={placeholder ?? undefined}
       placeholderTextColor={colors.textSecondary}
       onChangeText={(text) => {
         const digits = text.replace(/\D/g, '');
         onChange(digits === '' ? null : Number(digits));
+      }}
+      style={[
+        styles.input,
+        tabularNumbers,
+        {
+          width,
+          color: colors.text,
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
+      ]}
+    />
+  );
+}
+
+type EffortFieldProps = {
+  label: string;
+  /** The value shown, in the displayed scale. */
+  value: number | null;
+  width: number;
+  onChange: (value: number | null) => void;
+};
+
+/**
+ * Compact effort input: whole and half points in the locale's decimal format. Text that is not a
+ * number is ignored; an off-step or out-of-range number is passed on so the domain can name it.
+ */
+function EffortField({ label, value, width, onChange }: EffortFieldProps) {
+  const { colors } = useTheme();
+  const { locale } = useI18n();
+  const [text, setText] = useState(() => formatDecimalInput(value, locale));
+  const textRef = useRef(text);
+  const lastValueRef = useRef(value);
+
+  const valueOf = (candidate: string): number | null => {
+    const canonical = normalizeDecimalInput(candidate, locale);
+    return canonical === null ? null : Number(canonical);
+  };
+
+  // Follows a value changed from outside; partial input such as `1,` stays as typed.
+  useEffect(() => {
+    if (lastValueRef.current === value) return;
+    lastValueRef.current = value;
+    if (valueOf(textRef.current) === value) return;
+    const formatted = formatDecimalInput(value, locale);
+    textRef.current = formatted;
+    setText(formatted);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, locale]);
+
+  return (
+    <TextInput
+      accessibilityLabel={label}
+      keyboardType="decimal-pad"
+      inputMode="decimal"
+      value={text}
+      placeholderTextColor={colors.textSecondary}
+      onChangeText={(next) => {
+        if (next.trim() === '') {
+          textRef.current = '';
+          setText('');
+          onChange(null);
+          return;
+        }
+        const parsed = valueOf(next);
+        if (parsed === null) return;
+        textRef.current = next;
+        setText(next);
+        onChange(parsed);
       }}
       style={[
         styles.input,
@@ -118,6 +201,10 @@ export function SetRow({
   placeholderReps,
   lastTime,
   errors,
+  effortScale = 'rir',
+  prescribed,
+  extra = false,
+  estimateKg,
   onChange,
   onToggleDone,
   onToggleKind,
@@ -126,7 +213,9 @@ export function SetRow({
   testID,
 }: SetRowProps) {
   const { colors } = useTheme();
-  const { t, formatNumber } = useI18n();
+  const i18n = useI18n();
+  const { t, formatNumber } = i18n;
+  const rpe = effortScale === 'rpe';
   const number = index + 1;
   const warmup = set.kind === 'warmup';
   const drop = set.kind === 'drop';
@@ -135,7 +224,7 @@ export function SetRow({
     ? {
         weight: t('workout.dropSetWeight'),
         reps: t('workout.dropSetReps'),
-        rir: t('workout.dropSetRir'),
+        rir: t(rpe ? 'workout.dropSetRpe' : 'workout.dropSetRir'),
         done: t('workout.dropSetDone'),
         remove: t('workout.removeDropSet'),
       }
@@ -153,6 +242,15 @@ export function SetRow({
       });
     })
     .filter((message): message is string => message !== null);
+
+  const repsPlaceholder =
+    placeholderReps === null || placeholderReps === undefined
+      ? null
+      : prescribed?.amrap
+        ? t('common.repsAmrap', { reps: placeholderReps })
+        : String(placeholderReps);
+  const loadText = prescribed ? prescribedSetText(i18n, prescribed) : null;
+  const showMeta = loadText !== null || !!prescribed?.amrap || !!prescribed?.unverified || extra || estimateKg != null;
 
   return (
     <View testID={testID} style={[styles.container, drop && styles.dropIndent]}>
@@ -194,15 +292,15 @@ export function SetRow({
         <IntegerField
           label={labels?.reps ?? t('common.setReps', { number: numberText })}
           value={set.reps}
-          placeholder={placeholderReps}
+          placeholder={repsPlaceholder}
           width={SET_ROW_LAYOUT.reps}
           onChange={(reps) => onChange({ reps })}
         />
-        <IntegerField
-          label={labels?.rir ?? t('common.setRir', { number: numberText })}
-          value={set.rir}
+        <EffortField
+          label={labels?.rir ?? t(rpe ? 'common.setRpe' : 'common.setRir', { number: numberText })}
+          value={displayEffort(effortScale, set.rir)}
           width={SET_ROW_LAYOUT.rir}
-          onChange={(rir) => onChange({ rir })}
+          onChange={(value) => onChange({ rir: storedRir(effortScale, value) })}
         />
         <Pressable
           accessibilityRole="checkbox"
@@ -218,6 +316,23 @@ export function SetRow({
           {set.done ? <Text style={[typography.heading, { color: colors.onAccent }]}>✓</Text> : null}
         </Pressable>
       </View>
+      {showMeta ? (
+        <View testID="set-row-meta" style={styles.meta}>
+          {loadText !== null ? (
+            <Text variant="caption" tone="secondary" tabular>
+              {loadText}
+            </Text>
+          ) : null}
+          {prescribed?.amrap ? <Tag label={t('common.amrap')} /> : null}
+          {prescribed?.unverified ? <Tag label={t('common.unverified')} tone="danger" /> : null}
+          {extra ? <Tag label={t('common.extraSet')} tone="neutral" /> : null}
+          {estimateKg != null ? (
+            <Text variant="caption" tone="accent" tabular>
+              {e1rmText(i18n, estimateKg)}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
       <View style={styles.footer}>
         {lastTime ? (
           <View style={styles.lastTime}>
@@ -307,6 +422,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     textAlign: 'center',
   },
+  meta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',

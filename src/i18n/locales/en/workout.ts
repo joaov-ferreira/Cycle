@@ -54,6 +54,7 @@ export const workout = {
   dropSetWeight: 'Drop set weight',
   dropSetReps: 'Drop set reps',
   dropSetRir: 'Drop set RIR',
+  dropSetRpe: 'Drop set RPE',
   dropSetDone: 'Drop set done',
   removeDropSet: 'Remove drop set',
   addDrop: '+ Drop',
