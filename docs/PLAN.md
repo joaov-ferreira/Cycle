@@ -46,7 +46,7 @@ Same method as v2 and v3:
 | 4b | 4 | Plan editor and plan screen: program blocks, percent editor, fidelity warnings, periodization table | sonnet | ⬜ |
 | 4c | 4 | Programs: list, detail, start wizard; import preview additions | sonnet | ⬜ |
 | 4d | 4 | 1RMs screens, 1RM calculator, Settings "Strength" section, onboarding focus and lifts steps, More and sidebar entries | sonnet | ⬜ |
-| 4e | 4 | Progress Strength tab, Home (program week, rest day, missing 1RMs), cycle report "Programs and 1RMs", history prescribed vs actual | sonnet | ⬜ |
+| 4e | 4 | Progress Strength tab, Home (program week, rest day, missing 1RMs), cycle report "Programs and 1RMs", history prescribed vs actual | sonnet | ✅ |
 | 5 | 5 | Integration: E2E v4 flow, audits, docs (IMPORT_FORMAT, schema, AI prompts, BACKUP_FORMAT, README), screenshots, version 4.0.0 | sonnet | ⬜ |
 | 6 | — | Final review, PR, CI, APK on the PR, merge, release check | orchestrator | ⬜ |
 
