@@ -18,8 +18,9 @@ const App = () => (
 beforeEach(() => onFinish.mockReset());
 
 const press = async (name: string | RegExp, options: { selected?: boolean } = {}) => {
+  const button = await screen.findByRole('button', { name, ...options });
   await act(async () => {
-    fireEvent.press(await screen.findByRole('button', { name, ...options }));
+    fireEvent.press(button);
   });
 };
 const type = async (label: string, text: string) => {
@@ -107,8 +108,9 @@ describe('Onboarding: Strength path', () => {
     await press('Add exercise');
     expect(await screen.findByText('Add a lift')).toBeOnTheScreen();
     await fireEvent.changeText(await screen.findByLabelText('Search exercises'), 'Overhead Press');
+    const choice = await screen.findByRole('button', { name: 'Overhead Press' });
     await act(async () => {
-      fireEvent.press(await screen.findByRole('button', { name: 'Overhead Press' }));
+      fireEvent.press(choice);
     });
     expect(screen.queryByText('Add a lift')).toBeNull();
     expect(screen.getByLabelText('1RM of Overhead Press')).toBeOnTheScreen();

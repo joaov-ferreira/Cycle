@@ -133,8 +133,9 @@ describe('CalculatorScreen', () => {
     await press(`Brzycki, 92.9${NBSP}kg`);
     await press('Save as 1RM of…');
     await fireEvent.changeText(await screen.findByLabelText('Search exercises'), 'Barbell Back Squat');
+    const choice = await screen.findByRole('button', { name: /Barbell Back Squat/ });
     await act(async () => {
-      fireEvent.press(await screen.findByRole('button', { name: /Barbell Back Squat/ }));
+      fireEvent.press(choice);
     });
     await waitFor(() => expect(store.getState().referenceMaxes).toHaveLength(1));
     expect(store.getState().referenceMaxes[0].kg).toBe(92.5);
