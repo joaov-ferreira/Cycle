@@ -198,6 +198,67 @@ describe('buildBackup / serializeBackup / parseBackup', () => {
   });
 });
 
+describe('parseBackup keeps fields added after v2', () => {
+  function v3Document(): BackupDocument {
+    const doc = build();
+    const first = doc.plans[0];
+    first.content.cycle = { ...first.content.cycle, rirRamp: { start: 3, end: 0 } };
+    first.content.workouts[0].exercises[0] = {
+      ...first.content.workouts[0].exercises[0],
+      supersetGroup: 'A',
+    };
+    first.content.workouts[0].exercises[1] = {
+      ...first.content.workouts[0].exercises[1],
+      supersetGroup: 'A',
+      targetRir: 1,
+      restSeconds: 0,
+      startLoadKg: 10,
+      note: 'tempo',
+    };
+    doc.workouts[0].exercises[0] = {
+      ...doc.workouts[0].exercises[0],
+      supersetGroup: 'A',
+      target: { sets: 3, repMin: 6, repMax: 10, targetRir: 1, restSeconds: 0 },
+    };
+    doc.workouts[1].exercises[0] = { ...doc.workouts[1].exercises[0], supersetGroup: null };
+    return doc;
+  }
+
+  it('preserves supersetGroup, rirRamp and every optional plan and target field', () => {
+    const doc = v3Document();
+    expect(parseBackup(serializeBackup(doc))).toEqual({ ok: true, backup: doc });
+  });
+
+  it('keeps a null rirRamp and leaves an absent one absent', () => {
+    const doc = build();
+    doc.plans[0].content.cycle = { ...doc.plans[0].content.cycle, rirRamp: null };
+    const result = parseBackup(serializeBackup(doc));
+    expect(result.ok && result.backup.plans[0].content.cycle).toEqual({
+      loadWeeks: 4,
+      deloadWeeks: 1,
+      deloadVolumeFactor: 0.6,
+      deloadLoadFactor: 0.9,
+      rirRamp: null,
+    });
+    expect(result.ok && 'rirRamp' in result.backup.plans[1].content.cycle).toBe(false);
+  });
+
+  it('reports a malformed rirRamp or superset label', () => {
+    const ramp = parseMutated((d) => (d.plans[0].content.cycle.rirRamp = { start: 'x', end: 0 }));
+    expect(ramp).toEqual({ ok: false, errors: [{ code: 'invalidBackup', path: 'plans[0].content.cycle.rirRamp.start' }] });
+    const label = parseMutated((d) => (d.workouts[0].exercises[0].supersetGroup = 5));
+    expect(label).toEqual({ ok: false, errors: [{ code: 'invalidBackup', path: 'workouts[0].exercises[0].supersetGroup' }] });
+  });
+
+  it('keeps them through remapBackup', () => {
+    const doc = v3Document();
+    const remapped = remapBackup(doc, { exerciseIds: {}, planIds: {} });
+    expect(remapped.plans[0].content.cycle.rirRamp).toEqual({ start: 3, end: 0 });
+    expect(remapped.plans[0].content.workouts[0].exercises[0].supersetGroup).toBe('A');
+    expect(remapped.workouts[0].exercises[0].supersetGroup).toBe('A');
+  });
+});
+
 describe('parseBackup errors', () => {
   it('reports invalid JSON', () => {
     expect(parseBackup('{nope')).toEqual({ ok: false, errors: [{ code: 'invalidJson' }] });
