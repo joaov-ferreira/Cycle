@@ -212,3 +212,58 @@ describe('SetRow (pt-BR)', () => {
     expect(onRemove).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('SetRow drop sets', () => {
+  const drop: LoggedSet = {
+    kind: 'drop',
+    weightKg: 32.5,
+    reps: null,
+    rir: null,
+    done: false,
+  };
+
+  it('shows a D marker instead of the number, with the drop set labels', async () => {
+    const { onToggleKind } = await renderRow({ set: drop });
+    expect(screen.getByText('D')).toBeOnTheScreen();
+    expect(screen.queryByText('2')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Drop set' })).toBeOnTheScreen();
+    expect(screen.getByLabelText('Drop set weight')).toHaveDisplayValue('32.5');
+    expect(screen.getByLabelText('Drop set reps')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Drop set RIR')).toBeOnTheScreen();
+    expect(screen.getByRole('checkbox', { name: 'Drop set done' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Remove drop set' })).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Drop set' }));
+    expect(onToggleKind).not.toHaveBeenCalled();
+  });
+
+  it('has no + Drop action on a drop set or a warm-up', async () => {
+    await renderRow({ set: drop, onAddDrop: jest.fn() });
+    expect(screen.queryByRole('button', { name: 'Add drop set' })).toBeNull();
+    await renderRow({
+      set: { ...working, kind: 'warmup' },
+      onAddDrop: jest.fn(),
+    });
+    expect(screen.queryByRole('button', { name: 'Add drop set' })).toBeNull();
+  });
+
+  it('shows + Drop on a working set when onAddDrop is given and calls it', async () => {
+    const onAddDrop = jest.fn();
+    await renderRow({ onAddDrop });
+    await fireEvent.press(screen.getByRole('button', { name: 'Add drop set' }));
+    expect(onAddDrop).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('+ Drop')).toBeOnTheScreen();
+  });
+
+  it('hides + Drop without onAddDrop', async () => {
+    await renderRow();
+    expect(screen.queryByText('+ Drop')).toBeNull();
+  });
+
+  it('uses the Portuguese labels', async () => {
+    await renderRow({ set: drop }, 'pt-BR');
+    expect(screen.getByRole('button', { name: 'Drop-set' })).toBeOnTheScreen();
+    expect(screen.getByLabelText('Carga do drop-set')).toHaveDisplayValue('32,5');
+    expect(screen.getByRole('checkbox', { name: 'Drop-set concluído' })).toBeOnTheScreen();
+  });
+});
