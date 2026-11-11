@@ -9,7 +9,7 @@ import { Text } from './Text';
 
 export type ScreenProps = {
   title?: string;
-  children: ReactNode;
+  children?: ReactNode;
   testID?: string;
 };
 

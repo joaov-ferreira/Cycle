@@ -1,18 +1,20 @@
 # `src/app/` — Expo Router routes
 
 Every `.tsx` file here is a screen and every `_layout.tsx` a navigator. Keep only routes
-and layouts here: components, hooks and utilities live in the other `src/` layers.
+and layouts here: components, hooks and utilities live in the other `src/` layers. Each route
+file only renders a screen component from `src/components/<feature>/`, so a feature stage
+replaces the component without touching navigation.
 
 - `_layout.tsx` — root: `AppProviders` (SQLite repositories, store, locale, theme),
-  `OnboardingGate` (first-run 1RMs) and a stack.
+  `OnboardingGate` (a pass-through for now) and a stack.
 - `(tabs)/_layout.tsx` — main navigation (`src/components/navigation/app-tabs.tsx`).
-- `settings.tsx` — Settings route (opened from More); wraps `SettingsScreen`.
-- `programs/index.tsx`, `programs/[id].tsx` — Programs list and program detail (opened from More); wrap `ProgramsScreen` and `ProgramDetailScreen`.
-- `history/index.tsx`, `history/[id].tsx` — History list and session detail (opened from More); wrap `HistoryScreen` and
-  `HistoryDetailScreen`; the `id` is a performed session id.
-- `session/[id].tsx` — session detail (opened from the calendar); wraps `SessionDetailScreen`. The `id` is a
-  session key `<slotId>-w<blockWeek>` of the live periodization, or `p<periodizationId>-<key>` for a
-  session of an activated periodization (where performance is logged).
-- `(tabs)/index|periodization|training|progress|more.tsx` — the five tab screens (`index.tsx` wraps `DashboardScreen`; `periodization.tsx` keeps the Table | Calendar view in the `view` search param; `progress.tsx` wraps
-  `ProgressScreen`; `training.tsx` wraps `TrainingScreen`, which opens `/session/[id]` for logging);
-  `periodization.tsx` wraps `PeriodizationScreen` and opens `/programs/[id]` for program settings and `/session/[id]` from the calendar.
+- `(tabs)/index|plan|workout|progress|more.tsx` — the five tabs: Home, Plan, Workout, Progress, More
+  (the More tab lists Exercises, History and Settings).
+- `plans/index|new|templates|import.tsx`, `plans/[id]/index.tsx`, `plans/[id]/edit.tsx` — plan list,
+  new plan, template gallery, import, plan detail and plan editor.
+- `exercises/index|new.tsx`, `exercises/[id].tsx` — exercise library, new exercise, exercise detail.
+- `history/index.tsx`, `history/[id].tsx` — workout history and workout detail.
+- `settings.tsx` — Settings (profile, theme, language).
+
+All routes of SPEC §12 exist; except Settings and More they are placeholders that show only a
+localized title.

@@ -1,4 +1,4 @@
-import { useGlobalSearchParams, usePathname, useRouter, type Href } from 'expo-router';
+import { usePathname, useRouter, type Href } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,15 +9,7 @@ import { useT, type MessageKey } from '@/i18n';
 import { useTheme } from '../theme-provider';
 import { Text } from '../ui/Text';
 
-type SectionId =
-  | 'dashboard'
-  | 'periodization'
-  | 'programs'
-  | 'calendar'
-  | 'training'
-  | 'progress'
-  | 'history'
-  | 'settings';
+type SectionId = 'home' | 'plan' | 'workout' | 'progress' | 'exercises' | 'history' | 'settings';
 
 type Section = {
   id: SectionId;
@@ -26,28 +18,37 @@ type Section = {
   href: Href;
 };
 
-/** SPEC §11 web/desktop sidebar, in order. */
+/** SPEC §12 wide-screen sidebar, in order. */
 const SECTIONS: readonly Section[] = [
-  { id: 'dashboard', label: 'tabs.dashboard', icon: { ios: 'square.grid.2x2', android: 'dashboard', web: 'dashboard' }, href: '/' },
-  { id: 'periodization', label: 'tabs.periodization', icon: { ios: 'tablecells', android: 'table_chart', web: 'table_chart' }, href: { pathname: '/periodization', params: { view: 'table' } } },
-  { id: 'programs', label: 'screens.more.programs', icon: { ios: 'books.vertical', android: 'menu_book', web: 'menu_book' }, href: '/programs' },
-  { id: 'calendar', label: 'periodization.view.calendar', icon: { ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }, href: { pathname: '/periodization', params: { view: 'calendar' } } },
-  { id: 'training', label: 'tabs.training', icon: { ios: 'dumbbell', android: 'fitness_center', web: 'fitness_center' }, href: '/training' },
+  { id: 'home', label: 'tabs.home', icon: { ios: 'house', android: 'home', web: 'home' }, href: '/' },
+  { id: 'plan', label: 'tabs.plan', icon: { ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }, href: '/plan' },
+  { id: 'workout', label: 'tabs.workout', icon: { ios: 'dumbbell', android: 'fitness_center', web: 'fitness_center' }, href: '/workout' },
   { id: 'progress', label: 'tabs.progress', icon: { ios: 'chart.line.uptrend.xyaxis', android: 'trending_up', web: 'trending_up' }, href: '/progress' },
-  { id: 'history', label: 'screens.more.history', icon: { ios: 'clock.arrow.circlepath', android: 'history', web: 'history' }, href: '/history' },
-  { id: 'settings', label: 'screens.more.settings', icon: { ios: 'gearshape', android: 'settings', web: 'settings' }, href: '/settings' },
+  { id: 'exercises', label: 'exercises.title', icon: { ios: 'figure.strengthtraining.traditional', android: 'sports_gymnastics', web: 'sports_gymnastics' }, href: '/exercises' },
+  { id: 'history', label: 'history.title', icon: { ios: 'clock.arrow.circlepath', android: 'history', web: 'history' }, href: '/history' },
+  { id: 'settings', label: 'settings.title', icon: { ios: 'gearshape', android: 'settings', web: 'settings' }, href: '/settings' },
 ];
 
-/** The section a location belongs to (null for routes without an entry, e.g. More or a session). */
-export function activeSection(pathname: string, view: string | undefined): SectionId | null {
-  if (pathname === '/') return 'dashboard';
-  if (pathname === '/periodization') return view === 'calendar' ? 'calendar' : 'periodization';
+/** First path segment → section, for the routes that belong to a section but have another name. */
+const SEGMENT_SECTIONS: Record<string, SectionId> = {
+  plan: 'plan',
+  plans: 'plan',
+  workout: 'workout',
+  progress: 'progress',
+  exercises: 'exercises',
+  history: 'history',
+  settings: 'settings',
+};
+
+/** The section a location belongs to (null for routes without an entry, e.g. More). */
+export function activeSection(pathname: string): SectionId | null {
+  if (pathname === '/') return 'home';
   const [first] = pathname.split('/').filter(Boolean);
-  return SECTIONS.some((section) => section.id === first) ? (first as SectionId) : null;
+  return SEGMENT_SECTIONS[first] ?? null;
 }
 
 /**
- * Wide-screen (≥ 900 px) navigation: a labeled sidebar with every section (SPEC §11) instead of
+ * Wide-screen (≥ 900 px) navigation: a labeled sidebar with every section (SPEC §12) instead of
  * the bottom tab bar. Rendered by `AppShell`, so it stays on screen on the stack routes too.
  */
 export function Sidebar() {
@@ -55,8 +56,7 @@ export function Sidebar() {
   const t = useT();
   const router = useRouter();
   const pathname = usePathname();
-  const { view } = useGlobalSearchParams<{ view?: string }>();
-  const current = activeSection(pathname, view);
+  const current = activeSection(pathname);
   return (
     <SafeAreaView
       edges={['top', 'bottom', 'left']}

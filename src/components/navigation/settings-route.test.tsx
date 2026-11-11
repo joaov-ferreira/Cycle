@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import SettingsRoute from '@/app/settings';
 import TabsLayout from '@/app/(tabs)/_layout';
-import MoreScreen from '@/app/(tabs)/more';
+import MoreRoute from '@/app/(tabs)/more';
 import { ensureDefaultProfile } from '@/data/bootstrap';
 import { createMemoryRepositories } from '@/data/memory/memory-repositories';
 
@@ -13,7 +13,7 @@ import { AppProviders } from '../app-providers';
 const routes = {
   _layout: () => <Slot />,
   '(tabs)/_layout': TabsLayout,
-  '(tabs)/more': MoreScreen,
+  '(tabs)/more': MoreRoute,
   settings: SettingsRoute,
 };
 
@@ -34,7 +34,7 @@ describe('Settings route', () => {
     await fireEvent.press(await screen.findByRole('button', { name: 'Settings' }));
     expect(await screen.findByRole('header', { name: 'Settings' })).toBeOnTheScreen();
     expect(result.getPathname()).toBe('/settings');
-    expect(screen.getByLabelText('Bench Press 1RM')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Profile name')).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
     expect(await screen.findByTestId('screen-more')).toBeOnTheScreen();

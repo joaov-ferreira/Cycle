@@ -10,17 +10,19 @@ const NOW = new Date('2026-11-05T12:00:00.000Z');
 const at = (iso: string) => `${iso}T12:00:00.000Z`;
 
 const base: LineChartProps = {
-  lift: 'bench',
+  label: 'Bench Press load',
+  seriesLabel: 'Top set load',
+  referenceLabel: 'Target',
   period: '4w',
   now: NOW,
-  e1rms: [
-    { id: 4, at: at('2026-10-22'), valueKg: 90.5 },
-    { id: 5, at: at('2026-11-05'), valueKg: 91 },
+  series: [
+    { id: 4, at: at('2026-10-22'), value: 90.5 },
+    { id: 5, at: at('2026-11-05'), value: 91 },
   ],
-  references: [{ at: at('2026-10-01'), valueKg: 90 }],
-  sessionLabels: new Map([
-    [4, 'Session 1, week 2 · 5/3/1 (custom)'],
-    [5, 'Session 2, week 3 · 5/3/1 (custom)'],
+  references: [{ at: at('2026-10-01'), value: 90 }],
+  detailLabels: new Map([
+    [4, 'Workout of week 2'],
+    [5, 'Workout of week 3'],
   ]),
 };
 
@@ -64,11 +66,11 @@ describe('LineChart', () => {
   it('uses months and years on the x axis for long periods', async () => {
     await renderChart({
       period: 'all',
-      e1rms: [
-        { id: 1, at: at('2025-01-10'), valueKg: 80 },
-        { id: 2, at: at('2026-11-05'), valueKg: 100 },
+      series: [
+        { id: 1, at: at('2025-01-10'), value: 80 },
+        { id: 2, at: at('2026-11-05'), value: 100 },
       ],
-      references: [{ at: at('2025-01-01'), valueKg: 75 }],
+      references: [{ at: at('2025-01-01'), value: 75 }],
     });
     expect(screen.getByText('Jan 2025')).toBeOnTheScreen();
     expect(screen.getByText('Nov 2026')).toBeOnTheScreen();
@@ -76,92 +78,100 @@ describe('LineChart', () => {
 
   it('describes the chart for assistive technology', async () => {
     await renderChart();
-    expect(screen.getByLabelText('Bench Press e1RM chart')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Bench Press load chart')).toBeOnTheScreen();
     expect(
-      screen.getByLabelText(`Bench Press, the last 4 weeks: 2 e1RM estimates, latest 91.0${NBSP}kg on Nov 5, 2026.`),
+      screen.getByLabelText(`Bench Press load, the last 4 weeks: 2 data points, latest 91.0${NBSP}kg on Nov 5, 2026.`),
     ).toBeOnTheScreen();
   });
 
   it('describes the chart in Portuguese', async () => {
-    await renderChart({}, 'pt-BR');
+    await renderChart({ label: 'Supino carga' }, 'pt-BR');
     expect(
-      screen.getByLabelText(`Supino, as últimas 4 semanas: 2 estimativas de e1RM, a última de 91,0${NBSP}kg em 5 de nov. de 2026.`),
+      screen.getByLabelText(`Supino carga, as últimas 4 semanas: 2 pontos, o último de 91,0${NBSP}kg em 5 de nov. de 2026.`),
     ).toBeOnTheScreen();
   });
 
   it('exposes one accessible button per point, with its date and value', async () => {
     await renderChart();
-    expect(screen.getByRole('button', { name: `Oct 22, 2026: e1RM ≈ 90.5${NBSP}kg` })).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: `Nov 5, 2026: e1RM ≈ 91.0${NBSP}kg` })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: `Oct 22, 2026: 90.5${NBSP}kg` })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: `Nov 5, 2026: 91.0${NBSP}kg` })).toBeOnTheScreen();
   });
 
-  it('shows a hint until a point is selected, then its date, value and session', async () => {
+  it('shows a hint until a point is selected, then its date, value and detail', async () => {
     await renderChart();
-    expect(screen.getByText('Tap or hover a point to see its date, value and session.')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: `Oct 22, 2026: e1RM ≈ 90.5${NBSP}kg` }));
-    expect(screen.getByText(`Oct 22, 2026 · e1RM ≈ 90.5${NBSP}kg (estimate)`)).toBeOnTheScreen();
-    expect(screen.getByText('Session 1, week 2 · 5/3/1 (custom)')).toBeOnTheScreen();
-    expect(screen.queryByText('Tap or hover a point to see its date, value and session.')).toBeNull();
-    expect(screen.getByRole('button', { name: `Oct 22, 2026: e1RM ≈ 90.5${NBSP}kg`, selected: true })).toBeOnTheScreen();
+    expect(screen.getByText('Tap or hover a point to see its date and value.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: `Oct 22, 2026: 90.5${NBSP}kg` }));
+    expect(screen.getByText(`Oct 22, 2026 · 90.5${NBSP}kg`)).toBeOnTheScreen();
+    expect(screen.getByText('Workout of week 2')).toBeOnTheScreen();
+    expect(screen.queryByText('Tap or hover a point to see its date and value.')).toBeNull();
+    expect(screen.getByRole('button', { name: `Oct 22, 2026: 90.5${NBSP}kg`, selected: true })).toBeOnTheScreen();
   });
 
   it('moves the tooltip to another point and clears it on a second press', async () => {
     await renderChart();
-    await fireEvent.press(screen.getByRole('button', { name: `Oct 22, 2026: e1RM ≈ 90.5${NBSP}kg` }));
-    await fireEvent.press(screen.getByRole('button', { name: `Nov 5, 2026: e1RM ≈ 91.0${NBSP}kg` }));
-    expect(screen.getByText(`Nov 5, 2026 · e1RM ≈ 91.0${NBSP}kg (estimate)`)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: `Oct 22, 2026: 90.5${NBSP}kg` }));
+    await fireEvent.press(screen.getByRole('button', { name: `Nov 5, 2026: 91.0${NBSP}kg` }));
+    expect(screen.getByText(`Nov 5, 2026 · 91.0${NBSP}kg`)).toBeOnTheScreen();
     expect(screen.queryByText(/Oct 22, 2026 ·/)).toBeNull();
-    await fireEvent.press(screen.getByRole('button', { name: `Nov 5, 2026: e1RM ≈ 91.0${NBSP}kg` }));
-    expect(screen.getByText('Tap or hover a point to see its date, value and session.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: `Nov 5, 2026: 91.0${NBSP}kg` }));
+    expect(screen.getByText('Tap or hover a point to see its date and value.')).toBeOnTheScreen();
   });
 
   it('shows the tooltip on hover', async () => {
     await renderChart();
-    await fireEvent(screen.getByRole('button', { name: `Nov 5, 2026: e1RM ≈ 91.0${NBSP}kg` }), 'hoverIn');
-    expect(screen.getByText(`Nov 5, 2026 · e1RM ≈ 91.0${NBSP}kg (estimate)`)).toBeOnTheScreen();
+    await fireEvent(screen.getByRole('button', { name: `Nov 5, 2026: 91.0${NBSP}kg` }), 'hoverIn');
+    expect(screen.getByText(`Nov 5, 2026 · 91.0${NBSP}kg`)).toBeOnTheScreen();
   });
 
   it('formats the tooltip in pt-BR', async () => {
-    await renderChart({ sessionLabels: new Map([[4, 'Sessão 1, semana 2 · 5/3/1']]) }, 'pt-BR');
-    await fireEvent.press(screen.getByRole('button', { name: `22 de out. de 2026: e1RM ≈ 90,5${NBSP}kg` }));
-    expect(screen.getByText(`22 de out. de 2026 · e1RM ≈ 90,5${NBSP}kg (estimativa)`)).toBeOnTheScreen();
-    expect(screen.getByText('Sessão 1, semana 2 · 5/3/1')).toBeOnTheScreen();
+    await renderChart({ detailLabels: new Map([[4, 'Treino da semana 2']]) }, 'pt-BR');
+    await fireEvent.press(screen.getByRole('button', { name: `22 de out. de 2026: 90,5${NBSP}kg` }));
+    expect(screen.getByText(`22 de out. de 2026 · 90,5${NBSP}kg`)).toBeOnTheScreen();
+    expect(screen.getByText('Treino da semana 2')).toBeOnTheScreen();
   });
 
-  it('omits the session line when the originating session is unknown', async () => {
-    await renderChart({ sessionLabels: new Map() });
-    await fireEvent.press(screen.getByRole('button', { name: `Oct 22, 2026: e1RM ≈ 90.5${NBSP}kg` }));
-    expect(screen.getByText(`Oct 22, 2026 · e1RM ≈ 90.5${NBSP}kg (estimate)`)).toBeOnTheScreen();
-    expect(screen.queryByText(/Session/)).toBeNull();
+  it('omits the detail line when a point has none', async () => {
+    await renderChart({ detailLabels: new Map() });
+    await fireEvent.press(screen.getByRole('button', { name: `Oct 22, 2026: 90.5${NBSP}kg` }));
+    expect(screen.getByText(`Oct 22, 2026 · 90.5${NBSP}kg`)).toBeOnTheScreen();
+    expect(screen.queryByText(/Workout of/)).toBeNull();
   });
 
-  it('shows an empty state without any e1RM', async () => {
-    await renderChart({ e1rms: [], references: [] });
-    expect(
-      screen.getByText('No e1RM yet for Bench Press. Complete a training session with RIR or RPE to see your progress here.'),
-    ).toBeOnTheScreen();
-    expect(screen.queryByLabelText('Bench Press e1RM chart')).toBeNull();
+  it('shows an empty state without any data', async () => {
+    await renderChart({ series: [], references: [] });
+    expect(screen.getByText('No data yet for Bench Press load.')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Bench Press load chart')).toBeNull();
   });
 
-  it('shows a period empty state when every e1RM is older than the period', async () => {
-    await renderChart({ e1rms: [{ id: 1, at: at('2026-06-01'), valueKg: 80 }] });
-    expect(screen.getByText('No e1RM for Bench Press in the last 4 weeks.')).toBeOnTheScreen();
+  it('shows a period empty state when every entry is older than the period', async () => {
+    await renderChart({ series: [{ id: 1, at: at('2026-06-01'), value: 80 }] });
+    expect(screen.getByText('No data for Bench Press load in the last 4 weeks.')).toBeOnTheScreen();
   });
 
   it('shows the empty states in pt-BR', async () => {
-    await renderChart({ e1rms: [], references: [] }, 'pt-BR');
-    expect(
-      screen.getByText('Ainda não há e1RM de Supino. Conclua um treino com RIR ou RPE para ver sua evolução aqui.'),
-    ).toBeOnTheScreen();
+    await renderChart({ series: [], references: [], label: 'Supino carga' }, 'pt-BR');
+    expect(screen.getByText('Ainda não há dados de Supino carga.')).toBeOnTheScreen();
+  });
+
+  it('draws a legend for the labelled lines only', async () => {
+    await renderChart();
+    expect(screen.getByText('Top set load')).toBeOnTheScreen();
+    expect(screen.getByText('Target')).toBeOnTheScreen();
+  });
+
+  it('omits the legend entries without a label', async () => {
+    await renderChart({ seriesLabel: undefined, referenceLabel: undefined });
+    expect(screen.queryByText('Top set load')).toBeNull();
+    expect(screen.queryByText('Target')).toBeNull();
   });
 
   it('lays the chart out at the measured width', async () => {
     await renderChart();
-    const chart = screen.getByLabelText('Bench Press e1RM chart');
-    const before = screen.getByRole('button', { name: `Nov 5, 2026: e1RM ≈ 91.0${NBSP}kg` });
+    const chart = screen.getByLabelText('Bench Press load chart');
+    const before = screen.getByRole('button', { name: `Nov 5, 2026: 91.0${NBSP}kg` });
     const leftOf = (node: typeof before) => (Array.isArray(node.props.style) ? Object.assign({}, ...node.props.style.flat()) : node.props.style).left;
     expect(leftOf(before)).toBe(320 - 12 - 22);
     await fireEvent(chart, 'layout', { nativeEvent: { layout: { width: 500, height: 240 } } });
-    expect(leftOf(screen.getByRole('button', { name: `Nov 5, 2026: e1RM ≈ 91.0${NBSP}kg` }))).toBe(500 - 12 - 22);
+    expect(leftOf(screen.getByRole('button', { name: `Nov 5, 2026: 91.0${NBSP}kg` }))).toBe(500 - 12 - 22);
   });
 });

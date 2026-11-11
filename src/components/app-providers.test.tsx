@@ -26,7 +26,7 @@ function Probe() {
   const profileName = useAppStore((s) => s.profile?.name);
   return (
     <Screen testID="probe-screen">
-      <Text>{t('tabs.periodization')}</Text>
+      <Text>{t('tabs.plan')}</Text>
       <Text>{`profile:${profileName}`}</Text>
       <Button label="to-pt" onPress={() => setLanguage('pt-BR')} />
       <Button label="to-en" onPress={() => setLanguage('en')} />
@@ -48,7 +48,7 @@ beforeEach(() => setDeviceLocale('en-US'));
 describe('AppProviders', () => {
   it('boots with the dark theme by default and calls onReady', async () => {
     const { onReady } = await renderApp(createMemoryRepositories());
-    expect(await screen.findByText('Periodization')).toBeOnTheScreen();
+    expect(await screen.findByText('Plan')).toBeOnTheScreen();
     expect(screen.getByTestId('probe-screen')).toHaveStyle({ backgroundColor: '#000000' });
     expect(onReady).toHaveBeenCalledTimes(1);
   });
@@ -72,7 +72,7 @@ describe('AppProviders', () => {
     const profile = await repos.profiles.create({ name: 'Ana' });
     await repos.settings.update(profile.id, { language: 'en' });
     await renderApp(repos);
-    expect(await screen.findByText('Periodization')).toBeOnTheScreen();
+    expect(await screen.findByText('Plan')).toBeOnTheScreen();
   });
 
   it('switches language instantly, without restart, and persists it', async () => {
@@ -82,7 +82,7 @@ describe('AppProviders', () => {
     expect(await screen.findByText('Periodização')).toBeOnTheScreen();
     expect((await repos.settings.get(1)).language).toBe('pt-BR');
     await fireEvent.press(screen.getByRole('button', { name: 'to-en' }));
-    expect(await screen.findByText('Periodization')).toBeOnTheScreen();
+    expect(await screen.findByText('Plan')).toBeOnTheScreen();
   });
 
   it('applies the stored light theme', async () => {
@@ -128,6 +128,6 @@ describe('AppProviders', () => {
     );
     expect(screen.getByText('Loading…')).toBeOnTheScreen();
     resolve(createMemoryRepositories());
-    expect(await screen.findByText('Periodization')).toBeOnTheScreen();
+    expect(await screen.findByText('Plan')).toBeOnTheScreen();
   });
 });

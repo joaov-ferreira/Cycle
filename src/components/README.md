@@ -6,30 +6,16 @@
   `src/constants/theme.ts`.
 - `app-providers.tsx` — boot gate: opens persistence, boots the app store, provides
   locale and theme.
-- `onboarding/` — first-run 1RM gate. `settings/` — Settings screen sections (profiles,
-  1RMs and history, increments and rounding, e1RM formula, language). `one-rm/` — the three-lift 1RM form.
-  `rounding/` — `IncrementPicker` (presets and custom increment).
-- `programs/` — Programs screen (list, Sheiko templates grouped by family), program detail, original-structure view, the
-  percentage editor and the kg-increment editor (Smolov Jr.).
-- `periodization/` — Periodization screen: session-slot editor (incl. a program family selector with
-  a template selector for families such as Sheiko, kg parameters such as the Smolov Jr. weekly
-  increment and "Add all days of this program"), warnings, the responsive
-  three-week table (weeks side by side at ≥ 900 px, a week toggle on phones), the calendar
-  (week × session cards), a Table | Calendar toggle, activation and the session detail screen.
-- `performance/` — the performance logger (per-set weight, reps, RIR/RPE, notes; extra sets;
-  auto-saved draft; completion and the read-only summary with prescribed vs. actual) and the
-  Training screen (sessions in progress and the next pending session).
-- `e1rm/` — e1RM display (SPEC §8): the per-set estimate line (valid, low confidence, unverified RTS
-  cell), the session estimate card (live while logging, stored once completed) with the comparison
-  with the previous e1RM, "Use as new reference 1RM" (with confirmation) and the localized formula
-  names. `settings/e1rm-section.tsx` chooses the formula.
-- `progress/` — Progress screen (SPEC §9: per-lift cards, period filter) and `LineChart`, the in-house
-  `react-native-svg` chart (e1RM line, reference-1RM steps, localized axes, tap/hover tooltip, per-point
+- `onboarding/` — `OnboardingGate`, in front of the app (a pass-through until the onboarding stage).
+- `settings/` — Settings screen sections: profile, theme, language.
+- `home/`, `plan/`, `plan-import/`, `workout/`, `history/`, `progress/`, `exercises/` — one folder per
+  feature, holding its screen components. Today they are placeholders that show only a localized
+  title; the feature stages replace them.
+- `progress/line-chart.tsx` — `LineChart`, the in-house `react-native-svg` chart (a dated value
+  series in kg, an optional dashed reference step line, localized axes, tap/hover tooltip, per-point
   accessible buttons) that draws the pure `buildChartModel`.
-- `history/` — History screen (SPEC §10: lift / program / period filters, list items) and the session
-  detail (prescribed vs. performed, e1RM, equivalent previous sessions, edit mode built on the logger form).
-- `dashboard/` — Dashboard screen (SPEC §11: current block week, next session, latest e1RM and reference 1RM per lift, shortcuts; two columns at ≥ 900 px).
-- `navigation/` — main tabs, `AppShell` (puts the sidebar beside every route at ≥ 900 px) and the `Sidebar` with the eight SPEC §11 sections.
+- `navigation/` — main tabs, `AppShell` (puts the sidebar beside every route at ≥ 900 px), the
+  `Sidebar` with the seven SPEC §12 sections and the More tab screen.
 
 Rules:
 

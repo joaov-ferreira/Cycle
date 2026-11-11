@@ -20,11 +20,17 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="settings" />
-            <Stack.Screen name="programs/index" />
-            <Stack.Screen name="programs/[id]" />
+            <Stack.Screen name="plans/index" />
+            <Stack.Screen name="plans/new" />
+            <Stack.Screen name="plans/templates" />
+            <Stack.Screen name="plans/import" />
+            <Stack.Screen name="plans/[id]/index" />
+            <Stack.Screen name="plans/[id]/edit" />
+            <Stack.Screen name="exercises/index" />
+            <Stack.Screen name="exercises/new" />
+            <Stack.Screen name="exercises/[id]" />
             <Stack.Screen name="history/index" />
             <Stack.Screen name="history/[id]" />
-            <Stack.Screen name="session/[id]" />
           </Stack>
         </AppShell>
       </OnboardingGate>

@@ -1,13 +1,5 @@
-import { useRouter } from 'expo-router';
+import { HomeScreen } from '@/components/home/home-screen';
 
-import { DashboardScreen } from '@/components/dashboard/dashboard-screen';
-
-export default function DashboardRoute() {
-  const router = useRouter();
-  return (
-    <DashboardScreen
-      onOpenSession={(id) => router.push({ pathname: '/session/[id]', params: { id } })}
-      onNavigate={(target) => router.navigate(`/${target}`)}
-    />
-  );
+export default function HomeRoute() {
+  return <HomeScreen />;
 }

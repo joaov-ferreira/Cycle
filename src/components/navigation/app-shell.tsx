@@ -5,8 +5,8 @@ import { navigationLayoutFor } from './app-tabs';
 import { Sidebar } from './sidebar';
 
 /**
- * Wraps every route: on wide screens (SPEC §11, ≥ 900 px) the sidebar sits beside the content, so
- * it stays visible on the stack routes too (Programs, History, Settings, session detail); on
+ * Wraps every route: on wide screens (SPEC §12, ≥ 900 px) the sidebar sits beside the content, so
+ * it stays visible on the stack routes too (plans, exercises, history, settings); on
  * phones the content is shown as is and the tabs navigate.
  */
 export function AppShell({ children }: { children: ReactNode }) {
