@@ -53,6 +53,25 @@ export const common: typeof enCommon = {
       notInteger: 'Use um número inteiro',
     },
   },
+  exerciseErrors: {
+    name: {
+      required: 'Informe um nome',
+      tooLong: 'Use no máximo {{max}} caracteres',
+      duplicateName: 'Já existe um exercício com esse nome',
+    },
+    primaryMuscle: {
+      invalidMuscle: 'Escolha o grupo muscular principal',
+    },
+    equipment: {
+      invalidEquipment: 'Escolha o equipamento',
+    },
+    mechanics: {
+      invalidMechanics: 'Escolha um tipo',
+    },
+    secondaryMuscles: {
+      invalidSecondaryMuscles: 'Escolha grupos musculares secundários diferentes',
+    },
+  },
   muscles: {
     chest: 'Peito',
     back: 'Costas',

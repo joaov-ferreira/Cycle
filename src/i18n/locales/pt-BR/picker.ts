@@ -13,4 +13,10 @@ export const picker: typeof enPicker = {
   emptyMessage: 'Tente outra busca ou filtro.',
   createExercise: 'Criar “{{name}}”',
   createNew: 'Novo exercício',
+  createSubmit: 'Criar exercício',
+  formName: 'Nome',
+  formPrimaryMuscle: 'Grupo muscular principal',
+  formEquipment: 'Equipamento',
+  formMechanics: 'Tipo',
+  formSecondaryMuscles: 'Grupos musculares secundários',
 };
