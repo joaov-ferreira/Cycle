@@ -72,6 +72,14 @@ export const planImport: typeof enPlanImport = {
     invalidDirective: 'Não foi possível ler esta configuração.',
     emptyWorkout: 'Este treino não tem exercícios.',
     noWorkouts: 'A periodização não tem treinos.',
+    notAllowedWithPercent: 'RIR e carga inicial não podem ser usados junto com um esquema em porcentagem.',
+    emptyScheme: 'O esquema em porcentagem não tem séries em nenhuma semana.',
+    unknownProgram: 'Este programa não existe no app.',
+    unknownRole: 'Este programa não tem um papel com este nome.',
+    unknownParam: 'Este programa não tem um parâmetro com este nome.',
+    paramOutOfRange: 'Este parâmetro do programa está fora do intervalo permitido.',
+    paramOffStep: 'Este parâmetro do programa não respeita o passo permitido.',
+    mixedPercent: 'Informe a porcentagem em todos os grupos da linha, ou em nenhum (ex.: 3x5 @75% / 3x3 @85%).',
   },
 
   ai: {

@@ -75,6 +75,14 @@ export const planImport = {
     invalidDirective: 'This setting could not be read.',
     emptyWorkout: 'This workout has no exercises.',
     noWorkouts: 'The plan has no workouts.',
+    notAllowedWithPercent: 'RIR and starting load cannot be used together with a percent scheme.',
+    emptyScheme: 'The percent scheme has no sets in any week.',
+    unknownProgram: 'This program does not exist in the app.',
+    unknownRole: 'This program has no role with this name.',
+    unknownParam: 'This program has no parameter with this name.',
+    paramOutOfRange: 'This program parameter is outside its allowed range.',
+    paramOffStep: 'This program parameter does not match its allowed step.',
+    mixedPercent: 'Give a percentage to every group of the line, or to none (e.g. 3x5 @75% / 3x3 @85%).',
   },
 
   // ---- Create with AI ----
