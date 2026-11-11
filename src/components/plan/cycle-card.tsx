@@ -68,16 +68,24 @@ export function CycleCard({ plan }: { plan: Plan }) {
 
       <View style={styles.timeline} accessibilityLabel={t('plan.cycle.timeline')} testID="cycle-timeline">
         {timeline.map((cell) => {
-          const label = t(
+          const hasTarget = cell.targetRir !== undefined;
+          const args = { week: cell.week, rir: cell.targetRir ?? 0 };
+          const label =
             cell.phase === 'load'
               ? cell.current
-                ? 'plan.cycle.cellLoadCurrent'
-                : 'plan.cycle.cellLoad'
+                ? hasTarget
+                  ? t('plan.cycle.cellLoadTargetCurrent', args)
+                  : t('plan.cycle.cellLoadCurrent', args)
+                : hasTarget
+                  ? t('plan.cycle.cellLoadTarget', args)
+                  : t('plan.cycle.cellLoad', args)
               : cell.current
-                ? 'plan.cycle.cellDeloadCurrent'
-                : 'plan.cycle.cellDeload',
-            { week: cell.week },
-          );
+                ? hasTarget
+                  ? t('plan.cycle.cellDeloadTargetCurrent', args)
+                  : t('plan.cycle.cellDeloadCurrent', args)
+                : hasTarget
+                  ? t('plan.cycle.cellDeloadTarget', args)
+                  : t('plan.cycle.cellDeload', args);
           const short = t(cell.phase === 'load' ? 'plan.cycle.cellShortLoad' : 'plan.cycle.cellShortDeload', {
             week: cell.week,
           });
@@ -105,6 +113,15 @@ export function CycleCard({ plan }: { plan: Plan }) {
                 style={{ color: cell.current ? colors.onAccent : colors.text }}>
                 {short}
               </Text>
+              {hasTarget ? (
+                <Text
+                  variant="caption"
+                  tabular
+                  importantForAccessibility="no"
+                  style={{ color: cell.current ? colors.onAccent : colors.textSecondary }}>
+                  {t('plan.cycle.cellRir', { rir: cell.targetRir ?? 0 })}
+                </Text>
+              ) : null}
             </View>
           );
         })}
