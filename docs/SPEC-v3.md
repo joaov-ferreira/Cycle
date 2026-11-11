@@ -137,8 +137,8 @@ sets, computed from the first working set's weight; warm-up sets that are not do
   ```
 - Plan editor: "Link with next" / "Unlink" on an exercise.
 - Logger: the group is one card labeled **Superset** (pt-BR: "Bi-set" for 2, "Tri-set" for 3,
-  "Série gigante" for 4), sets shown round by round; the rest timer starts after the last
-  exercise's set (§1.2).
+  "Série gigante" for 4) that holds its exercises in order, each with its own set rows; the rest
+  timer starts after the last exercise's set (§1.2).
 - Progression, statistics and history treat each exercise independently.
 
 ### 4.2 Drop sets

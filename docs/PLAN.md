@@ -42,12 +42,13 @@ AGENTS.md as the extension of `docs/SPEC.md`.
 | 2a | 2 | RIR ramp and cycle report | sonnet | ✅ |
 | 2b | 2 | Persistence: migration 011, repositories, bulk export/import | sonnet | ✅ |
 | 3 | 3 | State store: timer, tools settings, supersets, ramp, reports, backup, body, insights | sonnet | ✅ |
-| 4a | 4 | Logger: rest timer bar, notifications, keep-awake, plates, warm-ups, notes | sonnet | ⬜ |
-| 4b | 4 | Logger and plan editor: supersets, drop sets, similar exercises, repeat workout | sonnet | ⬜ |
-| 4c | 4 | Cycle: RIR ramp settings, timeline, report screen, cycle history, Review with AI, update in place | sonnet | ⬜ |
-| 4d | 4 | Settings → Data: backup, restore, CSV, reminder | sonnet | ⬜ |
-| 4e | 4 | Body screen | haiku | ⬜ |
-| 4f | 4 | Progress: Volume and Calendar tabs, streak on Home, share summary, how-to link | haiku | ⬜ |
+| 4a | 4 | Logger: rest timer, plates, warm-ups, exercise note, supersets, drop sets, similar exercises, share summary | sonnet | 🟨 |
+| 4b | 4 | Plan screens: supersets in the editor, RIR ramp settings and timeline, entry points to report and AI review | sonnet | 🟨 |
+| 4c | 4 | Cycle report screen, Review with AI screen, plan update in place from the import preview | sonnet | 🟨 |
+| 4d | 4 | Settings and platform: tool settings, rest notifications, keep-awake, backup, restore, CSV | sonnet | 🟨 |
+| 4e | 4 | Body screen | haiku | 🟨 |
+| 4f | 4 | Progress: Volume and Calendar tabs; Home: streak, cycle-complete banner, backup reminder | sonnet | 🟨 |
+| 4h | 4 | History and exercise detail: drop sets, supersets, repeat workout, note, bar weight, similar, how-to | haiku | 🟨 |
 | 5 | 5 | Integration: E2E v3 flow, audits, docs (IMPORT_FORMAT, BACKUP_FORMAT, README), screenshots | sonnet | ⬜ |
 | 6 | — | Final review, PR, CI, APK on the PR, merge, release check | orchestrator | ⬜ |
 
@@ -117,28 +118,25 @@ body metrics CRUD, insights selectors.
 
 ## Wave 4 — UI (parallel)
 
-Each stage owns its component folder(s), routes and namespaces; screens talk only to the store.
+Each stage owns its component folder(s), routes and namespaces; screens talk only to the store. The
+wave was regrouped by folder at kick-off so that no two stages edit the same files:
 
-- **4a — Logger tools · sonnet.** `src/components/workout/**` (timer bar, plates sheet, warm-up
-  button, exercise note), `src/platform/` adapters for `expo-notifications` and `expo-keep-awake`
-  (installed with `npx expo install` after reading the SDK docs; the only stage allowed to edit
-  `package.json`/`app.json` for these two modules), Settings rows for rest default / notifications /
-  keep screen on / bar and plates. Namespaces `timer`, `tools`. SPEC-v3 §1.2, §2, §3, §11.
-- **4b — Supersets, drop sets, substitutions · sonnet.** Superset card and drop-set rows in the
-  logger (coordinates with 4a through separate component files), "Link with next" in the plan
-  editor, similar exercises in the picker, repeat workout from history. SPEC-v3 §4, §11.
-- **4c — Cycle depth and AI review · sonnet.** RIR ramp in cycle settings and timeline, report
-  screen (`plans/[id]/cycles/[cycle]`), cycle history, Home "cycle complete" banner, Review with AI
-  screen, "Update plan" option in the import preview. Namespaces `cycleReport`, `aiReview`.
-  SPEC-v3 §5–§7.
-- **4d — Data · sonnet.** Settings → Data: export backup (file + share sheet via `expo-file-system`
-  / `expo-sharing`, installed here), restore with summary and confirmation, CSV export, backup
-  reminder. Namespace `backup`. SPEC-v3 §8.
-- **4e — Body · haiku.** `src/components/body/**`, route `body`, More entry, namespace `body`.
-  SPEC-v3 §9.
-- **4f — Insights and small aids · haiku.** Progress segmented control with Volume and Calendar,
-  bar chart component, streak on Home, share summary, how-to link. Namespace `insights`.
-  SPEC-v3 §10, §11.
+- **4a — Logger · sonnet.** `src/components/workout/**`, the shared `SetRow`; namespaces `workout`,
+  `timer`, `tools`. SPEC-v3 §1.2, §2, §3, §4, §11.
+- **4b — Plan screens · sonnet.** `src/components/plan/**` and its routes; namespaces `plan`,
+  `planEditor`. SPEC-v3 §4.1, §5.
+- **4c — Cycle report and AI review · sonnet.** `src/components/cycle-report/**`,
+  `src/components/ai-review/**`, `src/components/plan-import/**`, routes `plans/[id]/cycles/[cycle]`
+  and `plans/[id]/review`; namespaces `cycleReport`, `aiReview`, `planImport`. SPEC-v3 §6, §7.
+- **4d — Settings and platform · sonnet.** `src/components/settings/**`, `src/components/backup/**`,
+  `src/platform/**` (`expo-notifications`, `expo-keep-awake`, `expo-sharing`), `src/app/_layout.tsx`;
+  namespaces `settings`, `backup`. SPEC-v3 §1.2, §2, §8.
+- **4e — Body · haiku.** `src/components/body/**`, route `body`, More and sidebar entries; namespace
+  `body`. SPEC-v3 §9.
+- **4f — Progress and Home · sonnet.** `src/components/progress/**`, `src/components/home/**`;
+  namespaces `progress`, `insights`, `home`. SPEC-v3 §6, §8.1, §10.
+- **4h — History and exercises · haiku.** `src/components/history/**`, `src/components/exercises/**`;
+  namespaces `history`, `exercises`. SPEC-v3 §2, §4, §11.
 
 ## Stage 5 — Integration · sonnet
 E2E test of SPEC-v3 §13; cross-feature audit (logger with timer + superset + drop sets together,
