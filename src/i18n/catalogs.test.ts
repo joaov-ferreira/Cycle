@@ -26,6 +26,7 @@ const NAMESPACES = [
   'home',
   'plan',
   'planImport',
+  'planEditor',
   'workout',
   'history',
   'progress',
