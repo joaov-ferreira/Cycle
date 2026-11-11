@@ -49,8 +49,8 @@
 | 5f | 5 | Home, onboarding, settings | haiku | ✅ |
 | 5g | 5 | Plan editor (split from 5b) | sonnet | ✅ |
 | 5h | 5 | Progress screen (split from 5e) | haiku | ✅ |
-| 6 | 6 | Integration: E2E acceptance flow, audits, README, screenshots | sonnet | ⬜ |
-| 7 | — | Final review, PR, CI, merge, APK release check | orchestrator | ⬜ |
+| 6 | 6 | Integration: E2E acceptance flow, audits, README, screenshots | sonnet | ✅ |
+| 7 | — | Final review, PR, CI, merge, APK release check | orchestrator | ✅ |
 
 Legend: ⬜ pending · 🟨 in progress · ✅ done · ⚠️ done with a recorded gap. The "Model" column shows
 the starting model; escalations are recorded in `docs/DECISIONS.md`.
