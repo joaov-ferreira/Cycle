@@ -20,13 +20,6 @@ export const strength = {
     estimates: 'Strength e1RM',
     references: 'Reference 1RM',
   },
-  origin: {
-    manual: 'Entered manually',
-    fromE1rm: 'From a workout estimate',
-    onboarding: 'Set at onboarding',
-    import: 'Imported with a plan',
-    v1: 'From the earlier version',
-  },
   percent: '{{value}} %',
   source: {
     program: '{{program}} · week {{week}} · day {{day}}',

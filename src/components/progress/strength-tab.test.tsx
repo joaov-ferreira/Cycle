@@ -77,7 +77,7 @@ describe('Progress: Strength tab', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Strength' }));
     const card = within(await screen.findByTestId('strength-card-barbell-bench-press'));
     expect(card.getByText('Barbell Bench Press')).toBeOnTheScreen();
-    expect(card.getByText(`Reference 1RM: 105${NBSP}kg · Mar 2, 2026 · Entered manually`)).toBeOnTheScreen();
+    expect(card.getByText(`Reference 1RM: 105${NBSP}kg · Mar 2, 2026 · Manual`)).toBeOnTheScreen();
     expect(card.getAllByText(`107.7${NBSP}kg · Mar 9, 2026`)).toHaveLength(2); // latest and best
     expect(card.getByText(`105${NBSP}kg · Feb 9, 2026`)).toBeOnTheScreen();
     expect(card.getByText('Best e1RM')).toBeOnTheScreen();

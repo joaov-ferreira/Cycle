@@ -9,17 +9,11 @@ import type { ProgramText } from '@/domain/program';
 import type { Prescription, PrescribedSet } from '@/domain/prescription';
 import { rpeFromRir } from '@/domain/effort';
 import type { ReferenceMaxOrigin } from '@/domain/reference-max';
-import { useI18n, type MessageKey } from '@/i18n';
+import { useI18n } from '@/i18n';
 import { findProgram } from '@/library';
 import { selectEffortScale, useAppStore } from '@/state';
 
-const ORIGIN_KEYS: Record<ReferenceMaxOrigin, MessageKey> = {
-  manual: 'strength.origin.manual',
-  fromE1rm: 'strength.origin.fromE1rm',
-  onboarding: 'strength.origin.onboarding',
-  import: 'strength.origin.import',
-  v1: 'strength.origin.v1',
-};
+import { ORIGIN_KEYS } from '../maxes/labels';
 
 const GRAMS_PER_KG = 1000;
 const MINUS = '−';

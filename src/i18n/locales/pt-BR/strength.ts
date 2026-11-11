@@ -22,13 +22,6 @@ export const strength: typeof enStrength = {
     estimates: 'e1RM de força',
     references: '1RM de referência',
   },
-  origin: {
-    manual: 'Informado manualmente',
-    fromE1rm: 'De uma estimativa de treino',
-    onboarding: 'Definido na configuração inicial',
-    import: 'Importado com uma periodização',
-    v1: 'Da versão anterior',
-  },
   percent: '{{value}} %',
   source: {
     program: '{{program}} · semana {{week}} · dia {{day}}',
