@@ -36,3 +36,7 @@ Dependency rules:
   `v3PlanContent`, `createFakeNotifier`, `seedBodyMetrics`, `seedCompletedCycle`).
 - The persistent exercise note is `setExerciseSettingsNote(exerciseId, note)`; `setExerciseNote`
   keeps editing the note of an exercise inside the workout in progress.
+- Transient state is not persisted: `restTimer` (it never ticks; the remaining time is computed from the
+  clock), `lastFinish` and `completedCycle` (the "Cycle complete" notice of Home exists only in the run that
+  finished the cycle; the cycle report itself is always available from the plan). `init` and
+  `switchProfile` reset them. `src/e2e/spec-flow-v3.test.tsx` shows the store driven through the real routes.
