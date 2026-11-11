@@ -42,13 +42,13 @@ AGENTS.md as the extension of `docs/SPEC.md`.
 | 2a | 2 | RIR ramp and cycle report | sonnet | ✅ |
 | 2b | 2 | Persistence: migration 011, repositories, bulk export/import | sonnet | ✅ |
 | 3 | 3 | State store: timer, tools settings, supersets, ramp, reports, backup, body, insights | sonnet | ✅ |
-| 4a | 4 | Logger: rest timer, plates, warm-ups, exercise note, supersets, drop sets, similar exercises, share summary | sonnet | 🟨 |
-| 4b | 4 | Plan screens: supersets in the editor, RIR ramp settings and timeline, entry points to report and AI review | sonnet | 🟨 |
-| 4c | 4 | Cycle report screen, Review with AI screen, plan update in place from the import preview | sonnet | 🟨 |
-| 4d | 4 | Settings and platform: tool settings, rest notifications, keep-awake, backup, restore, CSV | sonnet | 🟨 |
-| 4e | 4 | Body screen | haiku | 🟨 |
-| 4f | 4 | Progress: Volume and Calendar tabs; Home: streak, cycle-complete banner, backup reminder | sonnet | 🟨 |
-| 4h | 4 | History and exercise detail: drop sets, supersets, repeat workout, note, bar weight, similar, how-to | haiku | 🟨 |
+| 4a | 4 | Logger: rest timer, plates, warm-ups, exercise note, supersets, drop sets, similar exercises, share summary | sonnet | ✅ |
+| 4b | 4 | Plan screens: supersets in the editor, RIR ramp settings and timeline, entry points to report and AI review | sonnet | ✅ |
+| 4c | 4 | Cycle report screen, Review with AI screen, plan update in place from the import preview | sonnet | ✅ |
+| 4d | 4 | Settings and platform: tool settings, rest notifications, keep-awake, backup, restore, CSV | sonnet | ✅ |
+| 4e | 4 | Body screen | haiku | ✅ |
+| 4f | 4 | Progress: Volume and Calendar tabs; Home: streak, cycle-complete banner, backup reminder | sonnet | ✅ |
+| 4h | 4 | History and exercise detail: drop sets, supersets, repeat workout, note, bar weight, similar, how-to | haiku | ✅ |
 | 5 | 5 | Integration: E2E v3 flow, audits, docs (IMPORT_FORMAT, BACKUP_FORMAT, README), screenshots | sonnet | ⬜ |
 | 6 | — | Final review, PR, CI, APK on the PR, merge, release check | orchestrator | ⬜ |
 
