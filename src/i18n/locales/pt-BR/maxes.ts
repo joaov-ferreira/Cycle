@@ -83,7 +83,6 @@ export const maxes: typeof enMaxes = {
     rounding: 'Arredondamento: {{mode}}',
     percentHeader: '% do 1RM',
     loadHeader: 'Carga',
-    row: '{{percent}}: {{load}}',
     saveAs: 'Salvar como 1RM de…',
     pickerTitle: 'Salvar o 1RM como…',
     saved: '{{value}} salvos como 1RM de {{name}}.',

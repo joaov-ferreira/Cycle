@@ -81,7 +81,6 @@ export const maxes = {
     rounding: 'Rounding: {{mode}}',
     percentHeader: '% of 1RM',
     loadHeader: 'Load',
-    row: '{{percent}}: {{load}}',
     saveAs: 'Save as 1RM of…',
     pickerTitle: 'Save the 1RM as…',
     saved: 'Saved {{value}} as the 1RM of {{name}}.',
