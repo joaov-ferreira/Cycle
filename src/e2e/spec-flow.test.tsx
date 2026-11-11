@@ -1,269 +1,378 @@
 /**
- * End-to-end acceptance flow of SPEC §13, driven through the real root layout (onboarding gate,
- * app shell, stack and tabs), every real route and the store over in-memory repositories.
+ * SPEC §13 acceptance flow, driven through the UI on the real route files (Expo Router test
+ * renderer), over in-memory repositories and a controllable clock.
  *
- * Expected values are computed by hand (2.5 kg increment, nearest rounding, ties down):
- * - Bench 100, custom 5/3/1: 100 × 0.75 = 75 → 75.0; × 0.85 = 85 → 85.0; × 0.95 = 95 → 95.0.
- * - Bench 100, Smolov Jr. day 1 (6 × 6 @ 70 %, +2.5 kg weekly increment by default):
- *   70 → 70.0; 70 + 2.5 = 72.5 → 72.5; 70 + 2 × 2.5 = 75 → 75.0.
- * - Squat 140, custom 5/3/1: 105 → 105.0; 119 → 120.0 (remainder 1.5 > 1.25); 133 → 132.5.
- * - Deadlift 180, Sheiko #29 day 2 (Wednesday), week 1: deadlift up to knees 1 × 3 @ 50 % = 90,
- *   2 × 3 @ 60 % = 108 → 107.5, 2 × 3 @ 70 % = 126 → 125, 4 × 3 @ 75 % = 135; deadlift from boxes
- *   1 × 4 @ 55 % = 99 → 100, 1 × 4 @ 65 % = 117 → 117.5, 2 × 4 @ 75 % = 135, 4 × 3 @ 85 % = 153 → 152.5.
- *   Tonnage 270 + 645 + 750 + 1,620 + 400 + 470 + 1,080 + 1,830 = 7,065 kg, 27 + 28 = 55 reps.
- * - Logged session 1 / week 1: 75 × 5, 75 × 5, 80 × 5 @ RIR 1 → tonnage 375 + 375 + 400 = 1,150 kg
- *   (prescribed 3 × 5 × 75 = 1,125 kg, Δ +25 kg); e1RM (RTS, default) = 80 / 0.837 = 95.579… → 95.6 kg.
- * - Bench 1RM 105: 105 × 0.75 = 78.75 → tie → 77.5; × 0.85 = 89.25 → 90.0 (remainder 1.75 > 1.25);
- *   × 0.95 = 99.75 → 100.0 (remainder 2.25 > 1.25).
+ * The three blocks run in order and share the repositories, like one user using the app over
+ * several days: each block "restarts the app" (a new store and router over the same data), so
+ * what the previous block did must have been persisted correctly.
  */
-import { router } from 'expo-router';
-import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
+import { Stack } from 'expo-router';
 import * as Localization from 'expo-localization';
+import { fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
+import { useState, type ReactNode } from 'react';
 
-import RootLayout from '@/app/_layout';
-import TabsLayout from '@/app/(tabs)/_layout';
-import DashboardScreen from '@/app/(tabs)/index';
-import MoreScreen from '@/app/(tabs)/more';
-import PeriodizationRoute from '@/app/(tabs)/periodization';
+import HomeRoute from '@/app/(tabs)/index';
+import MoreRoute from '@/app/(tabs)/more';
+import PlanTabRoute from '@/app/(tabs)/plan';
 import ProgressRoute from '@/app/(tabs)/progress';
-import TrainingRoute from '@/app/(tabs)/training';
+import WorkoutRoute from '@/app/(tabs)/workout';
+import ExerciseDetailRoute from '@/app/exercises/[id]';
+import ExercisesRoute from '@/app/exercises/index';
+import ExerciseNewRoute from '@/app/exercises/new';
 import HistoryDetailRoute from '@/app/history/[id]';
 import HistoryRoute from '@/app/history/index';
-import ProgramDetailRoute from '@/app/programs/[id]';
-import ProgramsRoute from '@/app/programs/index';
-import SessionRoute from '@/app/session/[id]';
+import PlanEditRoute from '@/app/plans/[id]/edit';
+import PlanDetailRoute from '@/app/plans/[id]/index';
+import PlanImportRoute from '@/app/plans/import';
+import PlansRoute from '@/app/plans/index';
+import PlanNewRoute from '@/app/plans/new';
+import PlanTemplatesRoute from '@/app/plans/templates';
 import SettingsRoute from '@/app/settings';
+import { AppProviders } from '@/components/app-providers';
+import { AppShell } from '@/components/navigation/app-shell';
+import { AppTabs } from '@/components/navigation/app-tabs';
+import { OnboardingGate, type OnboardingNext } from '@/components/onboarding/onboarding-gate';
+import { OnboardingNavigation } from '@/components/onboarding/onboarding-navigation';
 import { createMemoryRepositories } from '@/data/memory/memory-repositories';
 import type { Repositories } from '@/data/repositories';
-import { openSqliteRepositories } from '@/data/sqlite/open-database';
-
-jest.mock('expo-splash-screen', () => ({
-  preventAutoHideAsync: jest.fn(() => Promise.resolve(true)),
-  hideAsync: jest.fn(() => Promise.resolve(true)),
-}));
-
-jest.mock('@/data/sqlite/open-database', () => ({ openSqliteRepositories: jest.fn() }));
+import { createAppStore } from '@/state/app-store';
+import { createClock, DAY_MS, HOUR_MS } from '@/test-utils/clock';
 
 jest.mock('expo-localization', () => {
   const actual = jest.requireActual('expo-localization');
   return { ...actual, getLocales: jest.fn(), useLocales: jest.fn() };
 });
 
-const NBSP = ' ';
-const kg = (text: string) => text.replace(/ kg/g, `${NBSP}kg`);
+// Many steps per block: slower than a unit test, still deterministic.
+jest.setTimeout(180_000);
+
+const SPEC_PLAN_TEXT = `# My plan
+cycle: 2+1
+sessions: 2
+
+## A
+Supino reto com barra | 3x8-12
+Minha remada especial | 3x8-12
+
+## B
+Agachamento livre | 3x6-10`;
+
+// ---------------------------------------------------------------------------------------------
+// Harness: the real route files under a root layout that mirrors `src/app/_layout.tsx`
+// (providers → onboarding gate → shell → navigator), with the real bottom tabs.
+// ---------------------------------------------------------------------------------------------
+
+function RootLayout() {
+  const [pendingNext, setPendingNext] = useState<OnboardingNext | null>(null);
+  return (
+    <OnboardingGate onFinish={setPendingNext}>
+      <AppShell>
+        <Stack screenOptions={{ headerShown: false }} />
+      </AppShell>
+      <OnboardingNavigation next={pendingNext} onDone={() => setPendingNext(null)} />
+    </OnboardingGate>
+  );
+}
 
 const routes = {
   _layout: RootLayout,
-  '(tabs)/_layout': TabsLayout,
-  '(tabs)/index': DashboardScreen,
-  '(tabs)/periodization': PeriodizationRoute,
-  '(tabs)/training': TrainingRoute,
+  '(tabs)/_layout': AppTabs,
+  '(tabs)/index': HomeRoute,
+  '(tabs)/plan': PlanTabRoute,
+  '(tabs)/workout': WorkoutRoute,
   '(tabs)/progress': ProgressRoute,
-  '(tabs)/more': MoreScreen,
-  settings: SettingsRoute,
-  'programs/index': ProgramsRoute,
-  'programs/[id]': ProgramDetailRoute,
+  '(tabs)/more': MoreRoute,
+  'plans/index': PlansRoute,
+  'plans/new': PlanNewRoute,
+  'plans/templates': PlanTemplatesRoute,
+  'plans/import': PlanImportRoute,
+  'plans/[id]/index': PlanDetailRoute,
+  'plans/[id]/edit': PlanEditRoute,
+  'exercises/index': ExercisesRoute,
+  'exercises/new': ExerciseNewRoute,
+  'exercises/[id]': ExerciseDetailRoute,
   'history/index': HistoryRoute,
   'history/[id]': HistoryDetailRoute,
-  'session/[id]': SessionRoute,
+  settings: SettingsRoute,
 };
 
-let now = '2026-11-09T18:00:00.000Z';
+const clock = createClock(new Date(2026, 2, 2, 6, 42)); // Monday 06:42, local time
 let repos: Repositories;
 
-beforeEach(() => {
-  now = '2026-11-09T18:00:00.000Z';
-  const locales = [{ languageTag: 'en-US' }] as unknown as ReturnType<typeof Localization.getLocales>;
-  (Localization.getLocales as jest.Mock).mockReturnValue(locales);
-  (Localization.useLocales as jest.Mock).mockReturnValue(locales);
-  repos = createMemoryRepositories({ clock: () => new Date(now) });
-  (openSqliteRepositories as jest.Mock).mockResolvedValue(repos);
-});
-
-const tab = (name: string) => fireEvent.press(screen.getByRole('button', { name }));
-
-async function chooseInGroup(groupLabel: string, option: string) {
-  const group = await screen.findByLabelText(groupLabel);
-  await fireEvent.press(within(group).getByRole('button', { name: option }));
+/** "Opens the app": a new store over the shared repositories and a fresh router. */
+async function launch(initialUrl = '/') {
+  const store = createAppStore(repos, { now: clock });
+  const openRepositories = () => Promise.resolve(repos);
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <AppProviders openRepositories={openRepositories} store={store}>
+      {children}
+    </AppProviders>
+  );
+  const router = await renderRouter(routes, { initialUrl, wrapper });
+  return { store, router };
 }
 
-/**
- * One long flow across a dozen screens (onboarding to the language switch): it takes several
- * seconds alone and more when the whole suite runs in parallel or on a slow CI runner, so it gets
- * a generous timeout instead of Jest's default 5 s. `jest.setTimeout` also covers the hooks
- * (the testing library's unmount cleanup after this large tree).
- */
-const E2E_TIMEOUT_MS = 60_000;
-jest.setTimeout(E2E_TIMEOUT_MS);
+function setDeviceLocale(tag: string) {
+  const locales = [{ languageTag: tag }] as unknown as ReturnType<typeof Localization.getLocales>;
+  (Localization.getLocales as jest.Mock).mockReturnValue(locales);
+  (Localization.useLocales as jest.Mock).mockReturnValue(locales);
+}
 
-describe('SPEC §13 acceptance flow (E2E)', () => {
-  it('onboards, plans, logs, estimates, recalculates and switches language', async () => {
-    const result = await renderRouter(routes, { initialUrl: '/' });
+const press = async (role: 'button' | 'checkbox' | 'switch', name: string | RegExp) =>
+  fireEvent.press(await screen.findByRole(role, { name }));
 
-    // 1. First run → onboarding → 1RMs (Bench 100, Squat 140, Deadlift 180).
+/** Switches to a bottom tab by its label. */
+const goToTab = (name: string) => press('button', name);
+
+const card = (index: number) => within(screen.getByTestId(`exercise-card-${index}`));
+
+/** Types weight and reps of one set row of an exercise card and marks it done. */
+async function logSet(cardIndex: number, setNumber: number, weight: string, reps: number) {
+  const exercise = card(cardIndex);
+  await fireEvent.changeText(exercise.getByLabelText(`Set ${setNumber} weight`), weight);
+  await fireEvent.changeText(exercise.getByLabelText(`Set ${setNumber} reps`), String(reps));
+  await fireEvent.press(exercise.getByRole('checkbox', { name: `Set ${setNumber} done` }));
+  await waitFor(() =>
+    expect(exercise.getByRole('checkbox', { name: `Set ${setNumber} done`, checked: true })).toBeOnTheScreen(),
+  );
+}
+
+async function logSets(cardIndex: number, weight: string, reps: number[]) {
+  for (let i = 0; i < reps.length; i++) await logSet(cardIndex, i + 1, weight, reps[i]);
+}
+
+async function finishWorkoutAndCloseSummary() {
+  await press('button', 'Finish workout');
+  expect(await screen.findByRole('header', { name: 'Workout complete' })).toBeOnTheScreen();
+}
+
+async function closeSummary() {
+  await press('button', 'Done');
+  await screen.findByText('Next workout');
+}
+
+/** Finishes the workout in progress, closes its summary and lets a day pass. */
+async function finishAndClose() {
+  await finishWorkoutAndCloseSummary();
+  await closeSummary();
+  clock.advance(DAY_MS);
+}
+
+beforeAll(() => {
+  setDeviceLocale('en-US');
+  repos = createMemoryRepositories({ clock });
+});
+
+describe('SPEC §13 acceptance flow', () => {
+  it('steps 1–5: onboarding, import, first workouts and the end of the first week', async () => {
+    // 1. First run: onboarding, Intermediate, "Import a plan".
+    const { store, router } = await launch();
     expect(await screen.findByRole('header', { name: 'Welcome to CYCLE' })).toBeOnTheScreen();
-    await fireEvent.changeText(screen.getByLabelText('Bench Press 1RM'), '100');
-    await fireEvent.changeText(screen.getByLabelText('Squat 1RM'), '140');
-    await fireEvent.changeText(screen.getByLabelText('Deadlift 1RM'), '180');
-    await fireEvent.press(screen.getByRole('button', { name: 'Save and continue' }));
-    expect(await screen.findByRole('header', { name: 'Dashboard' })).toBeOnTheScreen();
-    const profileId = (await repos.profiles.getActiveId()) as number;
-    expect(
-      (await repos.referenceOneRms.listHistory(profileId)).map((r) => [r.lift, r.value, r.origin]).sort(),
-    ).toEqual([
-      ['bench', 100, 'onboarding'],
-      ['deadlift', 180, 'onboarding'],
-      ['squat', 140, 'onboarding'],
-    ]);
+    await press('button', 'Intermediate');
+    expect(screen.getByRole('button', { name: 'Intermediate', selected: true })).toBeOnTheScreen();
+    await press('button', 'Import a plan');
+    expect(await screen.findByRole('header', { name: 'Import plan' })).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/plans/import');
+    expect(store.getState().settings).toMatchObject({ experience: 'intermediate', onboardingCompleted: true });
 
-    // 2. Periodization: four sessions.
-    await tab('Periodization');
-    expect(await screen.findByRole('header', { name: 'Periodization' })).toBeOnTheScreen();
-    for (let i = 0; i < 4; i += 1) await fireEvent.press(screen.getByRole('button', { name: 'Add session' }));
-    // Session 1: Bench / 5/3/1 (the new-slot default). Session 2: Bench / Smolov Jr. day 1.
-    await chooseInGroup('Program for session 2', 'Smolov Jr.');
-    expect(within(screen.getByLabelText('Program day for session 2')).getByRole('button', { name: 'Day 1' })).toBeSelected();
-    // Session 3: Squat / 5/3/1.
-    await chooseInGroup('Lift for session 3', 'Squat');
-    // Session 4: Deadlift / Sheiko #29, day 2.
-    await chooseInGroup('Lift for session 4', 'Deadlift');
-    await chooseInGroup('Program for session 4', 'Sheiko');
-    expect(within(screen.getByLabelText('Template for session 4')).getByRole('button', { name: '#29' })).toBeSelected();
-    await chooseInGroup('Program day for session 4', 'Day 2');
-    expect(screen.getAllByText(/^(Bench Press|Squat|Deadlift) · /).map((node) => node.props.children)).toEqual([
-      'Bench Press · 5/3/1 (custom)',
-      'Bench Press · Smolov Jr.',
-      'Squat · 5/3/1 (custom)',
-      'Deadlift · Sheiko #29',
-    ]);
+    // 2. Paste the plan text and continue.
+    await fireEvent.changeText(screen.getByLabelText('Plan text'), SPEC_PLAN_TEXT);
+    await press('button', 'Continue');
+    expect(await screen.findByRole('header', { name: 'Review the plan' })).toBeOnTheScreen();
+    expect(screen.getByText('2 load weeks + 1 deload week')).toBeOnTheScreen();
+    expect(screen.getByText('2 sessions per week')).toBeOnTheScreen();
 
-    // 3. Three-week table.
-    const cell = (key: string) => within(screen.getByTestId(`cell-${key}`));
-    expect(cell('1-w1').getByText('3 × 5 @ 75%')).toBeOnTheScreen();
-    expect(cell('1-w1').getByText(kg('75.0 kg → 75.0 kg'))).toBeOnTheScreen();
-    expect(cell('2-w1').getByText(kg('70.0 kg → 70.0 kg'))).toBeOnTheScreen();
-    expect(cell('3-w1').getByText(kg('105.0 kg → 105.0 kg'))).toBeOnTheScreen();
-    expect(cell('4-w1').getByText(kg('108.0 kg → 107.5 kg'))).toBeOnTheScreen();
-    expect(cell('4-w1').getByText(kg('153.0 kg → 152.5 kg'))).toBeOnTheScreen();
-    expect(cell('4-w1').getByText(kg('Volume: 7,065.0 kg · 55 reps'))).toBeOnTheScreen();
-    await tab('Week 2');
-    expect(cell('1-w2').getByText('3 × 3 @ 85%')).toBeOnTheScreen();
-    expect(cell('1-w2').getByText(kg('85.0 kg → 85.0 kg'))).toBeOnTheScreen();
-    expect(cell('2-w2').getByText(kg('72.5 kg → 72.5 kg'))).toBeOnTheScreen();
-    expect(cell('3-w2').getByText(kg('119.0 kg → 120.0 kg'))).toBeOnTheScreen();
-    await tab('Week 3');
-    expect(cell('1-w3').getByText('3 × 1 @ 95%')).toBeOnTheScreen();
-    expect(cell('1-w3').getByText(kg('95.0 kg → 95.0 kg'))).toBeOnTheScreen();
-    expect(cell('2-w3').getByText(kg('75.0 kg → 75.0 kg'))).toBeOnTheScreen();
-    expect(cell('3-w3').getByText(kg('133.0 kg → 132.5 kg'))).toBeOnTheScreen();
+    // 3. Two exercises resolve; "Minha remada especial" is reported as unresolved.
+    expect(screen.getAllByText('Barbell Bench Press').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Barbell Back Squat').length).toBeGreaterThan(0);
+    const unresolved = screen.getByTestId('unresolved-minha remada especial');
+    expect(within(unresolved).getByText('Minha remada especial')).toBeOnTheScreen();
+    expect(screen.getByText('Resolve all exercises to save. 1 exercise to resolve')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Save plan' })).toBeDisabled();
 
-    // Activate (snapshot with a start date) so the session can be logged.
-    await fireEvent.changeText(screen.getByLabelText('Start date (YYYY-MM-DD)'), '2026-11-09');
-    await fireEvent.press(screen.getByRole('button', { name: 'Activate periodization' }));
-    expect(await screen.findByText('Active periodization starts on Nov 9, 2026')).toBeOnTheScreen();
+    // ...and is created as a custom exercise: back, machine, compound.
+    await press('button', 'Create as new exercise');
+    expect(await screen.findByDisplayValue('Minha remada especial')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('form-primary-back'));
+    await fireEvent.press(screen.getByTestId('form-equipment-machine'));
+    expect(screen.getByRole('button', { name: 'Compound', selected: true })).toBeOnTheScreen();
+    await press('button', 'Use this exercise');
+    const save = await screen.findByRole('button', { name: 'Save plan' });
+    await waitFor(() => expect(save).toBeEnabled());
+    expect(screen.getByRole('switch', { name: 'Activate this plan', checked: true })).toBeOnTheScreen();
+    await fireEvent.press(save);
 
-    // 4. Calendar → Session 1 / week 1 → log 3 sets (80 kg × 5 @ RIR 1 on the last one).
-    await tab('Calendar');
-    expect(result.getPathname()).toBe('/periodization');
-    await fireEvent.press(await screen.findByRole('button', { name: 'Week 1, session 1: Bench Press, 5/3/1 (custom)' }));
-    expect(await screen.findByRole('header', { name: 'Session 1 · Week 1' })).toBeOnTheScreen();
-    expect(result.getPathname()).toBe('/session/1-w1');
-    await fireEvent.press(screen.getByRole('button', { name: 'Log this session' }));
-    await waitFor(() => expect(result.getPathname()).toBe('/session/p1-1-w1'));
-    const field = (label: string, set: number) => screen.getByLabelText(`${label}, set ${set}`);
-    expect(await screen.findByLabelText('Weight (kg), set 1')).toHaveDisplayValue('75');
-    await fireEvent.changeText(field('Reps', 1), '5');
-    await fireEvent.changeText(field('Reps', 2), '5');
-    await fireEvent.changeText(field('Weight (kg)', 3), '80');
-    await fireEvent.changeText(field('Reps', 3), '5');
-    await fireEvent.changeText(field('RIR', 3), '1');
-    expect(field('RPE', 3)).toHaveDisplayValue('9');
-    expect(screen.getByText(kg('Tonnage: 1,150.0 kg performed · 1,125.0 kg prescribed · Δ +25.0 kg'))).toBeOnTheScreen();
+    // The plan is saved and active; the custom exercise exists with the chosen attributes.
+    await waitFor(() => expect(router.getPathname()).toMatch(/^\/plans\/\d+$/));
+    const state = store.getState();
+    expect(state.plans).toHaveLength(1);
+    expect(state.activePlanId).toBe(state.plans[0].id);
+    expect(state.customExercises).toHaveLength(1);
+    expect(state.customExercises[0]).toMatchObject({
+      name: { en: 'Minha remada especial' },
+      primaryMuscle: 'back',
+      equipment: 'machine',
+      mechanics: 'compound',
+    });
+    expect(await screen.findByText('My plan')).toBeOnTheScreen();
 
-    // 5. Complete → e1RM displayed and stored; Progress shows the point; History lists the session.
-    await fireEvent.press(screen.getByRole('button', { name: 'Complete session' }));
-    expect(await screen.findByText(/Session completed on/)).toBeOnTheScreen();
-    expect(within(screen.getByTestId('session-e1rm')).getByText(kg('Bench Press: e1RM ≈ 95.6 kg (estimate), from set 3'))).toBeOnTheScreen();
-    const stored = await repos.e1rmHistory.list(profileId);
-    expect(stored.map(({ lift, valueKg, formula, weightKg, reps, rir }) => ({ lift, valueKg, formula, weightKg, reps, rir }))).toEqual([
-      { lift: 'bench', valueKg: 95.6, formula: 'rts', weightKg: 80, reps: 5, rir: 1 },
-    ]);
+    // 4. Home: cycle 1, load week 1 of 2, next workout A.
+    await press('button', 'Back');
+    await goToTab('Home');
+    expect(await screen.findByText('Cycle 1 · Load week 1 of 2')).toBeOnTheScreen();
+    expect(screen.getByText('Sessions this week: 0/2')).toBeOnTheScreen();
+    const next = within(screen.getByTestId('next-workout-card'));
+    expect(next.getByText('Next workout')).toBeOnTheScreen();
+    expect(next.getByRole('header', { name: 'A' })).toBeOnTheScreen();
 
-    await act(async () => router.back());
-    await act(async () => router.back());
-    await tab('Progress');
+    // Start A: no history, so there is no suggested load.
+    await press('button', 'Start');
+    expect(await screen.findByRole('header', { name: 'A' })).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/workout');
+    expect(screen.getByText('Cycle 1 · Load week 1')).toBeOnTheScreen();
+    expect(card(0).getByText('Barbell Bench Press')).toBeOnTheScreen();
+    expect(card(0).getByText('No history yet — choose a load for 8–12 reps')).toBeOnTheScreen();
+    expect(card(0).getByLabelText('Set 1 weight')).toHaveDisplayValue('');
+    expect(card(1).getByText('Minha remada especial')).toBeOnTheScreen();
+
+    // Bench 40 kg × 12, 12, 12 and the custom row 30 kg × 10, 10, 10.
+    await logSets(0, '40', [12, 12, 12]);
+    await logSets(1, '30', [10, 10, 10]);
+    await finishWorkoutAndCloseSummary();
+
+    // Summary: 6 sets, volume 40×36 + 30×30 = 2 340 kg.
+    expect(within(screen.getByTestId('summary-sets')).getByText('6')).toBeOnTheScreen();
+    expect(within(screen.getByTestId('summary-volume')).getByText(/^2,340\skg$/)).toBeOnTheScreen();
+    expect(within(screen.getByTestId('summary-exercises')).getByText('2')).toBeOnTheScreen();
+    await closeSummary();
+    clock.advance(DAY_MS);
+
+    // 5. Start and finish B (squat 60 kg × 10, 10, 10): the training week ends.
+    await press('button', 'Start workout');
+    expect(await screen.findByRole('header', { name: 'B' })).toBeOnTheScreen();
+    await logSets(0, '60', [10, 10, 10]);
+    await finishWorkoutAndCloseSummary();
+    await closeSummary();
+    clock.advance(DAY_MS);
+
+    await goToTab('Home');
+    expect(await screen.findByText('Cycle 1 · Load week 2 of 2')).toBeOnTheScreen();
+    expect(screen.getByText('Sessions this week: 0/2')).toBeOnTheScreen();
+    expect(within(screen.getByTestId('next-workout-card')).getByRole('header', { name: 'A' })).toBeOnTheScreen();
+  });
+
+  it('steps 6–7: progression suggestions, then the deload week', async () => {
+    const { store } = await launch();
+    expect(await screen.findByText('Cycle 1 · Load week 2 of 2')).toBeOnTheScreen();
+
+    // 6. A again: the preview already shows the suggestions.
+    await goToTab('Workout');
+    const preview = within(await screen.findByTestId('next-workout'));
+    expect(preview.getByText(/^42\.5\skg$/)).toBeOnTheScreen();
+    expect(preview.getByText(/^30\skg$/)).toBeOnTheScreen();
+    await press('button', 'Start workout');
+    expect(await screen.findByRole('header', { name: 'A' })).toBeOnTheScreen();
+
+    // Bench: top of the range reached → 42.5 kg with the explanation.
+    expect(card(0).getByLabelText('Set 1 weight')).toHaveDisplayValue('42.5');
+    expect(card(0).getByText(/^All 3 sets reached 12 reps at 40\skg → \+2\.5\skg$/)).toBeOnTheScreen();
+    expect(card(0).getByLabelText('Set 1 reps')).toHaveProp('placeholder', '8');
+    // Custom row (machine, 5 kg increment): hold 30 kg, reps 11, 11, 11.
+    expect(card(1).getByLabelText('Set 1 weight')).toHaveDisplayValue('30');
+    expect(card(1).getByText(/^Same load \(30\skg\) — aim for 11, 11, 11 reps$/)).toBeOnTheScreen();
+    for (const set of [1, 2, 3]) {
+      expect(card(1).getByLabelText(`Set ${set} reps`)).toHaveProp('placeholder', '11');
+    }
+
+    await logSets(0, '42.5', [10, 10, 10]);
+    await logSets(1, '30', [11, 11, 11]);
+    await finishAndClose();
+
+    await press('button', 'Start workout');
+    expect(await screen.findByRole('header', { name: 'B' })).toBeOnTheScreen();
+    // Squat: 60 kg × 10, 10, 10 reached the top of 6–10 → 62.5 kg.
+    expect(card(0).getByLabelText('Set 1 weight')).toHaveDisplayValue('62.5');
+    await logSets(0, '62.5', [8, 8, 8]);
+    await finishAndClose();
+
+    // 7. The cycle enters deload week 1 and Home announces it.
+    await goToTab('Home');
+    expect(await screen.findByText('Cycle 1 · Deload week 1 of 1')).toBeOnTheScreen();
+    expect(screen.getByText('Deload week: lighter sets and loads so you recover.')).toBeOnTheScreen();
+    expect(screen.getByText('Sessions this week: 0/2')).toBeOnTheScreen();
+    expect(store.getState().plans[0].cycleState).toMatchObject({ cycleNumber: 1, phase: 'deload', week: 1 });
+    expect(within(screen.getByTestId('next-workout-card')).getByText('Deload')).toBeOnTheScreen();
+
+    // Starting A: 2 sets per exercise; bench at 90 % of 42.5 kg → 38.25 → 37.5 kg.
+    await press('button', 'Start');
+    expect(await screen.findByRole('header', { name: 'A' })).toBeOnTheScreen();
+    expect(screen.getByText('Cycle 1 · Deload week 1')).toBeOnTheScreen();
+    expect(card(0).getAllByLabelText(/^Set \d weight$/)).toHaveLength(2);
+    expect(card(1).getAllByLabelText(/^Set \d weight$/)).toHaveLength(2);
+    expect(card(0).getByLabelText('Set 1 weight')).toHaveDisplayValue('37.5');
+    expect(card(0).getByText(/^Deload: 2 sets at 37\.5\skg \(90% of 42\.5\skg\)$/)).toBeOnTheScreen();
+    // Custom row: 90 % of 30 kg = 27 kg → nearest 5 kg increment.
+    expect(card(1).getByLabelText('Set 1 weight')).toHaveDisplayValue('25');
+  });
+
+  it('steps 8–9: history, progress and the Portuguese UI', async () => {
+    clock.advance(HOUR_MS);
+    const { router } = await launch();
+
+    // The deload workout of the previous block is still in progress (the draft survived).
+    const resume = await screen.findByRole('button', { name: 'Resume workout' });
+    expect(within(resume).getByText('Started 6:42 AM')).toBeOnTheScreen();
+    await fireEvent.press(resume);
+    expect(await screen.findByText('Started 6:42 AM')).toBeOnTheScreen();
+    await press('button', 'Discard workout');
+    await fireEvent.press(within(await screen.findByTestId('discard-dialog')).getByRole('button', { name: 'Discard workout' }));
+    await waitFor(() => expect(screen.queryByTestId('exercise-card-0')).toBeNull());
+
+    // 8. History lists the four workouts, newest first.
+    await goToTab('More');
+    await press('button', 'History');
+    expect(await screen.findByRole('header', { name: 'History' })).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/history');
+    const rows = screen.getAllByRole('button', { name: /^(A|B), / });
+    expect(rows.map((row) => row.props.accessibilityLabel.split(',')[0])).toEqual(['B', 'A', 'B', 'A']);
+
+    // Progress: two points on the bench chart and a bench weight record.
+    await press('button', 'Back');
+    await goToTab('Progress');
     expect(await screen.findByRole('header', { name: 'Progress' })).toBeOnTheScreen();
-    const bench = within(screen.getByTestId('progress-bench'));
-    await fireEvent.press(bench.getByRole('button', { name: kg('Nov 9, 2026: e1RM ≈ 95.6 kg') }));
-    expect(bench.getByText(kg('Nov 9, 2026 · e1RM ≈ 95.6 kg (estimate)'))).toBeOnTheScreen();
-    expect(bench.getByText('Session 1, week 1 · 5/3/1 (custom)')).toBeOnTheScreen();
+    await press('button', 'Barbell Bench Press');
+    await waitFor(() => expect(screen.getByLabelText(/^Barbell Bench Press, all time: 2 data points/)).toBeOnTheScreen());
+    expect(screen.getAllByRole('button', { name: /^Mar \d+, 2026: / })).toHaveLength(2);
+    const records = within(screen.getByTestId('personal-records'));
+    expect(records.getByRole('button', { name: /^42\.5\skg × 10, / })).toBeOnTheScreen();
 
-    await tab('More');
-    await fireEvent.press(await screen.findByRole('button', { name: 'History' }));
-    expect(await screen.findByRole('header', { name: 'History' })).toBeOnTheScreen();
-    const item = () => within(screen.getByTestId('history-item-1'));
-    expect(item().getByText('Nov 9, 2026 · Bench Press')).toBeOnTheScreen();
-    expect(item().getByText(kg('Prescribed: 3×5 @ 75.0 kg'))).toBeOnTheScreen();
-    expect(item().getByText(kg('Performed: 2 × 75.0 kg × 5; 80.0 kg × 5 · RIR 1 · RPE 9'))).toBeOnTheScreen();
-    expect(item().getByText(kg('Tonnage: 1,150.0 kg'))).toBeOnTheScreen();
-    expect(item().getByText(kg('e1RM ≈ 95.6 kg (estimate)'))).toBeOnTheScreen();
-
-    // 6. Bench 1RM → 105: the periodization recalculates, the completed session stays unchanged.
-    await act(async () => router.push('/settings'));
-    await fireEvent.changeText(await screen.findByLabelText('Bench Press 1RM'), '105');
-    await fireEvent.press(screen.getByRole('button', { name: 'Save 1RMs' }));
-    await act(async () => router.push('/periodization?view=table'));
-    expect(await screen.findByText(kg('78.75 kg → 77.5 kg'))).toBeOnTheScreen();
-    await tab('Week 2');
-    expect(cell('1-w2').getByText(kg('89.25 kg → 90.0 kg'))).toBeOnTheScreen();
-    await tab('Week 3');
-    expect(cell('1-w3').getByText(kg('99.75 kg → 100.0 kg'))).toBeOnTheScreen();
-    await act(async () => router.push('/history'));
-    expect(await screen.findByRole('header', { name: 'History' })).toBeOnTheScreen();
-    expect(item().getByText(kg('Prescribed: 3×5 @ 75.0 kg'))).toBeOnTheScreen();
-    expect(item().getByText(kg('e1RM ≈ 95.6 kg (estimate)'))).toBeOnTheScreen();
-    expect((await repos.performances.list(profileId))[0].snapshot?.oneRmKg).toBe(100);
-    await act(async () => router.push('/progress'));
-    const benchProgress = within(await screen.findByTestId('progress-bench'));
-    // the new reference shows at once; the improvement compares with the first record (All):
-    // 95.6 − 100 = −4.4 kg, −4.4 / 100 = −4.4 %
-    expect(benchProgress.getByLabelText(kg('Reference 1RM: 105.0 kg'))).toBeOnTheScreen();
-    expect(benchProgress.getByLabelText(kg('Latest e1RM: 95.6 kg'))).toBeOnTheScreen();
-    expect(benchProgress.getByLabelText(kg('Improvement: -4.4 kg (-4.4%) vs. 100.0 kg'))).toBeOnTheScreen();
-
-    // 7. Português → pt-BR text and `75,0 kg`-style decimals; then back to English.
-    await act(async () => router.push('/settings'));
-    await chooseInGroup('App language', 'Português');
+    // 9. Switch the language to Português: every screen renders in pt-BR with `42,5 kg`.
+    await goToTab('More');
+    await press('button', 'Settings');
+    await press('button', 'Português');
     expect(await screen.findByRole('header', { name: 'Configurações' })).toBeOnTheScreen();
-    await act(async () => router.push('/history'));
-    expect(await screen.findByRole('header', { name: 'Histórico' })).toBeOnTheScreen();
-    expect(item().getByText('9 de nov. de 2026 · Supino')).toBeOnTheScreen();
-    expect(item().getByText(kg('Prescrito: 3×5 @ 75,0 kg'))).toBeOnTheScreen();
-    expect(item().getByText(kg('e1RM ≈ 95,6 kg (estimativa)'))).toBeOnTheScreen();
-    await act(async () => router.push('/periodization?view=table'));
-    expect(await screen.findByRole('header', { name: 'Periodização' })).toBeOnTheScreen();
-    await tab('Semana 1');
-    expect(cell('1-w1').getByText(kg('78,75 kg → 77,5 kg'))).toBeOnTheScreen();
-    expect(cell('2-w1').getByText(kg('73,5 kg → 72,5 kg'))).toBeOnTheScreen();
-    expect(screen.getByText('Supino · Smolov Jr.')).toBeOnTheScreen();
-    await tab('Progresso');
+    await press('button', 'Voltar');
+
+    await goToTab('Progresso');
     expect(await screen.findByRole('header', { name: 'Progresso' })).toBeOnTheScreen();
     expect(
-      within(screen.getByTestId('progress-bench')).getByRole('button', { name: kg('9 de nov. de 2026: e1RM ≈ 95,6 kg') }),
+      within(screen.getByTestId('personal-records')).getByRole('button', { name: /^42,5\skg × 10, / }),
     ).toBeOnTheScreen();
-    await tab('Painel');
-    expect(await screen.findByRole('header', { name: 'Painel' })).toBeOnTheScreen();
-    await act(async () => router.push('/session/p1-1-w1'));
-    expect(await screen.findByText(kg('80,0 kg × 5 · RIR 1 · RPE 9'))).toBeOnTheScreen();
-    // the frozen snapshot keeps the load of the 100 kg 1RM (the live one is now 78,75 → 77,5)
-    expect(screen.getByText(kg('75,0 kg → 75,0 kg'))).toBeOnTheScreen();
-    expect(screen.queryByText(kg('78,75 kg → 77,5 kg'))).toBeNull();
 
-    await act(async () => router.push('/settings'));
-    await chooseInGroup('Idioma do app', 'English');
-    expect(await screen.findByRole('header', { name: 'Settings' })).toBeOnTheScreen();
-    await act(async () => router.push('/periodization?view=table'));
-    expect(await screen.findByRole('header', { name: 'Periodization' })).toBeOnTheScreen();
-    expect(cell('1-w1').getByText(kg('78.75 kg → 77.5 kg'))).toBeOnTheScreen();
-  }, E2E_TIMEOUT_MS);
+    await goToTab('Início');
+    expect(await screen.findByText('Ciclo 1 · Semana de deload 1 de 1')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Iniciar' })).toBeOnTheScreen();
+
+    await goToTab('Treino');
+    expect(await screen.findByText(/^37,5\skg$/)).toBeOnTheScreen();
+
+    await goToTab('Periodização');
+    expect(await screen.findByTestId('cycle-status')).toHaveTextContent('Ciclo 1 · Semana de deload 1 de 1');
+
+    await goToTab('Mais');
+    await press('button', 'Histórico');
+    expect(await screen.findByRole('header', { name: 'Histórico' })).toBeOnTheScreen();
+    expect(screen.getAllByText('6 séries válidas')).toHaveLength(2);
+    expect(screen.getAllByText(/^Volume: 2\.265\skg$/)).toHaveLength(1);
+  });
 });

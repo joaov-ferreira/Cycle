@@ -5,64 +5,92 @@ import { renderInApp } from '@/test-utils/render-app';
 
 import { OnboardingGate } from './onboarding-gate';
 
+const onFinish = jest.fn();
+
 const App = () => (
-  <OnboardingGate>
+  <OnboardingGate onFinish={onFinish}>
     <Text>app content</Text>
   </OnboardingGate>
 );
 
-describe('OnboardingGate (en)', () => {
+beforeEach(() => {
+  onFinish.mockReset();
+});
+
+describe('OnboardingGate', () => {
   it('shows the app straight away once onboarding is completed', async () => {
     await renderInApp(<App />, { onboarded: true });
     expect(await screen.findByText('app content')).toBeOnTheScreen();
-    expect(screen.queryByText('Welcome to CYCLE')).toBeNull();
+    expect(screen.queryByRole('header', { name: 'Welcome to CYCLE' })).toBeNull();
   });
 
-  it('asks for the 1RMs on first run, before the app', async () => {
+  it('shows the onboarding instead of the app on first run', async () => {
     await renderInApp(<App />, { onboarded: false });
     expect(await screen.findByRole('header', { name: 'Welcome to CYCLE' })).toBeOnTheScreen();
-    expect(screen.getByLabelText('Bench Press 1RM')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Squat 1RM')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Deadlift 1RM')).toBeOnTheScreen();
     expect(screen.queryByText('app content')).toBeNull();
   });
 
-  it('saves the values with origin "onboarding" and opens the app', async () => {
-    const { repos, profileId } = await renderInApp(<App />, { onboarded: false });
-    await fireEvent.changeText(await screen.findByLabelText('Bench Press 1RM'), '100');
-    await fireEvent.changeText(screen.getByLabelText('Squat 1RM'), '140.5');
-    await fireEvent.press(screen.getByRole('button', { name: 'Save and continue' }));
-
-    expect(await screen.findByText('app content')).toBeOnTheScreen();
-    const history = await repos.referenceOneRms.listHistory(profileId);
-    expect(history.map((r) => [r.lift, r.value, r.origin]).sort()).toEqual([
-      ['bench', 100, 'onboarding'],
-      ['squat', 140.5, 'onboarding'],
-    ]);
-    expect((await repos.settings.get(profileId)).onboardingCompleted).toBe(true);
+  it('shows the experience levels with Intermediate selected by default', async () => {
+    await renderInApp(<App />, { onboarded: false });
+    expect(await screen.findByRole('button', { name: 'Intermediate', selected: true })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Beginner', selected: false })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Advanced', selected: false })).toBeOnTheScreen();
+    expect(screen.getByText('Sets the suggested cycle: 6 load weeks + 1 deload.')).toBeOnTheScreen();
   });
 
-  it('can be skipped, recording nothing, and is not shown again', async () => {
-    const { repos, profileId } = await renderInApp(<App />, { onboarded: false });
-    await fireEvent.press(await screen.findByRole('button', { name: 'Skip for now' }));
-    expect(await screen.findByText('app content')).toBeOnTheScreen();
-    expect(await repos.referenceOneRms.listHistory(profileId)).toEqual([]);
-    expect((await repos.settings.get(profileId)).onboardingCompleted).toBe(true);
+  it('updates the suggested cycle when another level is chosen', async () => {
+    await renderInApp(<App />, { onboarded: false });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Advanced' }));
+    expect(await screen.findByRole('button', { name: 'Advanced', selected: true })).toBeOnTheScreen();
+    expect(screen.getByText('Sets the suggested cycle: 4 load weeks + 1 deload.')).toBeOnTheScreen();
   });
-});
 
-describe('OnboardingGate (pt-BR)', () => {
-  it('shows the onboarding in Portuguese and accepts a decimal comma', async () => {
-    const { repos, profileId } = await renderInApp(<App />, { language: 'pt-BR', onboarded: false });
+  it('stores the level, completes onboarding and finishes to the templates on "Choose a template"', async () => {
+    const { repos, profileId } = await renderInApp(<App />, { onboarded: false });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Advanced' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Choose a template' }));
+
+    expect(await screen.findByText('app content')).toBeOnTheScreen();
+    expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(onFinish).toHaveBeenCalledWith('templates');
+    expect(await repos.settings.get(profileId)).toMatchObject({
+      experience: 'advanced',
+      onboardingCompleted: true,
+    });
+  });
+
+  it('finishes to the import on "Import a plan"', async () => {
+    const { repos, profileId } = await renderInApp(<App />, { onboarded: false });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Beginner' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Import a plan' }));
+
+    expect(await screen.findByText('app content')).toBeOnTheScreen();
+    expect(onFinish).toHaveBeenCalledWith('import');
+    expect(await repos.settings.get(profileId)).toMatchObject({
+      experience: 'beginner',
+      onboardingCompleted: true,
+    });
+  });
+
+  it('finishes to the home on "Later", keeping the default level', async () => {
+    const { repos, profileId } = await renderInApp(<App />, { onboarded: false });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Later' }));
+
+    expect(await screen.findByText('app content')).toBeOnTheScreen();
+    expect(onFinish).toHaveBeenCalledWith('home');
+    expect(await repos.settings.get(profileId)).toMatchObject({
+      experience: 'intermediate',
+      onboardingCompleted: true,
+    });
+  });
+
+  it('is available in Portuguese', async () => {
+    await renderInApp(<App />, { onboarded: false, language: 'pt-BR' });
     expect(await screen.findByRole('header', { name: 'Bem-vindo ao CYCLE' })).toBeOnTheScreen();
-    await fireEvent.changeText(screen.getByLabelText('1RM de Supino'), '102,5');
-    await fireEvent.press(screen.getByRole('button', { name: 'Salvar e continuar' }));
-    expect(await screen.findByText('app content')).toBeOnTheScreen();
-    expect((await repos.referenceOneRms.getCurrent(profileId, 'bench'))?.value).toBe(102.5);
-  });
-
-  it('offers to skip in Portuguese', async () => {
-    await renderInApp(<App />, { language: 'pt-BR', onboarded: false });
-    expect(await screen.findByRole('button', { name: 'Pular por enquanto' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Intermediário', selected: true })).toBeOnTheScreen();
+    expect(screen.getByText('Define o ciclo sugerido: 6 semanas de carga + 1 de deload.')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Escolher um modelo' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Importar periodização' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Depois' })).toBeOnTheScreen();
   });
 });

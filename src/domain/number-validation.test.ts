@@ -1,7 +1,7 @@
 import { validateDecimal, type NumberRules } from './number-validation';
 
-// The 1RM field rules from SPEC §2: > 0, <= 600 kg, up to 2 decimals.
-const oneRm: NumberRules = { required: true, min: 0, minExclusive: true, max: 600, maxDecimals: 2 };
+// A bounded positive decimal field: > 0, <= 600, up to 2 decimals.
+const bounded: NumberRules = { required: true, min: 0, minExclusive: true, max: 600, maxDecimals: 2 };
 
 describe('validateDecimal', () => {
   it.each([
@@ -11,7 +11,7 @@ describe('validateDecimal', () => {
     ['140', 140],
     ['100.5', 100.5],
   ])('accepts %p as %p', (input, value) => {
-    expect(validateDecimal(input, oneRm)).toEqual({ ok: true, value });
+    expect(validateDecimal(input, bounded)).toEqual({ ok: true, value });
   });
 
   it.each([
@@ -26,7 +26,7 @@ describe('validateDecimal', () => {
     ['1e3', 'invalidNumber'],
     ['96,25', 'invalidNumber'],
   ] as const)('rejects %p with %p', (input, error) => {
-    expect(validateDecimal(input, oneRm)).toEqual({ ok: false, error });
+    expect(validateDecimal(input, bounded)).toEqual({ ok: false, error });
   });
 
   it('treats an empty optional field as a valid null value', () => {

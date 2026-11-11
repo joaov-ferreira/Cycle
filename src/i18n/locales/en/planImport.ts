@@ -1,0 +1,146 @@
+/** English `planImport` namespace (source catalog). */
+export const planImport = {
+  back: 'Back',
+
+  // ---- New plan ----
+  new: {
+    title: 'New plan',
+    intro: 'How do you want to create your plan?',
+    templateTitle: 'From a template',
+    templateBody: 'Start from a ready-made split (full body, upper/lower, push/pull/legs…) and edit it freely.',
+    importTitle: 'Import',
+    importBody: 'Paste plan text or JSON, pick a file, or have an AI chatbot write it for you.',
+    scratchTitle: 'Start from scratch',
+    scratchBody: 'Build your own workouts and exercises in the plan editor.',
+  },
+
+  // ---- Templates ----
+  templates: {
+    title: 'Plan templates',
+    intro: 'Pick a starting point. The plan is created in your language and you can edit everything.',
+    workouts: { one: '{{count}} workout', other: '{{count}} workouts' },
+    sessions: { one: '{{count}} session per week', other: '{{count}} sessions per week' },
+    summary: '{{workouts}} · {{sessions}}',
+    open: 'Open {{name}}',
+    backToList: 'All templates',
+    use: 'Use this template',
+    useError: 'The plan could not be created. Try again.',
+  },
+
+  // ---- Shared target formatting ----
+  target: '{{sets}} × {{reps}}',
+  repRange: '{{min}}–{{max}}',
+
+  // ---- Import: input step ----
+  input: {
+    title: 'Import plan',
+    pasteLabel: 'Plan text',
+    hint: 'Paste a plan as plain text or JSON. Answers from AI chatbots can be pasted as they are.',
+    exampleTitle: 'Plain-text example',
+    example:
+      '# My plan\ncycle: 6+1\nsessions: 2\n\n## Upper\nBarbell Bench Press | 4x6-10 | rir 2 | rest 150\nLat Pulldown | 3x8-12\n\n## Lower\nBarbell Back Squat | 4x6-10',
+    pickFile: 'Pick a file',
+    pickFileHint: '.json or .txt, up to 256 KB',
+    createWithAi: 'Create with AI',
+    continue: 'Continue',
+    emptyText: 'Paste or pick a plan first.',
+    fileTooLarge: 'This file is larger than 256 KB.',
+    fileReadError: 'The file could not be read.',
+    errorsTitle: 'The plan could not be read',
+    line: 'Line {{line}}',
+    errorLine: '{{where}}: {{message}}',
+  },
+
+  // ---- Import errors (docs/IMPORT_FORMAT.md §5, SPEC §4.2) ----
+  errors: {
+    invalidJson: 'The text is not valid JSON.',
+    fileTooLarge: 'The plan is larger than 256 KB.',
+    notAnObject: 'The document must be a JSON object.',
+    unsupportedFormat: 'The format must be "cycle-plan".',
+    unsupportedVersion: 'Only version 1 is supported.',
+    required: 'This value is required.',
+    invalidType: 'This value has the wrong type.',
+    tooShort: 'This is too short.',
+    tooLong: 'This is too long.',
+    outOfRange: 'This number is outside the allowed range.',
+    notInteger: 'A whole number is required.',
+    invalidValue: 'This value is not allowed.',
+    invalidRepRange: 'The maximum reps must not be lower than the minimum.',
+    missingRepTarget: 'Give the reps as a range such as 8-12.',
+    duplicateKey: 'This key is duplicated or equals a built-in exercise id.',
+    missingPlanName: 'The plan needs a name (a line starting with #).',
+    exerciseOutsideWorkout: 'This exercise is not inside a workout (a line starting with ##).',
+    invalidExerciseLine: 'This exercise line could not be read. Use: name | 4x8-12.',
+    invalidDirective: 'This setting could not be read.',
+    emptyWorkout: 'This workout has no exercises.',
+    noWorkouts: 'The plan has no workouts.',
+  },
+
+  // ---- Create with AI ----
+  ai: {
+    title: 'Create with AI',
+    intro: 'Let an AI chatbot (ChatGPT, Claude, Gemini…) write the plan for you.',
+    step1: '1. Copy the prompt below.',
+    step2: '2. Paste it as the first message of a new chat and add your information: goal, experience, days per week, equipment, limitations and current loads.',
+    step3: '3. Copy the JSON answer, or save it as a .json file.',
+    step4: '4. Come back here, paste the text or pick the file, and review the preview.',
+    promptLabel: 'Prompt for the chatbot',
+    share: 'Share',
+    shareHint: 'If sharing is not available, select the text and copy it.',
+    done: 'Back to import',
+  },
+
+  // ---- Import: preview step ----
+  preview: {
+    title: 'Review the plan',
+    cycle: '{{load}} + {{deload}}',
+    loadWeeks: { one: '{{count}} load week', other: '{{count}} load weeks' },
+    deloadWeeks: { one: '{{count}} deload week', other: '{{count}} deload weeks' },
+    sessionsPerWeek: { one: '{{count}} session per week', other: '{{count}} sessions per week' },
+    workoutExercises: { one: '{{count}} exercise', other: '{{count}} exercises' },
+    willBeCreated: 'Will be created',
+    unresolvedTitle: 'Exercises to resolve',
+    unresolvedHint: 'These names are not in the library. Choose an exercise or create a new one.',
+    suggestions: 'Suggestions',
+    chooseAnother: 'Choose another exercise',
+    createNew: 'Create as new exercise',
+    chooseTitle: 'Choose an exercise',
+    createTitle: 'New exercise',
+    createSubmit: 'Use this exercise',
+    resolvedExisting: '{{name}} → {{target}}',
+    resolvedCreate: '{{name}} → new exercise "{{target}}"',
+    change: 'Change {{name}}',
+    pending: 'Resolve all exercises to save.',
+    unresolvedCount: { one: '{{count}} exercise to resolve', other: '{{count}} exercises to resolve' },
+    activate: 'Activate this plan',
+    save: 'Save plan',
+    edit: 'Edit text',
+    saveError: 'The plan could not be saved.',
+    planIssues: 'The plan is not valid',
+    issue: '{{path}}: {{message}}',
+  },
+  issues: {
+    required: 'required',
+    tooLong: 'too long',
+    tooFew: 'too few items',
+    tooMany: 'too many items',
+    outOfRange: 'out of range',
+    notInteger: 'must be a whole number',
+    invalidRepRange: 'maximum reps below minimum',
+    invalidStep: 'invalid step',
+    tooManyDecimals: 'too many decimals',
+    unknownExercise: 'unknown exercise',
+    duplicateId: 'duplicated id',
+    zeroLoadNotAllowed: '0 kg is not allowed for this exercise',
+  },
+
+  // ---- Export ----
+  export: {
+    title: 'Export plan',
+    fieldLabel: 'Plan JSON',
+    note: 'Import this text on another device, or give it to an AI chatbot to edit.',
+    share: 'Share',
+    notFoundTitle: 'Plan not found',
+    notFoundMessage: 'This plan does not exist (anymore).',
+  },
+};

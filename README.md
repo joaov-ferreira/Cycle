@@ -3,206 +3,189 @@
 [![CI](https://github.com/joaov-ferreira/Cycle/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/joaov-ferreira/Cycle/actions/workflows/ci.yml)
 [![Android APK](https://github.com/joaov-ferreira/Cycle/actions/workflows/android-apk.yml/badge.svg?branch=main)](https://github.com/joaov-ferreira/Cycle/actions/workflows/android-apk.yml)
 
-AI powerlifting periodization manager for the bench press, squat and deadlift.
+A weight-training logbook with load/deload cycles and automatic load progression. It runs on
+Android, iOS and the web (Expo / React Native), works fully offline and keeps everything on the
+device. The interface is in English and Brazilian Portuguese.
+
+<p>
+  <img src="docs/images/home.png" alt="Home: next workout, cycle and recent workouts" width="200">
+  <img src="docs/images/workout.png" alt="The workout logger with sets filled in" width="200">
+  <img src="docs/images/plan.png" alt="A plan with its load/deload cycle card" width="200">
+  <img src="docs/images/progress.png" alt="Progress chart and personal records" width="200">
+</p>
 
 ## What is CYCLE
 
-CYCLE helps intermediate and advanced powerlifters plan training periods and track how
-their strength changes over time. It is a mobile-first app for iOS, Android and the web,
-built with Expo.
+CYCLE v2 is a general weight-training app (it replaces the v1 powerlifting periodization manager).
 
-Features (see [`docs/SPEC.md`](docs/SPEC.md) for the full specification):
+- **Exercise library:** more than 150 built-in exercises with English and Portuguese names, filters by
+  muscle group and equipment, and your own custom exercises.
+- **Plans:** start from a built-in template, import a plan (plain text or JSON, pasted or from a file,
+  or written by an AI chatbot) or build it in the editor.
+- **Load/deload cycles:** every plan has N load weeks followed by a deload. The app suggests a cycle for
+  your experience level, tracks where you are, prescribes the deload and suggests an early deload when
+  progress stalls.
+- **Logbook:** log each session set by set (weight, reps, optional RIR, warm-ups, notes). A draft survives
+  closing the app.
+- **Automatic load progression:** for every exercise the app suggests the next load and reps from your
+  history and explains why.
+- **History and progress:** past workouts (editable), per-exercise charts (e1RM, top weight, volume),
+  personal records and weekly sets per muscle group.
 
-- **Reference 1RMs** per lift (onboarding on first run, editable in Settings), stored as an
-  append-only history; several local profiles per device.
-- **Program database**: the custom 5/3/1 (editable percentages), Smolov Jr., the full 13-week
-  Smolov squat program and five numbered Sheiko routines (#29, #30, #31, #32, #37). Each template
-  shows its version, source and verification status; the Programs screen browses the whole
-  original structure. Values are transcribed from cited sources (`docs/DECISIONS.md`); anything
-  that cannot be verified is marked "Unverified data" and gets no load.
-- **Periodization generator**: configure each session of the week (lift, program, program day,
-  block start week, program parameters such as the Smolov Jr. increment), reorder, duplicate or
-  remove sessions, "Add all days of this program". The three-week table (exact → rounded load,
-  volume per session, week and lift, warnings) and the calendar update instantly on every change.
-  "Activate periodization" freezes a snapshot with a start date.
-- **Load increments and rounding**: 1 / 1.25 / 1.5 / 2 / 2.5 kg or custom (0.1–25 kg), per-lift
-  override, nearest (ties down) / always down / always up, computed on integer micrograms.
-- **Performance logging** against the activated snapshot: weight, reps, RIR / RPE (kept in sync,
-  `5+` accepted), notes, extra sets, autosaved drafts, prescribed vs. actual (Δ kg, Δ reps,
-  Δ tonnage), "Complete session".
-- **Estimated 1RM (e1RM)**: RTS chart (default), RIR-adjusted Epley or Brzycki; per-set estimates
-  while logging, one estimate per lift and session from the representative set, comparison with
-  the previous estimate, "Use as new reference 1RM" with confirmation.
-- **Dashboard**: current block week, next session, latest e1RM and reference 1RM per lift,
-  shortcuts.
-- **Progress**: per lift, current reference 1RM, latest / previous / highest e1RM, improvement over
-  the baseline of the period, and a chart (e1RM line + reference 1RM steps) with a period filter
-  and tappable points.
-- **Training history**: completed sessions with lift / program / period filters, set-by-set
-  detail, comparison with equivalent previous sessions, and correction of a completed session
-  (its e1RM is recomputed as a new revision; nothing else changes).
-- **Bilingual interface** (English / Brazilian Portuguese, locale-aware number and date
-  formatting), dark theme by default (light option), bottom tabs on phones and a sidebar at
-  widths ≥ 900 px.
+The product is specified in [`docs/SPEC.md`](docs/SPEC.md) (source of truth).
 
-**Status:** feature-complete for v1 (all stages of [`docs/PLAN.md`](docs/PLAN.md)), with CI and an
-automatic Android APK build on every push to `main`. The SPEC §13 acceptance flow is covered by an
-end-to-end test (`src/e2e/spec-flow.test.tsx`).
+## Screenshots
 
-### Screenshots
-
-Taken from the web build (`npx expo start --web`) with the SPEC §13 data (Bench 100, Squat 140,
-Deadlift 180 kg; Bench / 5/3/1, Bench / Smolov Jr. day 1, Squat / 5/3/1, Deadlift / Sheiko #29
-day 2).
-
-| Dashboard | Three-week table | Calendar |
+| | | |
 |---|---|---|
-| ![Dashboard](docs/images/dashboard.png) | ![Three-week table](docs/images/periodization-table.png) | ![Calendar](docs/images/calendar.png) |
-| **Logging a session** | **Completed session with e1RM** | **Progress** |
-| ![Logging a session](docs/images/session-logging.png) | ![Session e1RM](docs/images/session-e1rm.png) | ![Progress](docs/images/progress.png) |
-| **History** | **Programs** | **Program structure (Sheiko #29)** |
-| ![History](docs/images/history.png) | ![Programs](docs/images/programs.png) | ![Program detail](docs/images/program-detail.png) |
-| **Settings** | **Onboarding** | **Português** |
-| ![Settings](docs/images/settings.png) | ![Onboarding](docs/images/onboarding.png) | ![Table in Portuguese](docs/images/periodization-table-pt-BR.png) |
+| ![Home](docs/images/home.png) | ![Plan](docs/images/plan.png) | ![Import preview](docs/images/import-preview.png) |
+| Home | Plan and cycle card | Import preview |
+| ![AI prompt](docs/images/ai-prompt.png) | ![Workout](docs/images/workout.png) | ![Summary](docs/images/summary.png) |
+| Create with AI | Workout logger | Workout summary |
+| ![History](docs/images/history.png) | ![Progress](docs/images/progress.png) | ![Exercises](docs/images/exercises.png) |
+| History | Progress | Exercises |
+| ![Workout in Portuguese](docs/images/workout-pt-BR.png) | ![Desktop layout](docs/images/desktop-plan.png) | |
+| Portuguese UI (`pt-BR`) | Wide screens get a sidebar | |
 
-Wide screens (sidebar):
+## How load progression works
 
-![Periodization on a wide screen](docs/images/desktop-periodization.png)
+CYCLE uses **double progression with RIR-based autoregulation** (SPEC §6). Every exercise of a plan has
+a rep range, for example 3 sets of 8-12. You first add **reps** at a fixed load; when **every set reaches
+the top of the range** the **load** goes up and the reps restart at the bottom. It needs no 1RM test and
+works for any exercise. Only working sets count (warm-ups never do). The rules, first match wins:
 
-![Dashboard on a wide screen](docs/images/desktop-dashboard.png)
+1. **No history:** no load is suggested (or the plan's optional start load); you choose one.
+2. **Top of the range:** all planned sets reached the maximum reps at the same load, so the load rises by
+   one increment (2.5 kg barbell, 5 kg machine or cable, 1 kg dumbbell; editable per exercise). If you
+   also logged RIR at least 2 above the target on every set, it rises by two increments.
+3. **Below the range:** at least half of the sets missed the minimum reps, so you repeat the load. Two
+   sessions in a row below the range lower the load by about 10 % (rounded to the increment).
+4. **Otherwise:** same load, one more rep per set (never above the maximum).
+5. Three sessions without improvement flag the exercise as **stalled**.
 
-### Limitations
+**Worked example** (3 × 8-12, barbell, 2.5 kg increment): you log 40 kg × 12, 12, 12. Next time the
+app suggests **42.5 kg**, aiming for 8 reps per set, and says "All 3 sets reached 12 reps at 40 kg →
++2.5 kg". If you had logged 40 kg × 12, 10, 9 it would suggest 40 kg again with 12, 11, 10 reps.
 
-- **No primary sources for Smolov, Smolov Jr. and Sheiko.** The originals by S. Smolov and
-  B. Sheiko could not be retrieved, so these templates are transcribed from consistent secondary
-  sources and marked `partial` (details and URLs in `docs/DECISIONS.md`, stages 7–9). Only the
-  custom 5/3/1 is `verified` (its source is this project's SPEC).
-- **Smolov Jr. increments**: one range (2.5–5 kg per week) applies to bench and squat, because no
-  source gives separate upper- and lower-body ranges; week 3 is fixed at twice the weekly
-  increment (the sources let the athlete choose the week-3 jump). Not offered for the deadlift.
-- **Smolov**: the switching phase (weeks 7–8) has no consistent prescription in the sources, so it
-  is shown as unverified text with no load; two disputed sets (week 9 day 1 and week 12 day 3, last
-  set) have no percentage. Weeks with three sessions show a rest day in the fourth slot, 1RM tests
-  are text, the intense mesocycle uses the current reference 1RM (update it after the week-6
-  test), and the non-squat introductory work (e.g. lunges) is not transcribed.
-- **Sheiko**: only #29, #30, #31, #32 and #37 are shipped (#39 and #40 had a single readable
-  transcription). The #32 max attempts ("2–3 singles at 100–105%") are unverified text with no
-  load. Accessories are listed with sets × reps only (never calculated), and on multi-lift days a
-  session calculates only its own lift; variations (e.g. deadlift from boxes) use the competition
-  lift's 1RM and do not produce an e1RM.
-- **RTS chart**: the 2008 printing of *The Reactive Training Manual* was not retrieved; the widely
-  circulated Tuchscherer chart is used. Its one disputed cell, 12 reps @ RPE 6 (57.2 % vs 57.4 %),
-  is unverified and gives no RTS estimate. The later RTS TRAC table is not used.
-- **e1RM validity**: sets with RIR above 4, more than 12 reps to failure or no RIR/RPE are not
-  stored (low-confidence values are shown only). RIR `5+` is stored as 5.
-- **No session deletion**, no editing of an activated periodization's prescription (activate
-  again instead), one record per session of a periodization, and no native date picker (the start
-  date is typed as `YYYY-MM-DD`).
-- Everything is stored locally (SQLite; WebAssembly on the web): no sync, backup or export; kg only.
+**Deload week.** After the last load week of the cycle the plan enters the deload phase. Each exercise
+keeps about half of its sets (default `0.5`, rounded up) at about 90 % of the last load-phase work
+load, rounded to the increment: a 42.5 kg work load becomes 37.5 kg, 2 sets of the minimum reps.
+After the deload a new cycle starts.
+
+**Early deload advice.** When at least two exercises (and at least half of those with 3 or more
+sessions this cycle) are stalled, the Plan and Home screens suggest a deload now. It is only a
+suggestion: start it with one tap or dismiss it. The cycle length (load weeks, deload weeks, volume and
+load reduction) is editable per plan; the app proposes 8 / 6 / 4 load weeks for beginner / intermediate
+/ advanced lifters. A training week is a number of completed sessions (`sessions per week`), not a
+calendar week.
+
+## Plan import formats
+
+Plan → New plan → Import accepts pasted text or a `.json` / `.txt` file (up to 256 KB). Exercise names
+are matched exactly (ignoring case, accents and punctuation) against the library, both languages and
+aliases. A name that does not match is never guessed: the preview asks you to pick an existing exercise
+or create a custom one.
+
+**Plain text** (easy to type in a notes app):
+
+```text
+# Upper / Lower
+cycle: 5+1
+sessions: 4
+
+## Upper A
+Barbell Bench Press | 4x6-10 | rir 2 | rest 150
+Barbell Row | 4x8-12
+- Dumbbell Curl | 3x12 | keep elbows still
+
+## Lower A
+Barbell Back Squat | 4x6-10
+```
+
+`# name` is the plan, `## name` starts a workout, `cycle: <load>+<deload>` and `sessions: <n>` are
+optional, and each exercise line is `name | sets x min-max` followed by optional `rir n`, `rest seconds`
+and a note. Portuguese keywords (`ciclo:`, `sessoes:`, `descanso`) work too.
+
+**JSON** (`cycle-plan`, version 1):
+
+```json
+{
+  "format": "cycle-plan",
+  "version": 1,
+  "name": "Upper / Lower",
+  "sessionsPerWeek": 4,
+  "cycle": { "loadWeeks": 5, "deloadWeeks": 1 },
+  "workouts": [
+    { "name": "Upper A", "exercises": [
+      { "exercise": "barbell-bench-press", "sets": 4, "reps": "6-10", "rir": 2, "rest": 150, "startLoad": 60 },
+      { "exercise": "Rosca direta", "sets": 3, "reps": 12 }
+    ] }
+  ]
+}
+```
+
+The full data specification (every property, limit, default and error code) is
+[`docs/IMPORT_FORMAT.md`](docs/IMPORT_FORMAT.md); the JSON Schema is
+[`docs/cycle-plan.schema.json`](docs/cycle-plan.schema.json). Export (Plan → Export) produces the same
+JSON, and importing it again gives the same plan.
+
+## Create a plan with an AI chatbot
+
+Any AI assistant can write the plan file for you:
+
+1. **Copy the prompt.** Open [`docs/AI_PLAN_PROMPT.md`](docs/AI_PLAN_PROMPT.md) (English) or
+   [`docs/AI_PLAN_PROMPT.pt-BR.md`](docs/AI_PLAN_PROMPT.pt-BR.md) (Portuguese), or, in the app, go to
+   Plan → New → Import → **Create with AI**. The in-app prompt also lists your own custom exercises.
+2. **Paste it as the first message of a new chat** in ChatGPT, Claude, Gemini or any assistant, and add
+   your information: goal, experience, days per week, equipment, limitations and current loads. The
+   assistant asks for whatever is missing.
+3. **Copy the JSON answer** (or save it as a `.json` file). The importer accepts the answer as pasted,
+   including the surrounding text and the code fence.
+4. **Import it in the app:** Plan → New → Import → paste the text or pick the file, review the preview
+   (map or create any exercise the app does not know), then save and activate.
+
+What to type after the prompt, for example:
+
+```text
+Goal: hypertrophy. Experience: intermediate (2 years). I can train 4 days a week for 60 minutes.
+Equipment: full gym. Left shoulder is sensitive: no behind-the-neck presses.
+Current loads: bench press 70 kg for 8, squat 100 kg for 6.
+```
+
+The prompt files are generated from the exercise library; after changing the library run
+`npm run docs:prompt` to regenerate them (a test fails when they are stale).
 
 ## Tech stack and architecture
 
-- Expo SDK 58, React Native 0.88, TypeScript.
-- Expo Router for navigation: every file in `src/app/` is a screen, `_layout.tsx` files
-  define navigators. Mobile uses five bottom tabs (Dashboard, Periodization, Training,
-  Progress, More); at window widths ≥ 900 px the tab bar is replaced by a sidebar (`AppShell`, in the
-  root layout) with Dashboard, Periodization, Programs, Calendar, Training, Progress, History and
-  Settings. It stays visible on Programs, History, Settings and session detail. Calendar opens
-  Periodization with `?view=calendar`.
-- `expo-sqlite` for local persistence (native and web), behind repository interfaces.
-- `expo-localization` for device locale detection; in-house `t()` for translations.
-- `zustand` for app state (stores created per app run, consumed through selectors).
-- `jest-expo` + `@testing-library/react-native` for tests.
-- `react-native-svg` for the in-house progress charts (no charting library).
+- Expo SDK 58, React Native 0.88, TypeScript; Expo Router (every file in `src/app/` is a screen).
+  Phones use five bottom tabs (Home, Plan, Workout, Progress, More); at widths of 900 px or more a
+  sidebar replaces the tab bar.
+- `expo-sqlite` for local persistence (native and web) behind repository interfaces,
+  `expo-document-picker` to pick plan files, `zustand` for app state, in-house `t()` for translations,
+  `react-native-svg` for the charts, `jest-expo` + `@testing-library/react-native` for tests.
 
-Layers (from [SPEC §12.1](docs/SPEC.md#121-layered-architecture-mandatory-separation)):
+Layers (SPEC §11.1); each folder has a `README.md`:
 
 ```
 src/
-  domain/      # pure math engine: rounding, loads, periodization, rpe, e1rm, stats
-  programs/    # program database: schema, data/*.ts, validation, block selection
-  data/        # persistence: expo-sqlite, migrations, repositories (interfaces + impl)
-  state/       # stores/hooks connecting data ↔ domain ↔ UI
-  components/  # reusable UI (tables, cards, charts, numeric inputs)
-  i18n/        # translation catalogs, t(), locale detection, formatters
+  domain/      # pure logic: exercises, plans, import/export, cycle, progression, metrics, stats
+  library/     # pure data: the built-in exercises, plan templates, the AI prompt builder
+  data/        # persistence: SQLite, migrations, repositories (interfaces + memory + SQLite)
+  state/       # zustand store and selectors connecting data, domain and UI
+  components/  # UI: one folder per feature
+  i18n/        # catalogs per namespace and locale, t(), formatters
   app/         # Expo Router routes (screens and layouts only)
 ```
 
-Reference 1RMs (SPEC §2) are validated in `src/domain/validation.ts` (> 0 and ≤ 600 kg, up
-to 2 decimals) and stored append-only in `reference_1rm_history`: the repository only adds
-records, and the current value is the latest by effective date. Data is scoped by profile;
-the active profile is remembered across launches.
-
-Load increments and rounding (SPEC §5) live in `src/domain/rounding.ts`. `roundLoad(kg,
-increment, mode)` works in integer micrograms, so ties and exact multiples are decided
-without floating-point error. The modes are `nearest` (the default; a tie rounds down, so a
-load is never prescribed above its percentage), `down` and `up`. The default increment is
-2.5 kg, a preset (1, 1.25, 1.5, 2 or 2.5 kg) or a custom value (0.1–25 kg in 0.05 steps).
-Each lift can override the default increment. The settings are stored per profile in
-`rounding_settings` and `lift_increment_overrides`.
-
-Program templates (SPEC §3) live in `src/programs/`: the schema (`schema.ts`), one file per
-template in `data/`, `validate.ts` (a test validates every registered template and fails if
-one omits its source or version), the `registry.ts` (list, find by id, filter by lift),
-`blocks.ts` (`getBlock(template, startWeek)`: three consecutive weeks, never compressed,
-fewer at the end of the program) and `params.ts` (configurable parameters such as the 5/3/1
-percentages, with their allowed range). Parameter values chosen by the athlete are stored
-per profile in `program_params`; the template defaults apply until one is saved. Templates so far:
-the custom 5/3/1 (`data/cycle-531-custom.ts`), Smolov Jr. (`data/smolov-jr.ts`), Smolov
-(`data/smolov.ts`) and the Sheiko routines #29, #30, #31, #32 and #37 (`data/sheiko-<number>.ts`), all
-but the first transcribed from the sources listed in `docs/DECISIONS.md` (verification `partial`).
-A main item may name a variation of its lift (`exercise`), an informational item may belong to one
-lift (`lift`), and templates of one family carry a short `variant` label (`#29`). Besides sets, a program day can hold informational items
-(`kind: 'info'`: rest days, max tests, loosely described phases), and an absolute increment can be a
-parameter (`addKg: { param, times }`) or fixed by the original (`addKg: { kg }`).
-
-The periodization generator (SPEC §4) is `generatePeriodization(slots, templates, 1RMs,
-rounding, params)` in `src/domain/periodization.ts`: pure and synchronous (a test checks that 10 sessions take
-less than 50 ms), computing `1RM × percent (+ addKg)` in integer micrograms and rounding with
-`roundLoad`. Sets without a confirmed percentage, or whose lift has no 1RM, get no load ("—").
-On days that train several lifts (Sheiko), only the slot's lift is calculated; the other lifts' items
-are returned as `otherItems` (information, no load or volume).
-Warnings are codes that the UI translates. The store exposes it through the memoized
-`selectPeriodization` (`src/state/periodization-selectors.ts`). Session slots are stored per
-profile in `session_slots`; activated periodizations in `periodizations` (configuration
-snapshot) and `generated_sessions` (one JSON snapshot per session). The session detail route
-(`/session/<slotId>-w<blockWeek>`) shows a session of the live periodization;
-`/session/p<periodizationId>-<slotId>-w<blockWeek>` shows a session of an activated snapshot and is
-where performance is logged (SPEC §7). RIR ↔ RPE conversions and the logging rules (field validation,
-prescribed-vs-actual, the completion snapshot) are pure code in `src/domain/rpe.ts` and
-`src/domain/performance.ts`; drafts and completed sessions are stored in `performed_sessions` and
-`performed_sets` (migration 007). The e1RM engine (SPEC §8) is pure code in `src/domain/e1rm/`:
-`rts-table.ts` (the RTS RPE chart, reps 1–12 × RPE 10–6, transcribed with its sources; the one cell
-the sources disagree on is `unverified`, and the later RTS TRAC table's differences are kept as a note), `estimate.ts` (`rts`: `w / pct(reps, RPE)`, `epley-rir`: `w × (1 + n/30)`,
-`brzycki-rir`: `w × 36 / (37 − n)`, with `n = reps + RIR`, rounded to 0.1 kg; validity: at least one
-rep, RIR ≤ 4, `n ≤ 12`) and `session.ts` (one estimate per lift from the representative set,
-comparison with the previous one). Session estimates are stored in `e1rm_history` (migration 008),
-and the formula for new estimates is a per-profile setting. The progression statistics (SPEC §9) are
-pure code in `src/domain/stats.ts` (periods, current / latest / previous / highest, Δ kg and Δ % against
-the baseline of the period) and the chart's scales, ticks and coordinates in `src/domain/chart-scale.ts`;
-`src/components/progress/` only draws them. The history rules (ordering, filters, equivalent sessions,
-set summaries) are pure code in `src/domain/history.ts`. `e1rm_history` is an append-only log of revisions
-since migration 009: the current estimate of a session is its highest revision, and editing a completed
-session (`PerformanceRepository.amend`) appends a newer revision instead of rewriting rows.
-
-Supporting folders: `src/constants/theme.ts` (design tokens) and `src/test-utils/`
-(test-only helpers). Each layer has a `README.md` describing its contents and dependency
-rules.
-
-Dependency rules:
-
-- `domain/` and `programs/` are pure TypeScript: they do not import React, Expo, `data/`
-  or `i18n/`.
-- `data/` exposes repository interfaces; tests use an in-memory implementation.
-- `app/` contains only routes and layouts. Components, hooks and utilities live outside it.
-- No random or mock values in production code.
+`domain/` and `library/` are pure TypeScript (no React, Expo, data or i18n imports) and return codes,
+never display strings. `src/library/` holds the exercise registry (`listExercises()`,
+`findExercise(id)`), the six plan templates and `buildAiPlanPrompt`. Migrations `001`-`009` (v1) are
+immutable. `src/test-utils/` has test-only helpers.
 
 ## Running the app
 
-Prerequisites: Node.js 22 (22.13 or later, for the test suite) with npm 10 (the version this project is developed with), and
-either [Expo Go](https://expo.dev/go) on a phone or an iOS/Android simulator or emulator.
-Native modules added in later stages may require a development build (see
-[`AGENTS.md`](AGENTS.md)).
+Prerequisites: Node.js 22 (22.13 or later, for the tests) with npm 10, and either
+[Expo Go](https://expo.dev/go) on a phone or an iOS/Android simulator or emulator.
 
 ```bash
 npm ci               # install exact dependencies from package-lock.json
@@ -211,45 +194,40 @@ npx expo start --web # open the app in the browser
 npx expo lint        # lint
 npx tsc --noEmit     # typecheck
 npm test             # run the test suite
+npm run docs:prompt  # regenerate docs/AI_PLAN_PROMPT*.md
 ```
 
-On the web, the database runs on SQLite compiled to WebAssembly. It needs cross-origin
-isolation: `metro.config.js` adds the `Cross-Origin-Embedder-Policy: credentialless` and
-`Cross-Origin-Opener-Policy: same-origin` headers in development, and any server that hosts
-an exported web build must send the same headers. The web build is a single-page app
-(`web.output: "single"`).
+Add dependencies with `npx expo install <package>` so versions match the Expo SDK. On the web the
+database runs on SQLite compiled to WebAssembly and needs cross-origin isolation: `metro.config.js`
+adds the `Cross-Origin-Embedder-Policy: credentialless` and `Cross-Origin-Opener-Policy: same-origin`
+headers in development, and a server hosting an exported web build must send the same headers.
 
 ## Tests
 
-Tests use Jest with the `jest-expo` preset and `@testing-library/react-native`. Test files
-live next to the code they test (`*.test.ts` / `*.test.tsx` under `src/`).
+Jest with `jest-expo` and `@testing-library/react-native`; test files sit next to the code
+(`*.test.ts` / `*.test.tsx`).
 
 ```bash
 npm test                          # run all tests once
 npm run test:watch                # re-run on change
-npm run test:coverage             # with coverage report and thresholds
+npm run test:coverage             # coverage report and thresholds
 npm test -- src/i18n              # only the tests under a path
 ```
 
-Coverage thresholds (`jest.config.js`, SPEC §12.3): at least 80% of lines globally, and at
-least 95% in `src/domain/` and `src/programs/` once those folders contain code.
+Thresholds (`jest.config.js`): 80 % of lines globally, 95 % in `src/domain/` and `src/library/`.
+Pure logic has exact hand-computed expectations; one repository contract suite runs against the
+in-memory and the SQLite implementation (Node's `node:sqlite`); UI tests use accessible queries in both
+languages; `src/e2e/spec-flow.test.tsx` drives the whole acceptance flow of SPEC §13 through the real
+routes; router tests follow every cross-screen link and an audit checks names, roles and touch targets.
+The project follows test-driven development, see [`AGENTS.md`](AGENTS.md).
 
-Testing strategy:
+## Data from v1 and limitations
 
-- Pure logic (`src/domain/`, `src/programs/`) has unit tests with hand-computed expected
-  values.
-- Persistence: repositories are written against interfaces in `src/data/`. One behavioral
-  contract suite runs against both the in-memory implementation and the SQLite
-  implementation. In Jest, SQLite runs on Node's built-in `node:sqlite` module through
-  `src/test-utils/node-sqlite.ts`, so tests need Node.js 22.13 or later. Migrations are
-  tested on a real SQLite engine too.
-- UI: behavior and accessible queries (no markup snapshots). Screens with formatted numbers
-  are tested in both `en` and `pt-BR`.
-
-The project follows test-driven development; see [`AGENTS.md`](AGENTS.md).
-
-Add dependencies with `npx expo install <package>` (not `npm install`), so the versions match
-the Expo SDK.
+- Completed v1 sessions already on a device are copied into the v2 logbook by migration `010` (bench,
+  squat and deadlift entries); the v1 tables stay untouched.
+- Units are kilograms only; there is no cloud sync or account; timed/cardio exercises, a rest timer and
+  supersets are out of scope (SPEC §15).
+- The app has been verified with automated tests and in a desktop browser, not yet on a physical device.
 
 ## Building the APK
 
@@ -302,7 +280,7 @@ Node 22, Android platform 37, build-tools 37.0.0, NDK 27.1.12297006 and CMake 3.
 ```bash
 docker build -t cycle-android docker/android
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD":/app cycle-android
-ls dist/        # cycle-1.0.0-<short-sha>-unsigned-debugkey.apk
+ls dist/        # cycle-2.0.0-<short-sha>-unsigned-debugkey.apk
 ```
 
 The first build downloads Gradle and the Android dependencies (several GB, 15 to 30 minutes);
@@ -330,11 +308,13 @@ This requires an Expo account. The repository does not contain an `eas.json`, so
 ## Project documents
 
 - [`docs/SPEC.md`](docs/SPEC.md): functional and technical specification (source of truth).
-- [`docs/PLAN.md`](docs/PLAN.md): staged implementation plan and status table.
-- [`docs/DECISIONS.md`](docs/DECISIONS.md): log of architecture and data-source decisions
-  (append only).
-- [`AGENTS.md`](AGENTS.md): development rules: TDD, Conventional Commits, branch and PR
-  workflow, and Expo guidelines.
+- [`docs/PLAN.md`](docs/PLAN.md): staged implementation plan and status.
+- [`docs/DECISIONS.md`](docs/DECISIONS.md): architecture and data decisions (append only).
+- [`docs/IMPORT_FORMAT.md`](docs/IMPORT_FORMAT.md) and
+  [`docs/cycle-plan.schema.json`](docs/cycle-plan.schema.json): the plan file format.
+- [`docs/AI_PLAN_PROMPT.md`](docs/AI_PLAN_PROMPT.md), [`docs/AI_PLAN_PROMPT.pt-BR.md`](docs/AI_PLAN_PROMPT.pt-BR.md):
+  the chatbot prompts.
+- [`AGENTS.md`](AGENTS.md): development rules (TDD, commits, Expo guidelines).
 
 ## Internationalization
 
@@ -345,18 +325,26 @@ and applies right away, without a restart. Choose it in More → Settings → La
 
 ### Adding a string
 
-1. Add the key to `src/i18n/locales/en.ts` (the source catalog). Group keys by feature,
-   for example `screens.training.title`.
-2. Add the same key to `src/i18n/locales/pt-BR.ts`. The catalog is typed against `en`,
-   so a missing or extra key fails `npx tsc --noEmit`, and `src/i18n/catalogs.test.ts`
-   fails if the keys or `{{placeholders}}` differ between the two catalogs.
+Catalogs are split by namespace (`app`, `tabs`, `navigation`, `common`, `home`, `plan`,
+`planImport`, `workout`, `history`, `progress`, `exercises`, `picker`, `onboarding`, `settings`,
+`profile`, `validation`): one file per namespace and locale, composed in `src/i18n/locales/en.ts`
+and `src/i18n/locales/pt-BR.ts`.
+
+1. Add the key to the namespace file in `src/i18n/locales/en/<namespace>.ts` (the source
+   catalog), for example `workout.ts` for `workout.title`. A new namespace is a new file in both
+   folders, registered in `en.ts`, `pt-BR.ts` and the namespace list in
+   `src/i18n/catalogs.test.ts`.
+2. Add the same key to `src/i18n/locales/pt-BR/<namespace>.ts`. Each pt-BR namespace is typed
+   against its English one, so a missing or extra key fails `npx tsc --noEmit`, and
+   `src/i18n/catalogs.test.ts` fails if the keys or `{{placeholders}}` differ between the two
+   catalogs.
 3. Use it in a component:
 
    ```tsx
    import { useT } from '@/i18n';
 
    const t = useT();
-   <Text>{t('screens.training.title')}</Text>;
+   <Text>{t('workout.title')}</Text>;
    ```
 
 Placeholders use `{{name}}`: `t('validation.aboveMax', { max: 600 })`. Number params are

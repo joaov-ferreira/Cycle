@@ -1,203 +1,286 @@
-import { fireEvent, screen, within } from '@testing-library/react-native';
+import { fireEvent, screen } from '@testing-library/react-native';
 
-import type { Repositories } from '@/data/repositories';
-import type { Lift } from '@/domain/lifts';
+import { createClock, type TestClock } from '@/test-utils/clock';
+import { seedCompletedWorkout, createTestStore } from '@/test-utils/seed';
 import { renderInApp } from '@/test-utils/render-app';
-import { seedActivated } from '@/test-utils/seed-activated';
+import type { AppStore } from '@/state/types';
+import type { Repositories } from '@/data/repositories';
+import type { LanguageSetting } from '@/i18n/locale';
 
-import { ProgressScreen } from './progress-screen';
+import { ProgressScreen, type ProgressScreenProps } from './progress-screen';
 
-let periodizationId = 1;
-const NBSP = ' ';
-const NOW = new Date('2026-11-05T12:00:00.000Z');
-const at = (iso: string) => `${iso}T12:00:00.000Z`;
+const NBSP = ' ';
+/** Wednesday of the ISO week that follows the sessions of `thisWeek` below. */
+const NOW = new Date('2026-11-11T12:00:00.000Z');
+const BENCH = 'barbell-bench-press';
+const SQUAT = 'barbell-back-squat';
+const PULL_UP = 'pull-up';
 
-async function addReference(repos: Repositories, profileId: number, lift: Lift, value: number, date: string, origin: 'onboarding' | 'manual' = 'manual') {
-  await repos.referenceOneRms.record({ profileId, lift, value, origin, effectiveAt: at(date) });
+type Fixture = { store: AppStore; repos: Repositories; clock: TestClock };
+
+async function emptyFixture(): Promise<Fixture> {
+  const clock = createClock('2026-10-01T12:00:00.000Z');
+  const { store, repos } = await createTestStore({ clock });
+  return { store, repos, clock };
 }
 
-async function addE1rm(repos: Repositories, profileId: number, lift: Lift, number: number, date: string, valueKg: number) {
-  const session = await repos.performances.saveDraft({
-    profileId,
-    periodizationId,
-    sessionKey: `${lift}-${number}`,
-    sessionNumber: number,
-    blockWeek: 1,
-    lift,
-    templateId: 'cycle-531-custom',
-    templateName: '5/3/1 (custom)',
-    notes: '',
-    sets: [],
-  });
-  await repos.e1rmHistory.record({
-    profileId,
-    lift,
-    performedSessionId: session.id,
-    setPosition: 0,
-    recordedAt: at(date),
-    valueKg,
-    formula: 'rts',
-    weightKg: 80,
-    reps: 5,
-    rir: 1,
+/** Logs and finishes a free workout at `at`; returns the workout id. */
+async function logOn(
+  { store, clock }: Fixture,
+  at: string,
+  logs: Record<string, { weightKg: number; reps: number[] }>,
+): Promise<number> {
+  clock.set(at);
+  const result = await seedCompletedWorkout(store, { name: 'Session', logs });
+  return result.workout.id;
+}
+
+async function render(
+  fixture: Fixture,
+  props: Partial<ProgressScreenProps> = {},
+  language: LanguageSetting = 'en',
+) {
+  await renderInApp(<ProgressScreen now={NOW} {...props} />, {
+    store: fixture.store,
+    repos: fixture.repos,
+    language,
   });
 }
 
-/** Bench: references 100 (Aug 1) and 105 (Oct 1); e1RMs 96 / 98 / 102. Squat: only a reference. Deadlift: nothing. */
-async function seed(repos: Repositories, profileId: number) {
-  const periodization = await seedActivated(repos, profileId, { oneRms: {}, lifts: ['bench'] });
-  periodizationId = periodization.id;
-  await addReference(repos, profileId, 'bench', 100, '2026-08-01', 'onboarding');
-  await addReference(repos, profileId, 'bench', 105, '2026-10-01');
-  await addReference(repos, profileId, 'squat', 140, '2026-08-01', 'onboarding');
-  await addE1rm(repos, profileId, 'bench', 1, '2026-09-10', 96);
-  await addE1rm(repos, profileId, 'bench', 2, '2026-10-20', 98);
-  await addE1rm(repos, profileId, 'bench', 3, '2026-11-02', 102);
+/** Bench on Oct 1 at 40 kg × 12, 12, 12; bench on Nov 3 at 42.5 kg × 8, 8, 8. */
+async function seedBenchSessions(fixture: Fixture) {
+  const first = await logOn(fixture, '2026-10-01T12:00:00.000Z', {
+    [BENCH]: { weightKg: 40, reps: [12, 12, 12] },
+  });
+  const second = await logOn(fixture, '2026-11-03T12:00:00.000Z', {
+    [BENCH]: { weightKg: 42.5, reps: [8, 8, 8] },
+  });
+  return { first, second };
 }
 
-const kg = (text: string) => text.replace(/ kg/g, `${NBSP}kg`);
-const expectCard = (scope: ReturnType<typeof within>, name: string, value: string) =>
-  expect(scope.getByLabelText(`${name}: ${value}`)).toBeOnTheScreen();
-const section = (lift: Lift) => within(screen.getByTestId(`progress-${lift}`));
-
-async function renderScreen(language: 'en' | 'pt-BR' = 'en', seeder: typeof seed | undefined = seed) {
-  await renderInApp(<ProgressScreen now={NOW} />, { language, seed: seeder });
-  await screen.findByRole('header', { name: language === 'en' ? 'Progress' : 'Progresso' });
+/** The accessible labels of the exercise chips, in screen order. */
+function exerciseChipLabels(): string[] {
+  return screen
+    .getAllByRole('button', { name: /^Barbell (Back Squat|Bench Press)$/ })
+    .map((node) => node.props.accessibilityLabel);
 }
 
-describe('ProgressScreen (en)', () => {
-  it('reads records with the same instant in insertion order (latest record is the current one)', async () => {
-    // a fixed repository clock gives the onboarding 1RM, its correction and two estimates one instant
-    await renderScreen('en', async (repos, profileId) => {
-      const periodization = await seedActivated(repos, profileId, { oneRms: {}, lifts: ['bench'] });
-      periodizationId = periodization.id;
-      await addReference(repos, profileId, 'bench', 100, '2026-11-01', 'onboarding');
-      await addReference(repos, profileId, 'bench', 105, '2026-11-01');
-      await addE1rm(repos, profileId, 'bench', 1, '2026-11-02', 96);
-      await addE1rm(repos, profileId, 'bench', 2, '2026-11-02', 98);
-    });
-    const bench = section('bench');
-    // same rule as the store and the Dashboard: ties go to the latest insertion
-    expectCard(bench, 'Reference 1RM', kg('105.0 kg'));
-    expectCard(bench, 'Latest e1RM', kg('98.0 kg'));
-    expectCard(bench, 'Previous e1RM', kg('96.0 kg'));
-    // baseline for "All" = the first record (100): 98 − 100 = −2.0 kg (−2%)
-    expectCard(bench, 'Improvement', kg('-2.0 kg (-2%) vs. 100.0 kg'));
-  });
-
-  it('shows one section per lift in order', async () => {
-    await renderScreen();
-    const headings = screen.getAllByRole('header').map((h) => h.props.children);
-    expect(headings).toEqual(['Progress', 'Bench Press', 'Squat', 'Deadlift']);
-  });
-
-  it('shows the cards of a lift with history (whole history)', async () => {
-    await renderScreen();
-    const bench = section('bench');
-    expectCard(bench, 'Reference 1RM', kg('105.0 kg'));
-    expectCard(bench, 'Latest e1RM', kg('102.0 kg'));
-    expectCard(bench, 'Previous e1RM', kg('98.0 kg'));
-    expectCard(bench, 'Highest e1RM', kg('102.0 kg'));
-    expectCard(bench, 'Improvement', kg('+2.0 kg (+2%) vs. 100.0 kg'));
-  });
-
-  it('draws the chart of a lift with history', async () => {
-    await renderScreen();
-    expect(section('bench').getByLabelText('Bench Press e1RM chart')).toBeOnTheScreen();
-    expect(section('bench').getAllByRole('button', { name: /e1RM ≈/ })).toHaveLength(3);
-  });
-
-  it('shows the reference and an empty state for a lift without e1RM', async () => {
-    await renderScreen();
-    const squat = section('squat');
-    expectCard(squat, 'Reference 1RM', kg('140.0 kg'));
-    expectCard(squat, 'Latest e1RM', '—');
-    expectCard(squat, 'Improvement', '—');
-    expect(squat.getByText(/^No e1RM yet for Squat\./)).toBeOnTheScreen();
-    expect(squat.queryByLabelText('Squat e1RM chart')).toBeNull();
-  });
-
-  it('shows "Not set" for a lift without a reference 1RM', async () => {
-    await renderScreen();
-    expectCard(section('deadlift'), 'Reference 1RM', 'Not set');
-    expect(section('deadlift').getByText(/^No e1RM yet for Deadlift\./)).toBeOnTheScreen();
-  });
-
-  it('shows empty states everywhere without any data', async () => {
-    await renderScreen('en', async () => {});
-    for (const lift of ['bench', 'squat', 'deadlift'] as const) {
-      expectCard(section(lift), 'Reference 1RM', 'Not set');
-      expect(section(lift).getByText(/^No e1RM yet for /)).toBeOnTheScreen();
-    }
-  });
-
-  it('changes the baseline with the period filter (4 weeks: the 105 kg reference)', async () => {
-    await renderScreen();
-    expect(screen.getByRole('button', { name: 'All', selected: true })).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: '4 wks' }));
-    expect(screen.getByRole('button', { name: '4 wks', selected: true })).toBeOnTheScreen();
-    const bench = section('bench');
-    expectCard(bench, 'Improvement', kg('-3.0 kg (-2.9%) vs. 105.0 kg'));
-    // the cards keep the whole history; the chart only the period
-    expectCard(bench, 'Latest e1RM', kg('102.0 kg'));
-    expect(bench.getAllByRole('button', { name: /e1RM ≈/ })).toHaveLength(2);
-  });
-
-  it('uses the reference in effect 3 months back as the baseline', async () => {
-    await renderScreen();
-    await fireEvent.press(screen.getByRole('button', { name: '3 mo' }));
-    expectCard(section('bench'), 'Improvement', kg('+2.0 kg (+2%) vs. 100.0 kg'));
-    expect(section('bench').getAllByRole('button', { name: /e1RM ≈/ })).toHaveLength(3);
-  });
-
-  it('shows the empty chart state when the period has no e1RM', async () => {
-    await renderInApp(<ProgressScreen now={new Date('2027-03-01T12:00:00.000Z')} />, { seed });
-    await screen.findByRole('header', { name: 'Progress' });
-    await fireEvent.press(screen.getByRole('button', { name: '4 wks' }));
-    expect(section('bench').getByText('No e1RM for Bench Press in the last 4 weeks.')).toBeOnTheScreen();
-    expectCard(section('bench'), 'Improvement', 'No e1RM in this period');
-  });
-
-  it('shows the date, value and originating session of a tapped point', async () => {
-    await renderScreen();
-    await fireEvent.press(section('bench').getByRole('button', { name: kg('Oct 20, 2026: e1RM ≈ 98.0 kg') }));
-    expect(section('bench').getByText(kg('Oct 20, 2026 · e1RM ≈ 98.0 kg (estimate)'))).toBeOnTheScreen();
-    expect(section('bench').getByText('Session 2, week 1 · 5/3/1 (custom)')).toBeOnTheScreen();
-  });
-
-  it('drops the selected point when it leaves the period', async () => {
-    await renderScreen();
-    await fireEvent.press(section('bench').getByRole('button', { name: kg('Sep 10, 2026: e1RM ≈ 96.0 kg') }));
-    await fireEvent.press(screen.getByRole('button', { name: '4 wks' }));
-    expect(section('bench').queryByText(/Sep 10, 2026 ·/)).toBeNull();
-    expect(section('bench').getByText('Tap or hover a point to see its date, value and session.')).toBeOnTheScreen();
+describe('ProgressScreen: empty state', () => {
+  it('asks for a logged workout when no exercise has been trained', async () => {
+    await render(await emptyFixture());
+    expect(screen.getByRole('header', { name: 'Progress' })).toBeOnTheScreen();
+    expect(screen.getByText('Log a workout to see your progress')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Exercise details' })).toBeNull();
+    expect(screen.queryByRole('header', { name: 'Sets per muscle group' })).toBeNull();
   });
 });
 
-describe('ProgressScreen (pt-BR)', () => {
-  it('formats numbers, percentages and dates for pt-BR', async () => {
-    await renderScreen('pt-BR');
-    const bench = section('bench');
-    expectCard(bench, '1RM de referência', kg('105,0 kg'));
-    expectCard(bench, 'Último e1RM', kg('102,0 kg'));
-    expectCard(bench, 'e1RM anterior', kg('98,0 kg'));
-    expectCard(bench, 'Maior e1RM', kg('102,0 kg'));
-    expectCard(bench, 'Evolução', kg('+2,0 kg (+2%) vs. 100,0 kg'));
-    expect(screen.getByRole('button', { name: 'Tudo', selected: true })).toBeOnTheScreen();
+describe('ProgressScreen: exercise selector', () => {
+  it('lists the trained exercises, most recently trained first', async () => {
+    const fixture = await emptyFixture();
+    await seedBenchSessions(fixture);
+    await logOn(fixture, '2026-11-04T12:00:00.000Z', { [SQUAT]: { weightKg: 100, reps: [5, 5] } });
+    await render(fixture);
+    expect(exerciseChipLabels()).toEqual(['Barbell Back Squat', 'Barbell Bench Press']);
   });
 
-  it('shows a localized negative improvement and tooltip', async () => {
-    await renderScreen('pt-BR');
-    await fireEvent.press(screen.getByRole('button', { name: '4 sem' }));
-    expectCard(section('bench'), 'Evolução', kg('-3,0 kg (-2,9%) vs. 105,0 kg'));
-    await fireEvent.press(section('bench').getByRole('button', { name: kg('20 de out. de 2026: e1RM ≈ 98,0 kg') }));
-    expect(section('bench').getByText(kg('20 de out. de 2026 · e1RM ≈ 98,0 kg (estimativa)'))).toBeOnTheScreen();
-    expect(section('bench').getByText('Sessão 2, semana 1 · 5/3/1 (custom)')).toBeOnTheScreen();
+  it('selects the most recent exercise by default', async () => {
+    const fixture = await emptyFixture();
+    await seedBenchSessions(fixture);
+    await logOn(fixture, '2026-11-04T12:00:00.000Z', { [SQUAT]: { weightKg: 100, reps: [5, 5] } });
+    await render(fixture);
+    expect(screen.getByRole('button', { name: 'Barbell Back Squat', selected: true })).toBeOnTheScreen();
+    expect(screen.getByLabelText('Barbell Back Squat chart')).toBeOnTheScreen();
   });
 
-  it('shows the empty states in Portuguese', async () => {
-    await renderScreen('pt-BR');
-    expect(section('squat').getByText(/^Ainda não há e1RM de Agachamento\./)).toBeOnTheScreen();
-    expectCard(section('deadlift'), '1RM de referência', 'Não definido');
+  it('starts on the initial exercise when it has been trained', async () => {
+    const fixture = await emptyFixture();
+    await seedBenchSessions(fixture);
+    await logOn(fixture, '2026-11-04T12:00:00.000Z', { [SQUAT]: { weightKg: 100, reps: [5, 5] } });
+    await render(fixture, { initialExerciseId: BENCH });
+    expect(screen.getByRole('button', { name: 'Barbell Bench Press', selected: true })).toBeOnTheScreen();
+    expect(screen.getByLabelText('Barbell Bench Press chart')).toBeOnTheScreen();
+  });
+
+  it('falls back to the most recent exercise when the initial one was never trained', async () => {
+    const fixture = await emptyFixture();
+    await seedBenchSessions(fixture);
+    await render(fixture, { initialExerciseId: SQUAT });
+    expect(screen.getByRole('button', { name: 'Barbell Bench Press', selected: true })).toBeOnTheScreen();
+  });
+
+  it('charts the exercise picked from the list', async () => {
+    const fixture = await emptyFixture();
+    await seedBenchSessions(fixture);
+    await logOn(fixture, '2026-11-04T12:00:00.000Z', { [SQUAT]: { weightKg: 100, reps: [5, 5] } });
+    await render(fixture);
+    await fireEvent.press(screen.getByRole('button', { name: 'Barbell Bench Press' }));
+    expect(screen.getByRole('button', { name: 'Barbell Bench Press', selected: true })).toBeOnTheScreen();
+    expect(screen.getByLabelText('Barbell Bench Press chart')).toBeOnTheScreen();
+  });
+});
+
+describe('ProgressScreen: chart', () => {
+  it('charts the top weight with one accessible point per session', async () => {
+    const fixture = await emptyFixture();
+    await seedBenchSessions(fixture);
+    await render(fixture, { initialExerciseId: BENCH });
+    await fireEvent.press(screen.getByRole('button', { name: 'Top weight' }));
+    expect(screen.getByRole('button', { name: 'Top weight', selected: true })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: `Oct 1, 2026: 40${NBSP}kg` })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: `Nov 3, 2026: 42.5${NBSP}kg` })).toBeOnTheScreen();
+  });
+
+  it('charts the top weight in pt-BR', async () => {
+    const fixture = await emptyFixture();
+    await seedBenchSessions(fixture);
+    await render(fixture, { initialExerciseId: BENCH }, 'pt-BR');
+    await fireEvent.press(screen.getByRole('button', { name: 'Carga máxima' }));
+    expect(screen.getByRole('button', { name: `1 de out. de 2026: 40${NBSP}kg` })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: `3 de nov. de 2026: 42,5${NBSP}kg` })).toBeOnTheScreen();
+  });
+
+  it('charts the e1RM of each session and labels it as an estimate', async () => {
+    const fixture = await emptyFixture();
+    await seedBenchSessions(fixture);
+    await render(fixture, { initialExerciseId: BENCH });
+    expect(screen.getByRole('button', { name: 'e1RM', selected: true })).toBeOnTheScreen();
+    expect(screen.getByText('e1RM (estimate)')).toBeOnTheScreen();
+    // 40 × (1 + 12/30) = 56 kg; 42.5 × (1 + 8/30) = 53.8… kg
+    expect(screen.getByRole('button', { name: `Oct 1, 2026: 56${NBSP}kg` })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: `Nov 3, 2026: 53.8${NBSP}kg` })).toBeOnTheScreen();
+  });
+
+  it('charts the volume of each session', async () => {
+    const fixture = await emptyFixture();
+    await seedBenchSessions(fixture);
+    await render(fixture, { initialExerciseId: BENCH });
+    await fireEvent.press(screen.getByRole('button', { name: 'Volume' }));
+    // 40 × 36 = 1,440 kg; 42.5 × 24 = 1,020 kg
+    expect(screen.getByRole('button', { name: `Oct 1, 2026: 1,440${NBSP}kg` })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: `Nov 3, 2026: 1,020${NBSP}kg` })).toBeOnTheScreen();
+  });
+
+  it('hides the sessions before the selected period', async () => {
+    const fixture = await emptyFixture();
+    await logOn(fixture, '2026-06-01T12:00:00.000Z', { [BENCH]: { weightKg: 30, reps: [10, 10] } });
+    await logOn(fixture, '2026-11-03T12:00:00.000Z', { [BENCH]: { weightKg: 42.5, reps: [8, 8, 8] } });
+    await render(fixture, { initialExerciseId: BENCH });
+    await fireEvent.press(screen.getByRole('button', { name: 'Top weight' }));
+    expect(screen.getByRole('button', { name: `Jun 1, 2026: 30${NBSP}kg` })).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByRole('button', { name: '4 wks' }));
+    expect(screen.queryByRole('button', { name: `Jun 1, 2026: 30${NBSP}kg` })).toBeNull();
+    expect(screen.getByRole('button', { name: `Nov 3, 2026: 42.5${NBSP}kg` })).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText(`Barbell Bench Press, the last 4 weeks: 1 data point, latest 42.5${NBSP}kg on Nov 3, 2026.`),
+    ).toBeOnTheScreen();
+  });
+
+  it('offers reps and volume only for bodyweight exercises and charts the reps in reps', async () => {
+    const fixture = await emptyFixture();
+    await logOn(fixture, '2026-11-03T12:00:00.000Z', { [PULL_UP]: { weightKg: 0, reps: [10, 10] } });
+    await render(fixture, { initialExerciseId: PULL_UP });
+    expect(screen.getByRole('button', { name: 'Reps', selected: true })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Volume' })).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'e1RM' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Top weight' })).toBeNull();
+    expect(screen.getByRole('button', { name: `Nov 3, 2026: 10${NBSP}reps` })).toBeOnTheScreen();
+    expect(screen.getByText('reps')).toBeOnTheScreen();
+    expect(screen.queryByText('kg')).toBeNull();
+  });
+});
+
+describe('ProgressScreen: personal records', () => {
+  it('shows the weight and e1RM records with their dates and opens the workout of a record', async () => {
+    const fixture = await emptyFixture();
+    const { first, second } = await seedBenchSessions(fixture);
+    const onOpenWorkout = jest.fn();
+    await render(fixture, { initialExerciseId: BENCH, onOpenWorkout });
+    expect(screen.getByRole('header', { name: 'Personal records' })).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByRole('button', { name: `42.5${NBSP}kg × 8, Nov 3, 2026` }));
+    expect(onOpenWorkout).toHaveBeenLastCalledWith(second);
+
+    await fireEvent.press(screen.getByRole('button', { name: `e1RM ≈ 56${NBSP}kg (estimate), Oct 1, 2026` }));
+    expect(onOpenWorkout).toHaveBeenLastCalledWith(first);
+  });
+
+  it('localizes the records in pt-BR', async () => {
+    const fixture = await emptyFixture();
+    await seedBenchSessions(fixture);
+    await render(fixture, { initialExerciseId: BENCH, onOpenWorkout: jest.fn() }, 'pt-BR');
+    expect(screen.getByRole('header', { name: 'Recordes pessoais' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: `42,5${NBSP}kg × 8, 3 de nov. de 2026` })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: `e1RM ≈ 56${NBSP}kg (estimativa), 1 de out. de 2026` })).toBeOnTheScreen();
+  });
+
+  it('shows only a weight record above 0 kg for bodyweight exercises', async () => {
+    const fixture = await emptyFixture();
+    await logOn(fixture, '2026-11-03T12:00:00.000Z', { [PULL_UP]: { weightKg: 0, reps: [10, 10] } });
+    await render(fixture, { initialExerciseId: PULL_UP });
+    expect(screen.getByText('No records yet.')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: /e1RM/ })).toBeNull();
+  });
+});
+
+describe('ProgressScreen: weekly volume', () => {
+  /**
+   * Last week (Nov 2–8): bench 3 sets (chest 3, shoulders 1.5, triceps 1.5); squat 2 sets
+   * (quads 2, glutes 1, hamstrings 1, lower back 1). This week (Nov 9–15): bench 3 sets.
+   */
+  async function seedWeeks(fixture: Fixture) {
+    await logOn(fixture, '2026-11-03T12:00:00.000Z', {
+      [BENCH]: { weightKg: 40, reps: [8, 8, 8] },
+      [SQUAT]: { weightKg: 100, reps: [5, 5] },
+    });
+    await logOn(fixture, '2026-11-09T12:00:00.000Z', { [BENCH]: { weightKg: 40, reps: [8, 8, 8] } });
+  }
+
+  it('lists the muscles with sets in either week, ordered by muscle group', async () => {
+    const fixture = await emptyFixture();
+    await seedWeeks(fixture);
+    await render(fixture);
+    expect(screen.getByRole('header', { name: 'Sets per muscle group' })).toBeOnTheScreen();
+    const rows = screen.getAllByLabelText(/this week,/).map((node) => node.props.accessibilityLabel);
+    expect(rows).toEqual([
+      'Chest: 3 sets this week, 3 last week',
+      'Shoulders: 1.5 sets this week, 1.5 last week',
+      'Triceps: 1.5 sets this week, 1.5 last week',
+      'Lower back: 0 sets this week, 1 last week',
+      'Glutes: 0 sets this week, 1 last week',
+      'Quads: 0 sets this week, 2 last week',
+      'Hamstrings: 0 sets this week, 1 last week',
+    ]);
+  });
+
+  it('localizes the weekly volume in pt-BR', async () => {
+    const fixture = await emptyFixture();
+    await seedWeeks(fixture);
+    await render(fixture, {}, 'pt-BR');
+    expect(
+      screen.getByLabelText('Peito: 3 séries esta semana, 3 na semana passada'),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Quadríceps: 0 série esta semana, 2 na semana passada'),
+    ).toBeOnTheScreen();
+  });
+
+  it('shows an empty text when neither week has sets', async () => {
+    const fixture = await emptyFixture();
+    await logOn(fixture, '2026-10-01T12:00:00.000Z', { [BENCH]: { weightKg: 40, reps: [8] } });
+    await render(fixture);
+    expect(screen.getByText('No sets logged in these two weeks.')).toBeOnTheScreen();
+  });
+});
+
+describe('ProgressScreen: navigation', () => {
+  it('opens the details of the selected exercise', async () => {
+    const fixture = await emptyFixture();
+    await seedBenchSessions(fixture);
+    const onOpenExercise = jest.fn();
+    await render(fixture, { initialExerciseId: BENCH, onOpenExercise });
+    await fireEvent.press(screen.getByRole('button', { name: 'Exercise details' }));
+    expect(onOpenExercise).toHaveBeenCalledWith(BENCH);
   });
 });

@@ -1,273 +1,304 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { fireEvent, screen } from '@testing-library/react-native';
 
-import { createMemoryRepositories } from '@/data/memory/memory-repositories';
-import type { Repositories } from '@/data/repositories';
+import { createClock, DAY_MS, MINUTE_MS } from '@/test-utils/clock';
 import { renderInApp } from '@/test-utils/render-app';
-import { seedActivated } from '@/test-utils/seed-activated';
-import { loggedSet, seedCompleted } from '@/test-utils/seed-history';
+import { createTestStore, seedCompletedWorkout, seedPlan } from '@/test-utils/seed';
 
 import { HistoryDetailScreen } from './history-detail-screen';
 
 const NBSP = ' ';
-const kg = (text: string) => text.replace(/ kg/g, `${NBSP}kg`);
-const at = (iso: string) => `${iso}T12:00:00.000Z`;
 
-let clock = at('2026-11-09');
-const setNow = (iso: string) => {
-  clock = iso;
+async function seedDetail() {
+  const clock = createClock('2026-03-02T10:00:00.000Z');
+  const { store, repos } = await createTestStore({ clock });
+  const plan = await seedPlan(store);
+  const first = await seedCompletedWorkout(store, {
+    planWorkoutId: 'w-a',
+    logs: {
+      'barbell-bench-press': { weightKg: 40, reps: [12, 12, 12] },
+      'lat-pulldown': { weightKg: 30, reps: [10, 10, 10] },
+    },
+  });
+  clock.advance(DAY_MS);
+  const second = await seedCompletedWorkout(store, {
+    planWorkoutId: 'w-a',
+    notes: 'Felt strong',
+    logs: {
+      'barbell-bench-press': { weightKg: 42.5, reps: [12, 12, 12], rir: 2 },
+      'lat-pulldown': { weightKg: 25, reps: [10] },
+    },
+  });
+  return { store, repos, clock, plan, first: first.workout, second: second.workout };
+}
+
+type Callbacks = {
+  onBack?: jest.Mock;
+  onOpenExercise?: jest.Mock;
+  onDeleted?: jest.Mock;
 };
 
-/**
- * Bench 100 kg, 5/3/1 (custom), program day 1, three weeks; squat in slot 2.
- *  1  bench 1-w1 Nov 9   75×5, 75×5, 80×5 @ RIR 1      → 80 / 0.837 = 95.6;   tonnage 1150
- *  2  squat 2-w1 Nov 10  140×2 @ RIR 1                 → 140 / 0.922 = 151.8
- *  3  bench 1-w2 Nov 16  85×3, 85×3, 87.5×3 @ RIR 1    → 87.5 / 0.892 = 98.1; tonnage 772.5 (prescribed 765)
- *  4  bench 1-w3 Nov 23  95×1 ×3 (no RIR)              → no e1RM;             tonnage 285
- */
-async function seed(repos: Repositories, profileId: number) {
-  const periodization = await seedActivated(repos, profileId, { lifts: ['bench', 'squat'] });
-  const complete = (key: string, sets: ReturnType<typeof loggedSet>[], date: string, notes = '') =>
-    seedCompleted(repos, profileId, periodization, key, sets, { at: at(date), setNow, notes });
-  await complete('1-w1', [loggedSet(0, 75, 5, null), loggedSet(1, 75, 5, null), loggedSet(2, 80, 5, 1)], '2026-11-09');
-  await complete('2-w1', [loggedSet(0, 140, 2, 1, { weightKg: 105, reps: 5 })], '2026-11-10');
-  const w2 = { weightKg: 85, reps: 3 };
-  await complete(
-    '1-w2',
-    [loggedSet(0, 85, 3, null, w2), loggedSet(1, 85, 3, null, w2), loggedSet(2, 87.5, 3, 1, w2)],
-    '2026-11-16',
-    'felt strong',
-  );
-  const w3 = { weightKg: 95, reps: 1 };
-  await complete(
-    '1-w3',
-    [loggedSet(0, 95, 1, null, w3), loggedSet(1, 95, 1, null, w3), loggedSet(2, 95, 1, null, w3)],
-    '2026-11-23',
+function detail(workoutId: number, cb: Callbacks = {}) {
+  return (
+    <HistoryDetailScreen
+      workoutId={workoutId}
+      onBack={cb.onBack ?? jest.fn()}
+      onOpenExercise={cb.onOpenExercise ?? jest.fn()}
+      onDeleted={cb.onDeleted ?? jest.fn()}
+    />
   );
 }
 
-async function renderDetail(
-  id: number,
-  options: { language?: 'en' | 'pt-BR'; onOpen?: (id: number) => void; onBack?: () => void } = {},
-) {
-  clock = at('2026-11-09');
-  const repos = createMemoryRepositories({ clock: () => new Date(clock) });
-  const result = await renderInApp(
-    <HistoryDetailScreen performedSessionId={id} onOpen={options.onOpen} onBack={options.onBack} />,
-    { repos, language: options.language ?? 'en', seed },
-  );
-  return { ...result, repos };
-}
+describe('HistoryDetailScreen: reading', () => {
+  it('shows the header, totals and per-exercise sets of the first workout', async () => {
+    const { store, repos, first } = await seedDetail();
+    await renderInApp(detail(first.id), { store, repos });
+    expect(await screen.findByRole('header', { name: 'A' })).toBeOnTheScreen();
+    expect(screen.getByText(/^Mar 2, 2026 at /)).toBeOnTheScreen();
+    expect(screen.getByText('Plan: Sample plan')).toBeOnTheScreen();
+    expect(screen.getByText('Cycle 1, week 1')).toBeOnTheScreen();
+    expect(screen.getByText('Duration: 0 min')).toBeOnTheScreen();
+    expect(screen.getByText('6 working sets')).toBeOnTheScreen();
+    expect(screen.getByText(`Volume: 2,340${NBSP}kg`)).toBeOnTheScreen();
+    expect(screen.queryByText('Deload')).not.toBeOnTheScreen();
 
-describe('HistoryDetailScreen: the session (en)', () => {
-  it('shows the session, its snapshot and the notes', async () => {
-    await renderDetail(3);
-    expect(await screen.findByRole('header', { name: 'Session details' })).toBeOnTheScreen();
-    expect(screen.getByText('Bench Press')).toBeOnTheScreen();
-    expect(screen.getByText('Session 1 · Week 2')).toBeOnTheScreen();
-    expect(screen.getByText(/Session completed on Nov 16, 2026/)).toBeOnTheScreen();
-    expect(
-      screen.getByText(
-        kg(
-          'Prescription as activated on Nov 9, 2026, with the 100.0 kg reference 1RM of that time. Later changes to programs or 1RMs do not affect it.',
-        ),
-      ),
-    ).toBeOnTheScreen();
-    expect(screen.getByText('felt strong')).toBeOnTheScreen();
+    expect(screen.getByText('Barbell Bench Press')).toBeOnTheScreen();
+    expect(screen.getAllByText(`40${NBSP}kg × 12`)).toHaveLength(3);
+    expect(screen.getAllByText(`30${NBSP}kg × 10`)).toHaveLength(3);
+    expect(screen.getByText(`Volume: 1,440${NBSP}kg`)).toBeOnTheScreen();
+    expect(screen.queryByText(/^RIR/)).not.toBeOnTheScreen();
   });
 
-  it('compares each set with its prescription, with RIR, RPE and the set e1RM', async () => {
-    await renderDetail(3);
-    const first = within(await screen.findByTestId('set-1'));
-    expect(first.getByText(kg('Prescribed: 3 reps @ 85.0 kg'))).toBeOnTheScreen();
-    expect(first.getByText(kg('85.0 kg × 3'))).toBeOnTheScreen();
-    expect(first.getByText(kg('Δ 0.0 kg · 0 reps vs. prescribed'))).toBeOnTheScreen();
-    const last = within(screen.getByTestId('set-3'));
-    expect(last.getByText(kg('87.5 kg × 3 · RIR 1 · RPE 9'))).toBeOnTheScreen();
-    expect(last.getByText(kg('Δ +2.5 kg · 0 reps vs. prescribed'))).toBeOnTheScreen();
-    expect(last.getByText(kg('e1RM ≈ 98.1 kg (estimate)'))).toBeOnTheScreen();
+  it('shows the e1RM estimate and "First session" without a previous session', async () => {
+    const { store, repos, first } = await seedDetail();
+    await renderInApp(detail(first.id), { store, repos });
+    expect(await screen.findByText(`e1RM ≈ 56${NBSP}kg (estimate)`)).toBeOnTheScreen();
+    expect(screen.getAllByText('First session')).toHaveLength(2);
+    expect(screen.queryByText('Weight record')).not.toBeOnTheScreen();
   });
 
-  it('shows the tonnage against the prescription: 772.5 performed, 765 prescribed, Δ +7.5', async () => {
-    await renderDetail(3);
-    expect(
-      await screen.findByText(kg('Tonnage: 772.5 kg performed · 765.0 kg prescribed · Δ +7.5 kg')),
-    ).toBeOnTheScreen();
+  it('shows RIR, the comparison with the previous session and the records', async () => {
+    const { store, repos, second } = await seedDetail();
+    await renderInApp(detail(second.id), { store, repos });
+    expect(await screen.findByText('Notes: Felt strong')).toBeOnTheScreen();
+    expect(screen.getAllByText(`42.5${NBSP}kg × 12`)).toHaveLength(3);
+    expect(screen.getAllByText('RIR 2')).toHaveLength(3);
+    expect(screen.getByText(`e1RM ≈ 62.33${NBSP}kg (estimate)`)).toBeOnTheScreen();
+
+    expect(screen.getByText(`Top weight +2.5${NBSP}kg vs last session`)).toBeOnTheScreen();
+    expect(screen.getByText(`Volume +90${NBSP}kg vs last session`)).toBeOnTheScreen();
+    expect(screen.getByText(`Top weight −5${NBSP}kg vs last session`)).toBeOnTheScreen();
+    expect(screen.getByText(`Volume −650${NBSP}kg vs last session`)).toBeOnTheScreen();
+    expect(screen.queryByText('First session')).not.toBeOnTheScreen();
+
+    // Only the bench press set records.
+    expect(screen.getByText('Weight record')).toBeOnTheScreen();
+    expect(screen.getByText('e1RM record')).toBeOnTheScreen();
   });
 
-  it('shows the stored session e1RM with the comparison to the previous one (98.1 vs 95.6: +2.5 kg, +2.6%)', async () => {
-    await renderDetail(3);
-    const card = within(await screen.findByTestId('session-e1rm'));
-    expect(card.getByText(kg('Bench Press: e1RM ≈ 98.1 kg (estimate), from set 3'))).toBeOnTheScreen();
-    expect(card.getByText(kg('Previous e1RM: 95.6 kg · Δ +2.5 kg (+2.6%)'))).toBeOnTheScreen();
-    expect(card.getByText('Formula: RTS chart')).toBeOnTheScreen();
+  it('formats numbers in Portuguese', async () => {
+    const { store, repos, second } = await seedDetail();
+    await renderInApp(detail(second.id), { store, repos, language: 'pt-BR' });
+    expect(await screen.findByText(`Maior carga +2,5${NBSP}kg vs. última sessão`)).toBeOnTheScreen();
+    expect(screen.getByText(`Volume −650${NBSP}kg vs. última sessão`)).toBeOnTheScreen();
+    expect(screen.getAllByText(`42,5${NBSP}kg × 12`)).toHaveLength(3);
+    expect(screen.getByText(`e1RM ≈ 62,33${NBSP}kg (estimativa)`)).toBeOnTheScreen();
+    expect(screen.getByText(`Volume: 1.530${NBSP}kg`)).toBeOnTheScreen();
+    expect(screen.getByText('Periodização: Sample plan')).toBeOnTheScreen();
+    expect(screen.getByText('Ciclo 1, semana 1')).toBeOnTheScreen();
+    expect(screen.getByText(/^3 de mar\. de 2026 às /)).toBeOnTheScreen();
+    expect(screen.getByText('Recorde de carga')).toBeOnTheScreen();
   });
 
-  it('says when the session is not found', async () => {
-    await renderDetail(99);
-    expect(await screen.findByText('This session was not found in the history.')).toBeOnTheScreen();
+  it('marks warm-up sets, shows the exercise note, the duration and the deload badge', async () => {
+    const clock = createClock('2026-03-02T10:00:00.000Z');
+    const { store, repos } = await createTestStore({ clock });
+    const plan = await seedPlan(store);
+    await store.getState().startDeload(plan.id);
+    await store.getState().startPlanWorkout('w-b');
+    const actions = store.getState();
+    await actions.updateSet(0, 0, { weightKg: 60, reps: 5 });
+    await actions.toggleSetDone(0, 0);
+    await actions.setSetKind(0, 0, 'warmup');
+    await actions.updateSet(0, 1, { weightKg: 100, reps: 3 });
+    await actions.toggleSetDone(0, 1);
+    await actions.setExerciseNote(0, 'Belt on');
+    clock.advance(65 * MINUTE_MS);
+    const { workout } = await actions.finishWorkout();
+
+    await renderInApp(detail(workout.id), { store, repos });
+    expect(await screen.findByText('Deload')).toBeOnTheScreen();
+    expect(screen.getByText('Duration: 1 h 5 min')).toBeOnTheScreen();
+    expect(screen.getByText('Note: Belt on')).toBeOnTheScreen();
+    expect(screen.getByText('Warm-up')).toBeOnTheScreen();
+    expect(screen.getByText(`60${NBSP}kg × 5`)).toBeOnTheScreen();
+    // The warm-up set does not count: 1 working set of 100 kg × 3.
+    expect(screen.getByText('1 working set')).toBeOnTheScreen();
+    expect(screen.getAllByText(`Volume: 300${NBSP}kg`)).toHaveLength(2);
   });
 
-  it('goes back', async () => {
+  it('omits the plan line, the cycle line and the e1RM of a free bodyweight workout', async () => {
+    const { store, repos } = await createTestStore();
+    const { workout } = await seedCompletedWorkout(store, {
+      name: 'Pull-ups',
+      logs: { 'pull-up': { weightKg: 0, reps: [8, 6] } },
+    });
+    await renderInApp(detail(workout.id), { store, repos });
+    expect(await screen.findByRole('header', { name: 'Pull-ups' })).toBeOnTheScreen();
+    expect(screen.getByText('Free workout')).toBeOnTheScreen();
+    expect(screen.queryByText(/^Plan:/)).not.toBeOnTheScreen();
+    expect(screen.queryByText(/^Cycle/)).not.toBeOnTheScreen();
+    expect(screen.queryByText(/e1RM/)).not.toBeOnTheScreen();
+    expect(screen.getByText(`0${NBSP}kg × 8`)).toBeOnTheScreen();
+  });
+
+  it('opens the exercise and goes back', async () => {
+    const { store, repos, first } = await seedDetail();
+    const onOpenExercise = jest.fn();
     const onBack = jest.fn();
-    await renderDetail(3, { onBack });
-    await fireEvent.press(await screen.findByRole('button', { name: 'Back' }));
-    expect(onBack).toHaveBeenCalled();
+    await renderInApp(detail(first.id, { onOpenExercise, onBack }), { store, repos });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Open Lat Pulldown' }));
+    expect(onOpenExercise).toHaveBeenCalledWith('lat-pulldown');
+    await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a not-found state for an unknown id, with a back action', async () => {
+    const { store, repos } = await seedDetail();
+    const onBack = jest.fn();
+    await renderInApp(detail(9999, { onBack }), { store, repos });
+    expect(await screen.findByText('Workout not found')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('is not found for the workout in progress', async () => {
+    const { store, repos } = await createTestStore();
+    const draft = await store.getState().startFreeWorkout('Live');
+    await renderInApp(detail(draft.id), { store, repos });
+    expect(await screen.findByText('Workout not found')).toBeOnTheScreen();
   });
 });
 
-describe('HistoryDetailScreen: equivalent previous sessions', () => {
-  it('compares with the earlier session of the same lift, program and day: tonnage -377.5, e1RM +2.5 kg', async () => {
-    await renderDetail(3);
-    const card = within(await screen.findByTestId('history-equivalents'));
-    expect(card.getByText('Equivalent previous sessions')).toBeOnTheScreen();
-    expect(
-      card.getByText('Earlier sessions of the same lift, program and program day (the 3 most recent).'),
-    ).toBeOnTheScreen();
-    const row = within(card.getByTestId('equivalent-1'));
-    expect(row.getByText('Nov 9, 2026 · Session 1, week 1')).toBeOnTheScreen();
-    expect(row.getByText(kg('Tonnage 1,150.0 kg · this session Δ -377.5 kg'))).toBeOnTheScreen();
-    expect(row.getByText(kg('e1RM 95.6 kg · this session Δ +2.5 kg (+2.6%)'))).toBeOnTheScreen();
-    // another lift is not equivalent
-    expect(card.queryByTestId('equivalent-2')).toBeNull();
+describe('HistoryDetailScreen: editing', () => {
+  it('saves an edited weight without touching the cycle state', async () => {
+    const { store, repos, second, plan } = await seedDetail();
+    const planBefore = store.getState().plans.find((p) => p.id === plan.id);
+    await renderInApp(detail(second.id), { store, repos });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Edit' }));
+    // Editable rows replace the read-only lines.
+    expect(screen.queryByText(`42.5${NBSP}kg × 12`)).not.toBeOnTheScreen();
+    await fireEvent.changeText(screen.getAllByLabelText('Set 1 weight')[0], '45');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByRole('button', { name: 'Edit' })).toBeOnTheScreen();
+    const stored = store.getState().workouts.find((w) => w.id === second.id);
+    expect(stored?.exercises[0].sets.map((s) => s.weightKg)).toEqual([45, 42.5, 42.5]);
+    expect(stored?.completedAt).toBe(second.completedAt);
+    expect(stored?.phase).toBe(second.phase);
+    expect(stored?.cycleNumber).toBe(second.cycleNumber);
+    expect(store.getState().plans.find((p) => p.id === plan.id)).toEqual(planBefore);
+    expect(screen.getByText(`45${NBSP}kg × 12`)).toBeOnTheScreen();
   });
 
-  it('lists several, newest first, and says when the e1RM cannot be compared', async () => {
-    await renderDetail(4);
-    const card = within(await screen.findByTestId('history-equivalents'));
-    const ids = card.getAllByTestId(/^equivalent-/).map((node) => node.props.testID);
-    expect(ids).toEqual(['equivalent-3', 'equivalent-1']);
-    const newest = within(card.getByTestId('equivalent-3'));
-    expect(newest.getByText(kg('Tonnage 772.5 kg · this session Δ -487.5 kg'))).toBeOnTheScreen();
-    expect(newest.getByText('e1RM: not available for both sessions.')).toBeOnTheScreen();
-    const oldest = within(card.getByTestId('equivalent-1'));
-    expect(oldest.getByText(kg('Tonnage 1,150.0 kg · this session Δ -865.0 kg'))).toBeOnTheScreen();
-  });
+  it('edits notes, the warm-up flag, adds and removes sets', async () => {
+    const { store, repos, second } = await seedDetail();
+    await renderInApp(detail(second.id), { store, repos });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Edit' }));
+    await fireEvent.changeText(screen.getByLabelText('Workout notes'), 'Updated');
+    await fireEvent.changeText(screen.getByLabelText('Note for Barbell Bench Press'), 'Pause reps');
+    await fireEvent.press(screen.getAllByRole('button', { name: 'Set 1 type' })[0]);
+    await fireEvent.press(screen.getAllByRole('button', { name: 'Remove set 3' })[0]);
+    await fireEvent.press(screen.getByRole('button', { name: 'Add set to Lat Pulldown' }));
+    // The new set copies the previous weight and needs reps.
+    await fireEvent.changeText(screen.getAllByLabelText('Set 2 reps')[1], '8');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
 
-  it('opens an equivalent session', async () => {
-    const onOpen = jest.fn();
-    await renderDetail(3, { onOpen });
-    await fireEvent.press(await screen.findByRole('button', { name: 'Open the Bench Press session of Nov 9, 2026' }));
-    expect(onOpen).toHaveBeenCalledWith(1);
-  });
-
-  it('says so when there is no earlier equivalent session', async () => {
-    await renderDetail(1);
-    expect(await screen.findByText('No earlier session of this lift, program and day.')).toBeOnTheScreen();
-    await screen.findByTestId('history-equivalents');
-  });
-
-  it('does not treat a session of another lift as equivalent', async () => {
-    await renderDetail(2);
-    expect(await screen.findByText('No earlier session of this lift, program and day.')).toBeOnTheScreen();
-  });
-});
-
-describe('HistoryDetailScreen: editing a past session', () => {
-  const field = (label: string, set: number) => screen.getByLabelText(`${label}, set ${set}`);
-
-  it('recomputes only that e1RM: 82.5 × 5 @ RIR 1 → 82.5 / 0.837 = 98.6 kg, other sessions untouched', async () => {
-    const { repos } = await renderDetail(1);
-    const otherBefore = await repos.e1rmHistory.revisions(1, 2);
-    await fireEvent.press(await screen.findByRole('button', { name: 'Edit session' }));
-    expect(await screen.findByText('Edit session')).toBeOnTheScreen();
-
-    await fireEvent.changeText(field('Weight (kg)', 3), '82.5');
-    // while editing, the live estimate compares with the estimate before this session
-    expect(await screen.findByText(kg('Bench Press: e1RM ≈ 98.6 kg (estimate), from set 3'))).toBeOnTheScreen();
-
-    setNow(at('2026-11-30'));
-    await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
-
-    expect(await screen.findByText(/Edited on Nov 30, 2026/)).toBeOnTheScreen();
-    const card = within(await screen.findByTestId('session-e1rm'));
-    expect(card.getByText(kg('Bench Press: e1RM ≈ 98.6 kg (estimate), from set 3'))).toBeOnTheScreen();
-    expect(screen.getByText(/recomputed after an edit \(revision 2\)/)).toBeOnTheScreen();
-    expect(within(screen.getByTestId('set-3')).getByText(kg('82.5 kg × 5 · RIR 1 · RPE 9'))).toBeOnTheScreen();
-
-    expect((await repos.e1rmHistory.revisions(1, 1)).map((r) => [r.revision, r.valueKg])).toEqual([
-      [1, 95.6],
-      [2, 98.6],
+    expect(await screen.findByRole('button', { name: 'Edit' })).toBeOnTheScreen();
+    const stored = store.getState().workouts.find((w) => w.id === second.id);
+    expect(stored?.notes).toBe('Updated');
+    expect(stored?.exercises[0].note).toBe('Pause reps');
+    expect(stored?.exercises[0].sets.map((s) => s.kind)).toEqual(['warmup', 'working']);
+    expect(stored?.exercises[1].sets.map((s) => [s.weightKg, s.reps])).toEqual([
+      [25, 10],
+      [25, 8],
     ]);
-    expect(await repos.e1rmHistory.revisions(1, 2)).toEqual(otherBefore);
-    expect((await repos.e1rmHistory.list(1)).map((r) => [r.performedSessionId, r.valueKg])).toEqual([
-      [3, 98.1],
-      [2, 151.8],
-      [1, 98.6],
-    ]);
+    expect(screen.getByText('Notes: Updated')).toBeOnTheScreen();
   });
 
-  it('keeps the date and the snapshot when editing', async () => {
-    const { repos } = await renderDetail(1);
-    const before = (await repos.performances.list(1)).find((r) => r.id === 1)!;
-    await fireEvent.press(await screen.findByRole('button', { name: 'Edit session' }));
-    await fireEvent.changeText(field('Reps', 1), '4');
-    setNow(at('2026-11-30'));
-    await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
-    await screen.findByText(/Edited on Nov 30, 2026/);
-    const after = (await repos.performances.list(1)).find((r) => r.id === 1)!;
-    expect(after.completedAt).toBe(before.completedAt);
-    expect(after.snapshot).toEqual(before.snapshot);
-    expect(after.sets[0].reps).toBe(4);
-    expect(screen.getByText(/Session completed on Nov 9, 2026/)).toBeOnTheScreen();
+  it('shows an invalid edit on the offending row and saves nothing', async () => {
+    const { store, repos, second } = await seedDetail();
+    await renderInApp(detail(second.id), { store, repos });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Edit' }));
+    await fireEvent.changeText(screen.getAllByLabelText('Set 2 reps')[0], '');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByText('Enter the reps')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeOnTheScreen();
+    const stored = store.getState().workouts.find((w) => w.id === second.id);
+    expect(stored).toEqual(second);
+
+    // The error goes away once the field is corrected.
+    await fireEvent.changeText(screen.getAllByLabelText('Set 2 reps')[0], '9');
+    expect(screen.queryByText('Enter the reps')).not.toBeOnTheScreen();
   });
 
-  it('does not save anything until "Save changes", and Cancel discards the edit', async () => {
-    const { repos } = await renderDetail(1);
-    await fireEvent.press(await screen.findByRole('button', { name: 'Edit session' }));
-    await fireEvent.changeText(field('Weight (kg)', 3), '90');
-    expect((await repos.performances.list(1)).find((r) => r.id === 1)!.sets[2].weightKg).toBe(80);
+  it('shows the validation error in Portuguese', async () => {
+    const { store, repos, second } = await seedDetail();
+    await renderInApp(detail(second.id), { store, repos, language: 'pt-BR' });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Editar' }));
+    await fireEvent.changeText(screen.getAllByLabelText('Carga da série 1')[0], '');
+    await fireEvent.press(screen.getByRole('button', { name: 'Salvar' }));
+    expect(await screen.findByText('Informe a carga')).toBeOnTheScreen();
+  });
+
+  it('rejects a too long note with a localized message', async () => {
+    const { store, repos, second } = await seedDetail();
+    await renderInApp(detail(second.id), { store, repos });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Edit' }));
+    await fireEvent.changeText(screen.getByLabelText('Workout notes'), 'x'.repeat(501));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Use at most 500 characters')).toBeOnTheScreen();
+    expect(store.getState().workouts.find((w) => w.id === second.id)?.notes).toBe('Felt strong');
+  });
+
+  it('cancels the edit and restores the stored values', async () => {
+    const { store, repos, second } = await seedDetail();
+    await renderInApp(detail(second.id), { store, repos });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Edit' }));
+    await fireEvent.changeText(screen.getAllByLabelText('Set 1 weight')[0], '99');
     await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
-    expect(await screen.findByRole('button', { name: 'Edit session' })).toBeOnTheScreen();
-    expect(within(screen.getByTestId('set-3')).getByText(kg('80.0 kg × 5 · RIR 1 · RPE 9'))).toBeOnTheScreen();
-    expect(await repos.e1rmHistory.revisions(1, 1)).toHaveLength(1);
-  });
+    expect(screen.getAllByText(`42.5${NBSP}kg × 12`)).toHaveLength(3);
+    expect(store.getState().workouts.find((w) => w.id === second.id)).toEqual(second);
 
-  it('requires weight and reps on every set', async () => {
-    const { repos } = await renderDetail(1);
-    await fireEvent.press(await screen.findByRole('button', { name: 'Edit session' }));
-    await fireEvent.changeText(field('Reps', 2), '');
-    await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
-    expect(await screen.findByText(/Fill in the weight and reps of every set/)).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Save changes' })).toBeOnTheScreen();
-    expect((await repos.performances.list(1)).find((r) => r.id === 1)!.sets[1].reps).toBe(5);
-  });
-
-  it('removes the estimate when no set is valid any more, keeping the earlier revision', async () => {
-    const { repos } = await renderDetail(1);
-    await fireEvent.press(await screen.findByRole('button', { name: 'Edit session' }));
-    await fireEvent.changeText(field('RIR', 3), '');
-    await fireEvent.changeText(field('RPE', 3), '');
-    await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
-    await waitFor(async () => expect((await repos.e1rmHistory.list(1)).map((r) => r.performedSessionId)).toEqual([3, 2]));
-    expect(await screen.findByText(/No set is valid for an e1RM/)).toBeOnTheScreen();
-    expect((await repos.e1rmHistory.revisions(1, 1)).map((r) => [r.revision, r.valueKg])).toEqual([
-      [1, 95.6],
-      [2, null],
-    ]);
+    // A new edit starts from the stored values again.
+    await fireEvent.press(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getAllByLabelText('Set 1 weight')[0]).toHaveDisplayValue('42.5');
   });
 });
 
-describe('HistoryDetailScreen (pt-BR)', () => {
-  it('formats numbers and dates and translates the texts', async () => {
-    await renderDetail(3, { language: 'pt-BR' });
-    expect(await screen.findByRole('header', { name: 'Detalhes da sessão' })).toBeOnTheScreen();
-    expect(screen.getByText(/Sessão concluída em 16 de nov\. de 2026/)).toBeOnTheScreen();
-    expect(
-      screen.getByText(
-        kg(
-          'Prescrição como ativada em 9 de nov. de 2026, com o 1RM de referência de 100,0 kg da época. Mudanças posteriores em programas ou 1RMs não a afetam.',
-        ),
-      ),
-    ).toBeOnTheScreen();
-    const last = within(screen.getByTestId('set-3'));
-    expect(last.getByText(kg('87,5 kg × 3 · RIR 1 · RPE 9'))).toBeOnTheScreen();
-    expect(last.getByText(kg('Δ +2,5 kg · 0 reps vs. prescrito'))).toBeOnTheScreen();
-    const card = within(screen.getByTestId('history-equivalents'));
-    expect(card.getByText('Sessões anteriores equivalentes')).toBeOnTheScreen();
-    const row = within(card.getByTestId('equivalent-1'));
-    expect(row.getByText('9 de nov. de 2026 · Sessão 1, semana 1')).toBeOnTheScreen();
-    expect(row.getByText(kg('Tonelagem 1.150,0 kg · esta sessão Δ -377,5 kg'))).toBeOnTheScreen();
-    expect(row.getByText(kg('e1RM 95,6 kg · esta sessão Δ +2,5 kg (+2,6%)'))).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Editar sessão' })).toBeOnTheScreen();
+describe('HistoryDetailScreen: deleting', () => {
+  it('deletes after confirming and calls onDeleted', async () => {
+    const { store, repos, second, first } = await seedDetail();
+    const onDeleted = jest.fn();
+    await renderInApp(detail(second.id, { onDeleted }), { store, repos });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Delete' }));
+    expect(screen.getByText('Delete this workout?')).toBeOnTheScreen();
+    expect(store.getState().workouts).toHaveLength(2);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete workout' }));
+    expect(await screen.findByText('Workout not found')).toBeOnTheScreen();
+    expect(onDeleted).toHaveBeenCalledTimes(1);
+    expect(store.getState().workouts.map((w) => w.id)).toEqual([first.id]);
+  });
+
+  it('keeps the workout when the dialog is cancelled', async () => {
+    const { store, repos, second } = await seedDetail();
+    const onDeleted = jest.fn();
+    await renderInApp(detail(second.id, { onDeleted }), { store, repos });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Delete' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByText('Delete this workout?')).not.toBeOnTheScreen();
+    expect(onDeleted).not.toHaveBeenCalled();
+    expect(store.getState().workouts).toHaveLength(2);
   });
 });

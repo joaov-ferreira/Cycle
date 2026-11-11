@@ -6,7 +6,6 @@
  * exact for any input with up to six decimals and binary floating-point noise such as
  * `0.1 + 0.2` cannot change a result.
  */
-import type { Lift } from './lifts';
 import { validateDecimal, type NumberRules, type NumberValidationError } from './number-validation';
 
 export const ROUNDING_MODES = ['nearest', 'down', 'up'] as const;
@@ -37,15 +36,6 @@ const MICROGRAMS_PER_KG = 1_000_000;
 export function validateIncrement(kg: number): NumberValidationError | null {
   const result = validateDecimal(String(kg), INCREMENT_RULES);
   return result.ok ? null : result.error;
-}
-
-/** The increment that applies to a lift: its own override when set, else the profile default. */
-export function effectiveIncrement(
-  lift: Lift,
-  defaultKg: number,
-  overrides: Partial<Record<Lift, number>>,
-): number {
-  return overrides[lift] ?? defaultKg;
 }
 
 function toMicrograms(kg: number, name: string): number {

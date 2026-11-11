@@ -1,42 +1,32 @@
-# `src/components/` — reusable UI
+# `src/components/` — UI
 
-- `ui/` — base components: `Screen`, `Text`, `Card`, `Button`, `NumberInput`,
-  `SegmentedControl`, `TextField`.
-- `theme-provider.tsx` — `ThemeProvider` / `useTheme()` over the tokens in
-  `src/constants/theme.ts`.
-- `app-providers.tsx` — boot gate: opens persistence, boots the app store, provides
-  locale and theme.
-- `onboarding/` — first-run 1RM gate. `settings/` — Settings screen sections (profiles,
-  1RMs and history, increments and rounding, e1RM formula, language). `one-rm/` — the three-lift 1RM form.
-  `rounding/` — `IncrementPicker` (presets and custom increment).
-- `programs/` — Programs screen (list, Sheiko templates grouped by family), program detail, original-structure view, the
-  percentage editor and the kg-increment editor (Smolov Jr.).
-- `periodization/` — Periodization screen: session-slot editor (incl. a program family selector with
-  a template selector for families such as Sheiko, kg parameters such as the Smolov Jr. weekly
-  increment and "Add all days of this program"), warnings, the responsive
-  three-week table (weeks side by side at ≥ 900 px, a week toggle on phones), the calendar
-  (week × session cards), a Table | Calendar toggle, activation and the session detail screen.
-- `performance/` — the performance logger (per-set weight, reps, RIR/RPE, notes; extra sets;
-  auto-saved draft; completion and the read-only summary with prescribed vs. actual) and the
-  Training screen (sessions in progress and the next pending session).
-- `e1rm/` — e1RM display (SPEC §8): the per-set estimate line (valid, low confidence, unverified RTS
-  cell), the session estimate card (live while logging, stored once completed) with the comparison
-  with the previous e1RM, "Use as new reference 1RM" (with confirmation) and the localized formula
-  names. `settings/e1rm-section.tsx` chooses the formula.
-- `progress/` — Progress screen (SPEC §9: per-lift cards, period filter) and `LineChart`, the in-house
-  `react-native-svg` chart (e1RM line, reference-1RM steps, localized axes, tap/hover tooltip, per-point
-  accessible buttons) that draws the pure `buildChartModel`.
-- `history/` — History screen (SPEC §10: lift / program / period filters, list items) and the session
-  detail (prescribed vs. performed, e1RM, equivalent previous sessions, edit mode built on the logger form).
-- `dashboard/` — Dashboard screen (SPEC §11: current block week, next session, latest e1RM and reference 1RM per lift, shortcuts; two columns at ≥ 900 px).
-- `navigation/` — main tabs, `AppShell` (puts the sidebar beside every route at ≥ 900 px) and the `Sidebar` with the eight SPEC §11 sections.
+One folder per feature; screens read and write only through the store (`src/state/`).
+
+- `ui/` — base components: `Screen`, `Text`, `Card`, `Button`, `NumberInput`, `SegmentedControl`, `TextField`.
+- `shared/` — reusable feature-neutral pieces: `ExercisePicker` and `ExerciseSelectModal` (search, filters,
+  create a custom exercise), `SetRow`, `Stepper`, `Chip`, `FilterChips`, `ConfirmDialog`, `EmptyState`,
+  `CustomExerciseForm`, name/label helpers (`labels.ts`).
+- `theme-provider.tsx`, `app-providers.tsx` — theme tokens (`src/constants/theme.ts`) and the boot gate
+  (opens persistence, boots the store, provides locale and theme).
+- `navigation/` — bottom tabs, `AppShell` + `Sidebar` (wide screens), the More screen.
+- `onboarding/` — first-run gate and screen (experience level, then template / import / later).
+- `home/` — `HomeScreen`: resume or next-workout card, `CycleSummary` (compact cycle status and deload
+  advice), recent workouts.
+- `plan/` — Plan tab and plan list/detail, the full `CycleCard` and cycle settings, `cycle-text.ts` (the
+  cycle wording shared with Home), and `editor/` (plan editor: compact expandable exercise rows).
+- `plan-import/` — new-plan chooser, template gallery, import (paste / file / Create with AI, preview with
+  unresolved-exercise resolution) and export.
+- `workout/` — start view, logger (exercise cards, suggestions, set rows), summary.
+- `history/`, `progress/` (with the in-house `LineChart`), `exercises/`, `settings/` — the other screens.
 
 Rules:
 
-- Every user-facing string comes from `useT()` (`src/i18n/`); never hard-code UI text.
-- Numbers and dates use the `useI18n()` formatters (`formatKg`, `formatNumber`, …).
-- Colors come from `useTheme()`; touch targets are ≥ 44 pt (`layout.minTouchTarget`);
-  controls have accessible names.
-- May import `src/state/`, `src/i18n/`, `src/domain/` and `src/constants/`.
-- Test behavior with `@testing-library/react-native` and accessible queries (no markup
-  snapshots); screens with formatted numbers are tested in `en` and `pt-BR`.
+- Every user-facing string comes from `useT()` / `useI18n()`; never hard-code UI text (a test enforces it,
+  another rejects catalog keys no code uses).
+- Numbers, dates and clock times use the `useI18n()` formatters (`formatKg`, `formatNumber`, `formatDate`,
+  `formatTime`, …).
+- Colors come from `useTheme()`; touch targets are at least 44 pt (`layout.minTouchTarget`); every control
+  has a role and an accessible name (`src/components/a11y-audit.test.tsx` checks every screen).
+- May import `src/state/`, `src/i18n/`, `src/domain/`, `src/library/` and `src/constants/`.
+- Test behavior with `@testing-library/react-native` and accessible queries (no markup snapshots); screens with
+  formatted numbers are tested in `en` and `pt-BR`. Router tests use `src/test-utils/app-routes.tsx`.

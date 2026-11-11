@@ -1,153 +1,201 @@
 import { useMemo, useState } from 'react';
-import { Pressable } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { LIFTS, type Lift } from '@/domain/lifts';
-import {
-  entryE1rm,
-  entryTonnageKg,
-  filterHistory,
-  groupActualSets,
-  groupPrescribedSets,
-  historyPrograms,
-  type HistoryEntry,
-} from '@/domain/history';
-import { DEFAULT_PERIOD, PERIODS, type Period } from '@/domain/stats';
+import { layout, spacing } from '@/constants/theme';
+import type { Exercise } from '@/domain/exercise';
+import { workoutSummary, type Workout } from '@/domain/workout';
 import { useI18n } from '@/i18n';
-import { useAppStore } from '@/state/app-store-context';
-import { selectHistoryEntries } from '@/state/history-selectors';
+import {
+  selectAllExercises,
+  selectFindExercise,
+  selectHistory,
+  useAppStore,
+  type HistoryFilter,
+} from '@/state';
 
-import { Button, Card, Screen, SegmentedControl, Text } from '../ui';
-import { FilterChips } from './filter-chips';
-import { useHistoryText } from './history-text';
+import { Chip, EmptyState, ExerciseSelectModal, FilterChips, useExerciseName } from '../shared';
+import { useTheme } from '../theme-provider';
+import { Button, Card, Text } from '../ui';
+import { WorkoutBadge } from './workout-badge';
 
 export type HistoryScreenProps = {
-  /** Opens the detail of a completed session (performed session id). */
-  onOpen: (performedSessionId: number) => void;
+  onOpenWorkout: (id: number) => void;
   onBack?: () => void;
-  /** The clock for the period filter; defaults to the current time. */
-  now?: Date;
 };
 
-/** The program line of an entry: `5/3/1 (custom) (version 1.0)`. */
-export function useProgramLine() {
-  const t = useI18n().t;
-  return (entry: Pick<HistoryEntry, 'templateName' | 'templateVersion'>) =>
-    entry.templateVersion === null
-      ? t('history.item.programNoVersion', { program: entry.templateName })
-      : t('history.item.program', { program: entry.templateName, version: entry.templateVersion });
-}
+/** History list (SPEC §8): completed workouts, newest first, filtered by plan and/or exercise. */
+export function HistoryScreen({ onOpenWorkout, onBack }: HistoryScreenProps) {
+  const { t, formatDate, formatKg } = useI18n();
+  const { colors } = useTheme();
+  const nameOf = useExerciseName();
 
-function HistoryItem({ entry, onOpen }: { entry: HistoryEntry; onOpen: (id: number) => void }) {
-  const { t, formatKg, formatDate } = useI18n();
-  const text = useHistoryText();
-  const programLine = useProgramLine();
-  const date = formatDate(new Date(entry.completedAt));
-  const lift = t(`lifts.${entry.lift}`);
-  const e1rm = entryE1rm(entry);
-  const prescribed = groupPrescribedSets(entry.sets);
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={t('history.item.open', { lift, date })}
-      onPress={() => onOpen(entry.id)}>
-      <Card testID={`history-item-${entry.id}`}>
-        <Text variant="heading">{t('history.item.heading', { date, lift })}</Text>
-        <Text>{programLine(entry)}</Text>
-        <Text tone="secondary">{t('history.item.session', { number: entry.sessionNumber, week: entry.blockWeek })}</Text>
-        {prescribed.length > 0 ? (
-          <Text tabular tone="secondary">
-            {t('history.item.prescribed', { groups: text.prescribed(prescribed) })}
-          </Text>
-        ) : null}
-        <Text tabular>{t('history.item.performed', { groups: text.performed(groupActualSets(entry.sets)) })}</Text>
-        <Text tabular tone="secondary">
-          {t('history.item.tonnage', { tonnage: formatKg(entryTonnageKg(entry)) })}
-        </Text>
-        <Text tabular variant="label">
-          {e1rm
-            ? t('e1rm.estimate', { value: formatKg(e1rm.valueKg, { maximumFractionDigits: 1 }) })
-            : t('history.item.noE1rm')}
-        </Text>
-        {entry.editedAt ? (
-          <Text variant="caption" tone="secondary">
-            {t('history.item.edited', { date: formatDate(new Date(entry.editedAt)) })}
-          </Text>
-        ) : null}
-      </Card>
-    </Pressable>
-  );
-}
+  const allWorkouts = useAppStore((s) => s.workouts);
+  const plans = useAppStore((s) => s.plans);
+  const exercises = useAppStore(selectAllExercises);
+  const findExercise = useAppStore(selectFindExercise);
 
-/**
- * Training history (SPEC §10): completed sessions, newest first, filterable by lift, program and
- * period. Each item opens the session detail.
- */
-export function HistoryScreen({ onOpen, onBack, now: nowOverride }: HistoryScreenProps) {
-  const { t } = useI18n();
-  const entries = useAppStore(selectHistoryEntries);
-  const [lift, setLift] = useState<Lift | 'all'>('all');
-  const [templateId, setTemplateId] = useState('all');
-  const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
-  // the clock is read when the period changes, so reopening a period refreshes it
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const now = useMemo(() => nowOverride ?? new Date(), [nowOverride, period]);
-  const programs = useMemo(() => historyPrograms(entries), [entries]);
-  const visible = useMemo(
-    () =>
-      filterHistory(
-        entries,
-        {
-          ...(lift === 'all' ? {} : { lift }),
-          ...(templateId === 'all' ? {} : { templateId }),
-          period,
-        },
-        now,
-      ),
-    [entries, lift, templateId, period, now],
-  );
-  return (
-    <Screen title={t('history.title')} testID="screen-history">
-      {onBack ? <Button variant="secondary" label={t('history.back')} onPress={onBack} /> : null}
-      <Text tone="secondary">{t('history.intro')}</Text>
-      <FilterChips
-        label={t('history.filters.lift')}
-        options={[
-          { value: 'all', label: t('history.filters.allLifts') },
-          ...LIFTS.map((value) => ({ value, label: t(`lifts.${value}`) })),
-        ]}
-        value={lift}
-        onChange={setLift}
-      />
-      {programs.length > 1 || templateId !== 'all' ? (
-        <FilterChips
-          label={t('history.filters.program')}
-          options={[
-            { value: 'all', label: t('history.filters.allPrograms') },
-            ...programs.map((program) => ({ value: program.templateId, label: program.templateName })),
-          ]}
-          value={templateId}
-          onChange={setTemplateId}
-        />
+  const [planFilter, setPlanFilter] = useState<string | null>(null);
+  const [exerciseFilter, setExerciseFilter] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
+
+  const filter: HistoryFilter = {
+    planId: planFilter === null ? undefined : Number(planFilter),
+    exerciseId: exerciseFilter ?? undefined,
+  };
+  const workouts = useAppStore((s) => selectHistory(s, filter));
+
+  const planOptions = useMemo(() => {
+    const used = new Set(allWorkouts.map((w) => w.planId));
+    return plans
+      .filter((p) => used.has(p.id))
+      .map((p) => ({ value: String(p.id), label: p.name }));
+  }, [allWorkouts, plans]);
+
+  const trainedExercises = useMemo(() => {
+    const ids = new Set(allWorkouts.flatMap((w) => w.exercises.map((e) => e.exerciseId)));
+    return exercises.filter((e: Exercise) => ids.has(e.id));
+  }, [allWorkouts, exercises]);
+
+  const planNameById = useMemo(() => new Map(plans.map((p) => [p.id, p.name])), [plans]);
+
+  const filtering = planFilter !== null || exerciseFilter !== null;
+  const clearFilters = () => {
+    setPlanFilter(null);
+    setExerciseFilter(null);
+  };
+  const selectedExercise = exerciseFilter === null ? undefined : findExercise(exerciseFilter);
+
+  const header = (
+    <View style={styles.header}>
+      <Text variant="title">{t('history.title')}</Text>
+      {onBack ? <Button variant="secondary" label={t('common.back')} onPress={onBack} /> : null}
+      {allWorkouts.length > 0 ? (
+        <View style={styles.filters}>
+          {planOptions.length > 0 ? (
+            <FilterChips
+              options={planOptions}
+              value={planFilter}
+              onChange={setPlanFilter}
+              allLabel={t('common.all')}
+              testID="history-plan-filter"
+            />
+          ) : null}
+          <View style={styles.exerciseFilter}>
+            <Button
+              variant="secondary"
+              label={t('history.filterExercise')}
+              onPress={() => setPicking(true)}
+            />
+            {exerciseFilter !== null ? (
+              <Chip
+                selected
+                label={t('history.exerciseFilterChip', {
+                  name: selectedExercise ? nameOf(selectedExercise) : exerciseFilter,
+                })}
+                onPress={() => setExerciseFilter(null)}
+              />
+            ) : null}
+          </View>
+        </View>
       ) : null}
-      <SegmentedControl
-        label={t('history.filters.period')}
-        options={PERIODS.map((value) => ({ value, label: t(`progress.periods.${value}`) }))}
-        value={period}
-        onChange={setPeriod}
+    </View>
+  );
+
+  const renderItem = ({ item }: { item: Workout }) => {
+    const summary = workoutSummary(item);
+    const planName = item.planId === null ? null : planNameById.get(item.planId);
+    const date = formatDate(new Date(item.completedAt ?? item.startedAt));
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('history.openWorkout', { name: item.name, date })}
+        onPress={() => onOpenWorkout(item.id)}
+        testID={`history-row-${item.id}`}
+        style={styles.rowPressable}>
+        <Card>
+          <View style={styles.rowTop}>
+            <Text variant="caption" tone="secondary">
+              {date}
+            </Text>
+            {item.phase === 'deload' ? <WorkoutBadge label={t('history.deload')} /> : null}
+          </View>
+          <Text variant="heading">{item.name}</Text>
+          {item.planId === null && item.planWorkoutId === null ? (
+            <Text tone="secondary">{t('history.freeWorkout')}</Text>
+          ) : planName ? (
+            <Text tone="secondary">{planName}</Text>
+          ) : null}
+          <View style={styles.rowTotals}>
+            <Text tabular>{t('history.workingSets', { count: summary.workingSets })}</Text>
+            <Text tabular>{t('history.volume', { volume: formatKg(summary.volumeKg, { minimumFractionDigits: 0 }) })}</Text>
+          </View>
+        </Card>
+      </Pressable>
+    );
+  };
+
+  return (
+    <SafeAreaView
+      edges={['top', 'left', 'right']}
+      style={[styles.root, { backgroundColor: colors.background }]}
+      testID="screen-history">
+      <FlatList
+        data={workouts}
+        keyExtractor={(w) => String(w.id)}
+        renderItem={renderItem}
+        ListHeaderComponent={header}
+        ListEmptyComponent={
+          allWorkouts.length === 0 ? (
+            <EmptyState
+              title={t('history.emptyTitle')}
+              message={t('history.emptyMessage')}
+              testID="history-empty"
+            />
+          ) : (
+            <EmptyState
+              title={t('history.noMatchTitle')}
+              message={t('history.noMatchMessage')}
+              actionLabel={filtering ? t('history.clearFilters') : undefined}
+              onAction={clearFilters}
+              testID="history-no-match"
+            />
+          )
+        }
+        contentContainerStyle={styles.content}
+        ItemSeparatorComponent={Separator}
       />
-      {entries.length === 0 ? (
-        <Text tone="secondary">{t('history.empty')}</Text>
-      ) : (
-        <>
-          <Text variant="label" accessibilityLiveRegion="polite">
-            {t('history.count', { count: visible.length })}
-          </Text>
-          {visible.length === 0 ? <Text tone="secondary">{t('history.noMatch')}</Text> : null}
-          {visible.map((entry) => (
-            <HistoryItem key={entry.id} entry={entry} onOpen={onOpen} />
-          ))}
-        </>
-      )}
-    </Screen>
+      <ExerciseSelectModal
+        visible={picking}
+        title={t('history.filterExercise')}
+        exercises={trainedExercises}
+        onSelect={(exercise) => {
+          setExerciseFilter(exercise.id);
+          setPicking(false);
+        }}
+        onClose={() => setPicking(false)}
+      />
+    </SafeAreaView>
   );
 }
+
+function Separator() {
+  return <View style={styles.separator} />;
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  content: {
+    width: '100%',
+    maxWidth: layout.maxContentWidth,
+    alignSelf: 'center',
+    padding: spacing.lg,
+  },
+  header: { gap: spacing.md, marginBottom: spacing.lg },
+  filters: { gap: spacing.sm },
+  exerciseFilter: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
+  rowPressable: { minHeight: layout.minTouchTarget },
+  rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  rowTotals: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg },
+  separator: { height: spacing.md },
+});

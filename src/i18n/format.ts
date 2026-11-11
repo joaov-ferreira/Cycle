@@ -46,3 +46,12 @@ export function formatDate(
 ): string {
   return new Intl.DateTimeFormat(locale, options).format(date);
 }
+
+/**
+ * Locale-aware clock time of day: `6:42 AM` in English, `06:42` in Portuguese. Every clock time
+ * in the app goes through this formatter so the same instant always reads the same.
+ */
+export function formatTime(date: Date, locale: AppLocale): string {
+  const hour = locale === 'pt-BR' ? '2-digit' : 'numeric';
+  return new Intl.DateTimeFormat(locale, { hour, minute: '2-digit' }).format(date);
+}

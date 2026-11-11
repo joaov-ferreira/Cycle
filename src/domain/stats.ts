@@ -1,120 +1,267 @@
 /**
- * Strength progression statistics (SPEC §9): current reference 1RM, latest / previous / highest
- * e1RM and the improvement over a baseline (the reference 1RM in effect at the start of the
- * selected period). Pure: the clock is passed in as `now`.
+ * Statistics of the progress screens (SPEC §9): chart series, personal records, new records of
+ * a workout, weekly sets per muscle group and recently trained exercises. Pure: no I/O, no
+ * clocks (the reference time is passed in), no display strings.
+ *
+ * Only counted sets (done working sets with a weight and reps ≥ 1, `countedSets`) are used.
  */
+import { allowsZeroLoad, type Equipment, type Exercise, type MuscleGroup } from './exercise';
+import { countedSets, e1rm, volume } from './metrics';
+import { periodStart, type Period } from './period';
+import type { ExerciseSession, LoggedSet, Workout } from './workout';
 
-/** Period filter of the progress charts (SPEC §9), in display order. */
-export const PERIODS = ['4w', '3m', '6m', '1y', 'all'] as const;
-
-export type Period = (typeof PERIODS)[number];
-
-export const DEFAULT_PERIOD: Period = 'all';
-
-export function isPeriod(value: unknown): value is Period {
-  return typeof value === 'string' && (PERIODS as readonly string[]).includes(value);
-}
-
-/** A value at a moment: an e1RM estimate or a reference 1RM record (`at` is an ISO 8601 timestamp). */
-export type Dated = { at: string; valueKg: number };
-
-const MS_PER_DAY = 86_400_000;
-const MONTHS: Partial<Record<Period, number>> = { '3m': 3, '6m': 6, '1y': 12 };
-
-/** `now` minus whole calendar months (UTC), the day clamped to the end of a shorter month. */
-function subtractMonths(now: Date, months: number): Date {
-  const total = now.getUTCFullYear() * 12 + now.getUTCMonth() - months;
-  const year = Math.floor(total / 12);
-  const month = total - year * 12;
-  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-  const result = new Date(now.getTime());
-  result.setUTCFullYear(year, month, Math.min(now.getUTCDate(), lastDay));
-  return result;
-}
-
-/** Start of a period counted back from `now` (4 weeks = 28 days); null for `all`. */
-export function periodStart(period: Period, now: Date): Date | null {
-  if (period === 'all') return null;
-  if (period === '4w') return new Date(now.getTime() - 28 * MS_PER_DAY);
-  return subtractMonths(now, MONTHS[period] as number);
-}
-
-/** Chronological order; equal times keep the given order (stable sort). */
-function chronological(items: readonly Dated[]): Dated[] {
-  return items
-    .map((item, index) => ({ item, index, time: Date.parse(item.at) }))
-    .sort((a, b) => a.time - b.time || a.index - b.index)
-    .map(({ item }) => item);
-}
-
-export type Improvement = {
-  /** Latest e1RM minus the baseline, in kg (two decimals at most). */
-  deltaKg: number;
-  /** The same as a percentage of the baseline, to 0.1 (halves away from zero). */
-  deltaPercent: number;
-};
-
-export type ProgressStats = {
-  currentReferenceKg: number | null;
-  latestE1rmKg: number | null;
-  previousE1rmKg: number | null;
-  highestE1rmKg: number | null;
-  /** The reference 1RM in effect at the start of the period (the first one when none was yet). */
-  baselineKg: number | null;
-  /** Null without a baseline or when the latest e1RM is older than the period. */
-  improvement: Improvement | null;
-};
-
-export type ProgressStatsInput = {
-  /** One lift's e1RM history, any order (equal times keep the given order, oldest first). */
-  e1rms: readonly Dated[];
-  /** One lift's reference 1RM records, any order. */
-  references: readonly Dated[];
-  period: Period;
-  now: Date;
-};
-
-const roundHalfAway = (value: number) => Math.sign(value) * Math.round(Math.abs(value));
-
-/** The reference in effect at `start` (null `start`: the first record). */
-function baselineOf(references: readonly Dated[], start: Date | null): Dated | null {
-  if (references.length === 0) return null;
-  if (start !== null) {
-    const startTime = start.getTime();
-    const inEffect = references.filter((reference) => Date.parse(reference.at) <= startTime);
-    if (inEffect.length > 0) return inEffect[inEffect.length - 1];
+/** Best e1RM over the counted sets with a weight above 0 (SPEC §6.1); `null` when none. */
+export function bestE1rm(sets: readonly LoggedSet[]): number | null {
+  let best: number | null = null;
+  for (const set of countedSets(sets)) {
+    const value = e1rm(set.weightKg, set.reps, set.rir ?? 0);
+    if (value !== null && (best === null || value > best)) best = value;
   }
-  return references[0];
+  return best;
 }
 
-export function progressStats({ e1rms, references, period, now }: ProgressStatsInput): ProgressStats {
-  const estimates = chronological(e1rms);
-  const referenceHistory = chronological(references);
-  const start = periodStart(period, now);
+/** Heaviest counted set; `null` when no set counts. */
+export function topWeight(sets: readonly LoggedSet[]): number | null {
+  let best: number | null = null;
+  for (const set of countedSets(sets)) {
+    if (best === null || set.weightKg > best) best = set.weightKg;
+  }
+  return best;
+}
 
-  const latest = estimates[estimates.length - 1] ?? null;
-  const previous = estimates[estimates.length - 2] ?? null;
-  const baseline = baselineOf(referenceHistory, start);
+/** Most reps of a counted set; `null` when no set counts. */
+export function bestReps(sets: readonly LoggedSet[]): number | null {
+  let best: number | null = null;
+  for (const set of countedSets(sets)) {
+    if (best === null || set.reps > best) best = set.reps;
+  }
+  return best;
+}
 
-  let improvement: Improvement | null = null;
-  const latestInPeriod = latest !== null && (start === null || Date.parse(latest.at) >= start.getTime());
-  if (latest !== null && baseline !== null && latestInPeriod) {
-    const baselineCents = Math.round(baseline.valueKg * 100);
-    const deltaCents = Math.round(latest.valueKg * 100) - baselineCents;
-    if (baselineCents > 0) {
-      improvement = {
-        deltaKg: deltaCents / 100 || 0,
-        deltaPercent: roundHalfAway((deltaCents * 1000) / baselineCents) / 10 || 0,
-      };
+/** A metric of the progress chart (SPEC §9.1). */
+export type Metric = 'e1rm' | 'topWeight' | 'volume' | 'reps';
+
+/** The metrics offered for an exercise: zero-load equipment shows reps instead of load. */
+export function metricsFor(equipment: Equipment): Metric[] {
+  return allowsZeroLoad(equipment) ? ['reps', 'volume'] : ['e1rm', 'topWeight', 'volume'];
+}
+
+/** One point of a chart: one session. */
+export interface SeriesPoint {
+  workoutId: number;
+  /** The session's `completedAt`. */
+  at: string;
+  value: number;
+}
+
+/** The value of a metric for one session's sets; `null` when the session has no counted set. */
+function metricValue(sets: readonly LoggedSet[], metric: Metric): number | null {
+  switch (metric) {
+    case 'e1rm':
+      return bestE1rm(sets);
+    case 'topWeight':
+      return topWeight(sets);
+    case 'reps':
+      return bestReps(sets);
+    case 'volume':
+      return countedSets(sets).length > 0 ? volume(sets) : null;
+  }
+}
+
+/** Oldest first; ties on the completion time go to the lower workout id. */
+function compareOldestFirst(a: ExerciseSession, b: ExerciseSession): number {
+  return Date.parse(a.completedAt) - Date.parse(b.completedAt) || a.workoutId - b.workoutId;
+}
+
+/**
+ * One point per session that has a value for the metric, oldest first. With `range`, only the
+ * sessions completed at or after the start of the period (SPEC §9.1).
+ */
+export function exerciseSeries(
+  sessions: readonly ExerciseSession[],
+  metric: Metric,
+  range?: { period: Period; now: Date },
+): SeriesPoint[] {
+  const start = range ? periodStart(range.period, range.now) : null;
+  const startMs = start === null ? -Infinity : start.getTime();
+  const points: SeriesPoint[] = [];
+  for (const session of [...sessions].sort(compareOldestFirst)) {
+    if (Date.parse(session.completedAt) < startMs) continue;
+    const value = metricValue(session.sets, metric);
+    if (value !== null) {
+      points.push({ workoutId: session.workoutId, at: session.completedAt, value });
+    }
+  }
+  return points;
+}
+
+/** The best set of an exercise: its weight and reps, with the session it was set in. */
+export interface WeightRecord {
+  valueKg: number;
+  reps: number;
+  at: string;
+  workoutId: number;
+}
+
+/** The best e1RM of an exercise, with the session it was set in. */
+export interface E1rmRecord {
+  valueKg: number;
+  at: string;
+  workoutId: number;
+}
+
+/** Personal records of one exercise (SPEC §9.2); `null` without counted sets. */
+export interface PersonalRecords {
+  weight: WeightRecord | null;
+  e1rm: E1rmRecord | null;
+}
+
+/**
+ * Weight PR (heaviest counted set; ties go to more reps, then to the earliest session) and
+ * e1RM PR (highest e1RM; ties go to the earliest session).
+ */
+export function personalRecords(sessions: readonly ExerciseSession[]): PersonalRecords {
+  let weight: WeightRecord | null = null;
+  let e1rmRecord: E1rmRecord | null = null;
+
+  for (const session of [...sessions].sort(compareOldestFirst)) {
+    for (const set of countedSets(session.sets)) {
+      const beats =
+        weight === null ||
+        set.weightKg > weight.valueKg ||
+        (set.weightKg === weight.valueKg && set.reps > weight.reps);
+      if (beats) {
+        weight = {
+          valueKg: set.weightKg,
+          reps: set.reps,
+          at: session.completedAt,
+          workoutId: session.workoutId,
+        };
+      }
+    }
+
+    const best = bestE1rm(session.sets);
+    if (best !== null && (e1rmRecord === null || best > e1rmRecord.valueKg)) {
+      e1rmRecord = { valueKg: best, at: session.completedAt, workoutId: session.workoutId };
     }
   }
 
-  return {
-    currentReferenceKg: referenceHistory[referenceHistory.length - 1]?.valueKg ?? null,
-    latestE1rmKg: latest?.valueKg ?? null,
-    previousE1rmKg: previous?.valueKg ?? null,
-    highestE1rmKg: estimates.length > 0 ? Math.max(...estimates.map((e) => e.valueKg)) : null,
-    baselineKg: baseline?.valueKg ?? null,
-    improvement,
+  return { weight, e1rm: e1rmRecord };
+}
+
+/** A personal record set by a workout: the new value and the previous record it beat. */
+export interface NewRecord {
+  exerciseId: string;
+  kind: 'weight' | 'e1rm';
+  valueKg: number;
+  previousKg: number;
+}
+
+/**
+ * The records a completed workout sets (SPEC §9.2). `historyBefore` returns the sessions of an
+ * exercise before this workout. The first session of an exercise sets no record; a value equal
+ * to the previous record is not a record. Order: workout exercise order, `weight` before `e1rm`.
+ */
+export function newRecords(
+  workout: Workout,
+  historyBefore: (exerciseId: string) => readonly ExerciseSession[],
+): NewRecord[] {
+  const records: NewRecord[] = [];
+  for (const exercise of workout.exercises) {
+    const history = historyBefore(exercise.exerciseId);
+    if (history.length === 0) continue;
+
+    const previous = personalRecords(history);
+    const top = topWeight(exercise.sets);
+    if (previous.weight !== null && top !== null && top > previous.weight.valueKg) {
+      records.push({
+        exerciseId: exercise.exerciseId,
+        kind: 'weight',
+        valueKg: top,
+        previousKg: previous.weight.valueKg,
+      });
+    }
+
+    const best = bestE1rm(exercise.sets);
+    if (previous.e1rm !== null && best !== null && best > previous.e1rm.valueKg) {
+      records.push({
+        exerciseId: exercise.exerciseId,
+        kind: 'e1rm',
+        valueKg: best,
+        previousKg: previous.e1rm.valueKg,
+      });
+    }
+  }
+  return records;
+}
+
+/** Monday 00:00 (local time) of the ISO week (Monday–Sunday) that contains `date`. */
+export function isoWeekStart(date: Date): Date {
+  const daysSinceMonday = (date.getDay() + 6) % 7;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() - daysSinceMonday);
+}
+
+/** True when both dates fall in the same ISO week (local time). */
+export function sameIsoWeek(a: Date, b: Date): boolean {
+  return isoWeekStart(a).getTime() === isoWeekStart(b).getTime();
+}
+
+/**
+ * Counted sets per muscle group in the ISO week of `weekOf` (SPEC §9.3): the primary muscle
+ * counts 1 per counted set, each secondary muscle 0.5. Only completed workouts count; unknown
+ * exercises are skipped; muscles without sets are omitted.
+ */
+export function weeklyMuscleSets(
+  workouts: readonly Workout[],
+  findExercise: (id: string) => Pick<Exercise, 'primaryMuscle' | 'secondaryMuscles'> | undefined,
+  weekOf: Date,
+): Partial<Record<MuscleGroup, number>> {
+  const start = isoWeekStart(weekOf);
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7);
+  const result: Partial<Record<MuscleGroup, number>> = {};
+  const add = (muscle: MuscleGroup, amount: number): void => {
+    result[muscle] = (result[muscle] ?? 0) + amount;
   };
+
+  for (const workout of workouts) {
+    if (workout.status !== 'completed' || workout.completedAt === null) continue;
+    const at = Date.parse(workout.completedAt);
+    if (at < start.getTime() || at >= end.getTime()) continue;
+
+    for (const exercise of workout.exercises) {
+      const info = findExercise(exercise.exerciseId);
+      if (info === undefined) continue;
+      const count = countedSets(exercise.sets).length;
+      if (count === 0) continue;
+      add(info.primaryMuscle, count);
+      for (const muscle of info.secondaryMuscles) add(muscle, count * 0.5);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Distinct exercise ids with a counted set in completed workouts, most recently trained first
+ * (SPEC §9.1). Within one workout, exercises keep their order.
+ */
+export function trainedExerciseIds(workouts: readonly Workout[]): string[] {
+  const timed: { workout: Workout; at: number }[] = [];
+  for (const workout of workouts) {
+    if (workout.status === 'completed' && workout.completedAt !== null) {
+      timed.push({ workout, at: Date.parse(workout.completedAt) });
+    }
+  }
+  timed.sort((a, b) => b.at - a.at || b.workout.id - a.workout.id);
+
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const { workout } of timed) {
+    for (const exercise of workout.exercises) {
+      if (seen.has(exercise.exerciseId) || countedSets(exercise.sets).length === 0) continue;
+      seen.add(exercise.exerciseId);
+      ids.push(exercise.exerciseId);
+    }
+  }
+  return ids;
 }

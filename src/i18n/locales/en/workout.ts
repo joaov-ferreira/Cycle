@@ -1,0 +1,95 @@
+/** English `workout` namespace (source catalog). */
+export const workout = {
+  title: 'Workout',
+  // ---- Nothing in progress ----
+  nextWorkout: 'Next workout',
+  cycleLoad: 'Cycle {{cycle}} · Load week {{week}}',
+  cycleDeload: 'Cycle {{cycle}} · Deload week {{week}}',
+  deloadBadge: 'Deload',
+  chooseWorkout: 'Choose a workout',
+  startWorkout: 'Start workout',
+  freeWorkout: 'Free workout',
+  /** Name given to a free workout. */
+  freeWorkoutName: 'Free workout',
+  noPlanTitle: 'No active plan',
+  noPlanMessage: 'Create a plan to get load suggestions, or start a free workout.',
+  createPlan: 'Create a plan',
+  /** Shown in place of a load when there is nothing to suggest. */
+  chooseLoad: 'choose a load',
+  /** Target of an exercise, e.g. `3 × 8–12`. */
+  targetSetsReps: '{{sets}} × {{reps}}',
+  targetRir: 'RIR {{rir}}',
+  targetRest: '{{seconds}} s',
+  // ---- Workout in progress ----
+  started: 'Started {{time}}',
+  exerciseOptions: 'Exercise options',
+  replaceExercise: 'Replace exercise',
+  removeExercise: 'Remove exercise',
+  removeExerciseTitle: 'Remove this exercise?',
+  removeExerciseMessage: '{{name}} and its sets will be removed from this workout.',
+  addSet: 'Add set',
+  addExercise: 'Add exercise',
+  note: 'Note',
+  exerciseNote: 'Exercise note',
+  workoutNotes: 'Workout notes',
+  finish: 'Finish workout',
+  finishHint: 'Mark at least one working set as done to finish.',
+  finishConfirmTitle: 'Finish workout?',
+  finishConfirmMessage: {
+    one: '1 set that is not marked as done will be discarded.',
+    other: '{{count}} sets that are not marked as done will be discarded.',
+  },
+  discard: 'Discard workout',
+  discardTitle: 'Discard this workout?',
+  discardMessage: 'Everything logged in this workout will be deleted.',
+  // ---- Summary ----
+  summaryTitle: 'Workout complete',
+  duration: 'Duration',
+  exercises: 'Exercises',
+  workingSets: 'Working sets',
+  volume: 'Total volume',
+  records: 'Personal records',
+  recordWeight: 'Weight record',
+  recordE1rm: 'e1RM record',
+  /** New record value and the one it beat, e.g. `42.5 kg (previous 40 kg)`. */
+  recordValue: '{{value}} (previous {{previous}})',
+  done: 'Done',
+  viewInHistory: 'View in history',
+  durationMinutes: '{{minutes}} min',
+  /** `minutes` is zero-padded text, e.g. `05`. */
+  durationHoursMinutes: '{{hours}} h {{minutes}} min',
+  // ---- One-line explanation of a suggestion (SPEC §6.4) ----
+  suggestion: {
+    noHistory: 'No history yet — choose a load for {{range}} reps',
+    planStartLoad: 'Starting load from the plan: {{load}}',
+    hitTopOfRange: {
+      one: 'The set reached {{reps}} reps at {{last}} → +{{delta}}',
+      other: 'All {{count}} sets reached {{reps}} reps at {{last}} → +{{delta}}',
+    },
+    hitTopOfRangeEasy: {
+      one: 'The set reached {{reps}} reps at {{last}} and felt easy → +{{delta}}',
+      other: 'All {{count}} sets reached {{reps}} reps at {{last}} and felt easy → +{{delta}}',
+    },
+    progressReps: 'Same load ({{load}}) — aim for {{reps}} reps',
+    belowRange: 'Below the rep range last time — repeat {{load}} and reach {{reps}} reps',
+    belowRangeTwice: 'Below the rep range twice — load reduced to {{load}}',
+    stalled: 'No progress in the last 3 sessions — keep {{load}}; consider a deload',
+    deloadWeek: {
+      one: 'Deload: 1 set at {{load}} ({{percent}} of {{last}})',
+      other: 'Deload: {{count}} sets at {{load}} ({{percent}} of {{last}})',
+    },
+    deloadNoHistory: {
+      one: 'Deload: 1 easy set',
+      other: 'Deload: {{count}} easy sets',
+    },
+  },
+  // ---- Errors of rejected actions ----
+  errors: {
+    noteTooLong: 'Use at most {{max}} characters',
+    nothingLogged: 'Mark at least one working set as done first.',
+    workoutInProgress: 'A workout is already in progress.',
+    noActivePlan: 'There is no active plan.',
+    planWorkoutNotFound: 'That workout is no longer in the plan.',
+    generic: 'Something went wrong. Please try again.',
+  },
+};

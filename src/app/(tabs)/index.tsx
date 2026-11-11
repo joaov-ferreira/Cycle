@@ -1,13 +1,21 @@
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 
-import { DashboardScreen } from '@/components/dashboard/dashboard-screen';
+import { HomeScreen, type NewPlanKind } from '@/components/home/home-screen';
 
-export default function DashboardRoute() {
+const NEW_PLAN_ROUTES: Record<NewPlanKind, Href> = {
+  templates: '/plans/templates',
+  import: '/plans/import',
+  scratch: '/plans/scratch/edit',
+};
+
+export default function HomeRoute() {
   const router = useRouter();
   return (
-    <DashboardScreen
-      onOpenSession={(id) => router.push({ pathname: '/session/[id]', params: { id } })}
-      onNavigate={(target) => router.navigate(`/${target}`)}
+    <HomeScreen
+      onOpenWorkout={() => router.navigate('/workout')}
+      onOpenWorkoutDetail={(id) => router.push(`/history/${id}` as Href)}
+      onNewPlan={(kind) => router.push(NEW_PLAN_ROUTES[kind])}
+      onOpenPlan={() => router.navigate('/plan')}
     />
   );
 }

@@ -4,6 +4,7 @@ import * as Localization from 'expo-localization';
 import { createMemoryRepositories } from '@/data/memory/memory-repositories';
 import type { Repositories } from '@/data/repositories';
 import { useT } from '@/i18n';
+import { createAppStore } from '@/state/app-store';
 import { useAppStore } from '@/state/app-store-context';
 
 import { AppProviders } from './app-providers';
@@ -26,7 +27,7 @@ function Probe() {
   const profileName = useAppStore((s) => s.profile?.name);
   return (
     <Screen testID="probe-screen">
-      <Text>{t('tabs.periodization')}</Text>
+      <Text>{t('tabs.plan')}</Text>
       <Text>{`profile:${profileName}`}</Text>
       <Button label="to-pt" onPress={() => setLanguage('pt-BR')} />
       <Button label="to-en" onPress={() => setLanguage('en')} />
@@ -48,7 +49,7 @@ beforeEach(() => setDeviceLocale('en-US'));
 describe('AppProviders', () => {
   it('boots with the dark theme by default and calls onReady', async () => {
     const { onReady } = await renderApp(createMemoryRepositories());
-    expect(await screen.findByText('Periodization')).toBeOnTheScreen();
+    expect(await screen.findByText('Plan')).toBeOnTheScreen();
     expect(screen.getByTestId('probe-screen')).toHaveStyle({ backgroundColor: '#000000' });
     expect(onReady).toHaveBeenCalledTimes(1);
   });
@@ -72,7 +73,7 @@ describe('AppProviders', () => {
     const profile = await repos.profiles.create({ name: 'Ana' });
     await repos.settings.update(profile.id, { language: 'en' });
     await renderApp(repos);
-    expect(await screen.findByText('Periodization')).toBeOnTheScreen();
+    expect(await screen.findByText('Plan')).toBeOnTheScreen();
   });
 
   it('switches language instantly, without restart, and persists it', async () => {
@@ -82,7 +83,7 @@ describe('AppProviders', () => {
     expect(await screen.findByText('Periodização')).toBeOnTheScreen();
     expect((await repos.settings.get(1)).language).toBe('pt-BR');
     await fireEvent.press(screen.getByRole('button', { name: 'to-en' }));
-    expect(await screen.findByText('Periodization')).toBeOnTheScreen();
+    expect(await screen.findByText('Plan')).toBeOnTheScreen();
   });
 
   it('applies the stored light theme', async () => {
@@ -128,6 +129,40 @@ describe('AppProviders', () => {
     );
     expect(screen.getByText('Loading…')).toBeOnTheScreen();
     resolve(createMemoryRepositories());
-    expect(await screen.findByText('Periodization')).toBeOnTheScreen();
+    expect(await screen.findByText('Plan')).toBeOnTheScreen();
+  });
+
+  it('uses the clock it is given for the timestamps of the store', async () => {
+    const repos = createMemoryRepositories();
+    const now = () => new Date('2031-05-06T07:08:09.000Z');
+    function Starter() {
+      const start = useAppStore((s) => s.startFreeWorkout);
+      const startedAt = useAppStore((s) => s.currentWorkout?.startedAt);
+      return (
+        <>
+          <Button label="start" onPress={() => start('Free')} />
+          <Text>{`startedAt:${startedAt ?? ''}`}</Text>
+        </>
+      );
+    }
+    await render(
+      <AppProviders openRepositories={() => Promise.resolve(repos)} now={now}>
+        <Starter />
+      </AppProviders>,
+    );
+    await fireEvent.press(await screen.findByRole('button', { name: 'start' }));
+    expect(await screen.findByText('startedAt:2031-05-06T07:08:09.000Z')).toBeOnTheScreen();
+  });
+
+  it('provides a pre-built store without booting it twice', async () => {
+    const repos = createMemoryRepositories();
+    const store = createAppStore(repos);
+    await store.getState().init('Existing');
+    await render(
+      <AppProviders openRepositories={() => Promise.resolve(repos)} store={store}>
+        <Probe />
+      </AppProviders>,
+    );
+    expect(await screen.findByText('profile:Existing')).toBeOnTheScreen();
   });
 });

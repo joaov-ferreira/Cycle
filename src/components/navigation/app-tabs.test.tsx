@@ -4,11 +4,14 @@ import * as Localization from 'expo-localization';
 import type { ReactNode } from 'react';
 
 import TabsLayout from '@/app/(tabs)/_layout';
-import DashboardScreen from '@/app/(tabs)/index';
-import MoreScreen from '@/app/(tabs)/more';
-import PeriodizationScreen from '@/app/(tabs)/periodization';
-import ProgressScreen from '@/app/(tabs)/progress';
-import TrainingScreen from '@/app/(tabs)/training';
+import HomeRoute from '@/app/(tabs)/index';
+import MoreRoute from '@/app/(tabs)/more';
+import ExercisesRoute from '@/app/exercises/index';
+import HistoryRoute from '@/app/history/index';
+import SettingsRoute from '@/app/settings';
+import PlanRoute from '@/app/(tabs)/plan';
+import ProgressRoute from '@/app/(tabs)/progress';
+import WorkoutRoute from '@/app/(tabs)/workout';
 import { createMemoryRepositories } from '@/data/memory/memory-repositories';
 import type { Repositories } from '@/data/repositories';
 
@@ -46,11 +49,14 @@ const routes = {
     </AppShell>
   ),
   '(tabs)/_layout': TabsLayout,
-  '(tabs)/index': DashboardScreen,
-  '(tabs)/periodization': PeriodizationScreen,
-  '(tabs)/training': TrainingScreen,
-  '(tabs)/progress': ProgressScreen,
-  '(tabs)/more': MoreScreen,
+  '(tabs)/index': HomeRoute,
+  '(tabs)/plan': PlanRoute,
+  '(tabs)/workout': WorkoutRoute,
+  '(tabs)/progress': ProgressRoute,
+  '(tabs)/more': MoreRoute,
+  'exercises/index': ExercisesRoute,
+  'history/index': HistoryRoute,
+  settings: SettingsRoute,
 };
 
 async function renderTabs(repos: Repositories = createMemoryRepositories()) {
@@ -59,12 +65,12 @@ async function renderTabs(repos: Repositories = createMemoryRepositories()) {
     <AppProviders openRepositories={open}>{children}</AppProviders>
   );
   const result = await renderRouter(routes, { initialUrl: '/', wrapper });
-  await screen.findByRole('header', { name: /Dashboard|Painel/ });
+  await screen.findByRole('header', { name: /Home|Início/ });
   return result;
 }
 
-const EN_TABS = ['Dashboard', 'Periodization', 'Training', 'Progress', 'More'];
-const PT_TABS = ['Painel', 'Periodização', 'Treino', 'Progresso', 'Mais'];
+const EN_TABS = ['Home', 'Plan', 'Workout', 'Progress', 'More'];
+const PT_TABS = ['Início', 'Periodização', 'Treino', 'Progresso', 'Mais'];
 
 beforeEach(() => {
   setDeviceLocale('en-US');
@@ -81,7 +87,7 @@ describe('navigationLayoutFor', () => {
 });
 
 describe('main navigation', () => {
-  it('renders the five localized tabs in English and opens the Dashboard', async () => {
+  it('renders the five localized tabs in English and opens Home', async () => {
     const result = await renderTabs();
     for (const label of EN_TABS) {
       expect(screen.getByRole('button', { name: label })).toBeOnTheScreen();
@@ -104,28 +110,49 @@ describe('main navigation', () => {
 
   it('applies the dark theme by default', async () => {
     await renderTabs();
-    expect(screen.getByTestId('screen-dashboard')).toHaveStyle({ backgroundColor: '#000000' });
+    expect(screen.getByTestId('screen-home')).toHaveStyle({ backgroundColor: '#000000' });
   });
 
   it('navigates between tabs', async () => {
     const result = await renderTabs();
-    await fireEvent.press(screen.getByRole('button', { name: 'Periodization' }));
-    expect(await screen.findByRole('header', { name: 'Periodization' })).toBeOnTheScreen();
-    expect(result.getPathname()).toBe('/periodization');
+    await fireEvent.press(screen.getByRole('button', { name: 'Plan' }));
+    expect(await screen.findByRole('header', { name: 'Plan' })).toBeOnTheScreen();
+    expect(result.getPathname()).toBe('/plan');
 
     await fireEvent.press(screen.getByRole('button', { name: 'More' }));
-    expect(await screen.findByText('Programs')).toBeOnTheScreen();
+    expect(await screen.findByText('Exercises')).toBeOnTheScreen();
     expect(screen.getByText('History')).toBeOnTheScreen();
     expect(screen.getByText('Settings')).toBeOnTheScreen();
     expect(result.getPathname()).toBe('/more');
   });
 
   it.each([
-    ['Training', '/training'],
+    ['Workout', '/workout'],
     ['Progress', '/progress'],
   ])('opens the %s tab', async (label, path) => {
     const result = await renderTabs();
     await fireEvent.press(screen.getByRole('button', { name: label }));
+    expect(await screen.findByRole('header', { name: label })).toBeOnTheScreen();
+    expect(result.getPathname()).toBe(path);
+  });
+
+  it('lists the Exercises, History and Settings links on the More tab, in Portuguese', async () => {
+    setDeviceLocale('pt-BR');
+    await renderTabs();
+    await fireEvent.press(screen.getByRole('button', { name: 'Mais' }));
+    for (const label of ['Exercícios', 'Histórico', 'Configurações']) {
+      expect(await screen.findByRole('button', { name: label })).toBeOnTheScreen();
+    }
+  });
+
+  it.each([
+    ['Exercises', '/exercises'],
+    ['History', '/history'],
+    ['Settings', '/settings'],
+  ])('opens %s from the More tab', async (label, path) => {
+    const result = await renderTabs();
+    await fireEvent.press(screen.getByRole('button', { name: 'More' }));
+    await fireEvent.press(await screen.findByRole('button', { name: label }));
     expect(await screen.findByRole('header', { name: label })).toBeOnTheScreen();
     expect(result.getPathname()).toBe(path);
   });

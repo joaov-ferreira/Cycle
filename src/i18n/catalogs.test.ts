@@ -18,6 +18,44 @@ describe('leafEntries', () => {
   });
 });
 
+const NAMESPACES = [
+  'app',
+  'tabs',
+  'navigation',
+  'common',
+  'home',
+  'plan',
+  'planImport',
+  'planEditor',
+  'workout',
+  'history',
+  'progress',
+  'exercises',
+  'picker',
+  'onboarding',
+  'settings',
+  'profile',
+  'validation',
+];
+
+describe('catalog namespaces', () => {
+  it.each(APP_LOCALES)('%s is composed of the expected namespaces', (locale) => {
+    expect(Object.keys(catalogs[locale]).sort()).toEqual([...NAMESPACES].sort());
+  });
+
+  it('uses the pt-BR vocabulary of SPEC §12.1 for the main sections', () => {
+    const { tabs, exercises, history, settings } = catalogs['pt-BR'];
+    expect([tabs.home, tabs.plan, tabs.workout, tabs.progress, tabs.more]).toEqual([
+      'Início',
+      'Periodização',
+      'Treino',
+      'Progresso',
+      'Mais',
+    ]);
+    expect([exercises.title, history.title, settings.title]).toEqual(['Exercícios', 'Histórico', 'Configurações']);
+  });
+});
+
 describe('translation catalogs', () => {
   const en = new Map(leafEntries(catalogs.en));
 

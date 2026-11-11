@@ -1,0 +1,88 @@
+/** English `planEditor` namespace (source catalog). */
+export const planEditor = {
+  title: 'Edit plan',
+  newTitle: 'New plan',
+  /** Name given to a plan created from scratch. */
+  defaultPlanName: 'My plan',
+  /** Default name of a new workout: Workout A, Workout B, ... */
+  defaultWorkoutName: 'Workout {{letter}}',
+  notFoundTitle: 'Plan not found',
+  notFoundMessage: 'This plan does not exist anymore.',
+
+  nameLabel: 'Name',
+  descriptionLabel: 'Description',
+  sessionsPerWeek: 'Sessions per week',
+
+  workoutsHeading: 'Workouts',
+  noWorkouts: 'No workouts yet. Add the first one.',
+  addWorkout: 'Add workout',
+  workoutNameLabel: 'Workout {{number}} name',
+  /** How a workout with a blank name is referred to in accessible labels. */
+  workoutFallback: 'workout {{number}}',
+  removeWorkout: 'Remove {{name}}',
+  moveUp: 'Move {{name}} up',
+  moveDown: 'Move {{name}} down',
+  removeWorkoutTitle: 'Remove {{name}}?',
+  removeWorkoutMessage: {
+    one: 'Its exercise will be removed from the plan.',
+    other: 'Its {{count}} exercises will be removed from the plan.',
+  },
+
+  noExercises: 'No exercises in this workout yet.',
+  addExercise: 'Add exercise',
+  addExerciseTo: 'Add exercise to {{workout}}',
+  pickerTitle: 'Add exercise',
+  unknownExercise: 'Unknown exercise',
+  /** Main line of an exercise row, e.g. `3 × 8–12`. */
+  summary: '{{sets}} × {{min}}–{{max}}',
+  removeExercise: 'Remove {{exercise}}',
+  setsOf: '{{exercise}} sets',
+  repMinLabel: 'Min reps',
+  repMinOf: '{{exercise}} minimum reps',
+  repMaxLabel: 'Max reps',
+  repMaxOf: '{{exercise}} maximum reps',
+  /** The collapsed exercise row, a button that expands its targets. */
+  editTargets: 'Edit {{exercise}} targets',
+  /** RIR part of the collapsed summary line, e.g. `3 × 8–12 · RIR 2 · 90 s`. */
+  rirSummary: 'RIR {{rir}}',
+  rirLabel: 'Target RIR',
+  rirOf: '{{exercise}} target RIR',
+  restLabel: 'Rest',
+  restOf: '{{exercise}} rest',
+  restValue: '{{value}} s',
+  loadOf: '{{exercise}} start load',
+  noteOf: '{{exercise}} note',
+  setOptional: 'Set',
+  setOptionalOf: 'Set {{label}}',
+  clearOptionalOf: 'Clear {{label}}',
+
+  discardTitle: 'Discard changes?',
+  discardMessage: 'Your edits to this plan have not been saved.',
+  discard: 'Discard',
+  keepEditing: 'Keep editing',
+
+  problems: 'Fix the problems below to save this plan.',
+  invalidInput: 'Fix the highlighted number fields to save this plan.',
+  saveFailed: 'Could not save the plan. Try again.',
+
+  issues: {
+    nameRequired: 'Enter a name',
+    workoutNameRequired: 'Enter a workout name',
+    required: 'Required',
+    tooLong: 'Use at most {{max}} characters',
+    workoutsTooFew: 'Add at least one workout',
+    workoutsTooMany: 'A plan has at most {{max}} workouts',
+    exercisesTooFew: 'Add at least one exercise to this workout',
+    exercisesTooMany: 'A workout has at most {{max}} exercises',
+    outOfRange: 'Use a value from {{min}} to {{max}}',
+    notInteger: 'Use a whole number',
+    invalidRepRange: 'The maximum reps cannot be below the minimum',
+    invalidStep: 'Use steps of {{step}}',
+    tooManyDecimals: 'Use at most {{decimals}} decimal places',
+    unknownExercise: 'This exercise no longer exists',
+    duplicateId: 'Duplicate identifier',
+    zeroLoadNotAllowed: 'Only bodyweight and band exercises take 0 kg',
+    /** Issue that belongs to no visible field; `{{message}}` is the specific text. */
+    other: 'Plan settings: {{message}}',
+  },
+};

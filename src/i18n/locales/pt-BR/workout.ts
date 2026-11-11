@@ -1,0 +1,92 @@
+import type { workout as enWorkout } from '../en/workout';
+
+/** Brazilian Portuguese `workout` namespace, typed against the English source. */
+export const workout: typeof enWorkout = {
+  title: 'Treino',
+  // ---- Nothing in progress ----
+  nextWorkout: 'Próximo treino',
+  cycleLoad: 'Ciclo {{cycle}} · Semana de carga {{week}}',
+  cycleDeload: 'Ciclo {{cycle}} · Semana de deload {{week}}',
+  deloadBadge: 'Deload',
+  chooseWorkout: 'Escolha um treino',
+  startWorkout: 'Iniciar treino',
+  freeWorkout: 'Treino livre',
+  freeWorkoutName: 'Treino livre',
+  noPlanTitle: 'Nenhuma periodização ativa',
+  noPlanMessage: 'Crie uma periodização para receber sugestões de carga, ou inicie um treino livre.',
+  createPlan: 'Criar periodização',
+  chooseLoad: 'escolha uma carga',
+  targetSetsReps: '{{sets}} × {{reps}}',
+  targetRir: 'RIR {{rir}}',
+  targetRest: '{{seconds}} s',
+  // ---- Workout in progress ----
+  started: 'Iniciado às {{time}}',
+  exerciseOptions: 'Opções do exercício',
+  replaceExercise: 'Substituir exercício',
+  removeExercise: 'Remover exercício',
+  removeExerciseTitle: 'Remover este exercício?',
+  removeExerciseMessage: '{{name}} e suas séries serão removidos deste treino.',
+  addSet: 'Adicionar série',
+  addExercise: 'Adicionar exercício',
+  note: 'Nota',
+  exerciseNote: 'Nota do exercício',
+  workoutNotes: 'Notas do treino',
+  finish: 'Finalizar treino',
+  finishHint: 'Marque ao menos uma série de trabalho como feita para finalizar.',
+  finishConfirmTitle: 'Finalizar treino?',
+  finishConfirmMessage: {
+    one: '1 série que não foi marcada como feita será descartada.',
+    other: '{{count}} séries que não foram marcadas como feitas serão descartadas.',
+  },
+  discard: 'Descartar treino',
+  discardTitle: 'Descartar este treino?',
+  discardMessage: 'Tudo o que foi registrado neste treino será apagado.',
+  // ---- Summary ----
+  summaryTitle: 'Treino concluído',
+  duration: 'Duração',
+  exercises: 'Exercícios',
+  workingSets: 'Séries de trabalho',
+  volume: 'Volume total',
+  records: 'Recordes pessoais',
+  recordWeight: 'Recorde de carga',
+  recordE1rm: 'Recorde de e1RM',
+  recordValue: '{{value}} (anterior {{previous}})',
+  done: 'Concluído',
+  viewInHistory: 'Ver no histórico',
+  durationMinutes: '{{minutes}} min',
+  durationHoursMinutes: '{{hours}} h {{minutes}} min',
+  // ---- One-line explanation of a suggestion (SPEC §6.4) ----
+  suggestion: {
+    noHistory: 'Sem histórico ainda — escolha uma carga para {{range}} repetições',
+    planStartLoad: 'Carga inicial da periodização: {{load}}',
+    hitTopOfRange: {
+      one: 'A série chegou a {{reps}} repetições com {{last}} → +{{delta}}',
+      other: 'As {{count}} séries chegaram a {{reps}} repetições com {{last}} → +{{delta}}',
+    },
+    hitTopOfRangeEasy: {
+      one: 'A série chegou a {{reps}} repetições com {{last}} e foi fácil → +{{delta}}',
+      other: 'As {{count}} séries chegaram a {{reps}} repetições com {{last}} e foram fáceis → +{{delta}}',
+    },
+    progressReps: 'Mesma carga ({{load}}) — busque {{reps}} repetições',
+    belowRange: 'Abaixo da faixa de repetições na última vez — repita {{load}} e chegue a {{reps}} repetições',
+    belowRangeTwice: 'Abaixo da faixa de repetições duas vezes — carga reduzida para {{load}}',
+    stalled: 'Sem progresso nas últimas 3 sessões — mantenha {{load}}; considere um deload',
+    deloadWeek: {
+      one: 'Deload: 1 série com {{load}} ({{percent}} de {{last}})',
+      other: 'Deload: {{count}} séries com {{load}} ({{percent}} de {{last}})',
+    },
+    deloadNoHistory: {
+      one: 'Deload: 1 série leve',
+      other: 'Deload: {{count}} séries leves',
+    },
+  },
+  // ---- Errors of rejected actions ----
+  errors: {
+    noteTooLong: 'Use no máximo {{max}} caracteres',
+    nothingLogged: 'Marque antes ao menos uma série de trabalho como feita.',
+    workoutInProgress: 'Já existe um treino em andamento.',
+    noActivePlan: 'Não há periodização ativa.',
+    planWorkoutNotFound: 'Esse treino não está mais na periodização.',
+    generic: 'Algo deu errado. Tente novamente.',
+  },
+};

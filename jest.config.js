@@ -15,10 +15,10 @@ function hasSourceFiles(dir) {
   });
 }
 
-// SPEC §12.3: pure layers (domain, programs) >= 95% lines; global >= 80% lines.
+// Pure layers (domain, library) >= 95% lines; global >= 80% lines.
 // A layer's threshold is enforced as soon as it contains source code (Jest fails a
 // threshold whose path matches no file, so empty layers are skipped).
-const STRICT_LAYERS = ['src/domain', 'src/programs'];
+const STRICT_LAYERS = ['src/domain', 'src/library'];
 const coverageThreshold = { global: { lines: 80 } };
 for (const layer of STRICT_LAYERS) {
   if (hasSourceFiles(path.join(__dirname, layer))) {

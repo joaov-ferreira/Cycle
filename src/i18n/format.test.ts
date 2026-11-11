@@ -1,4 +1,4 @@
-import { formatDate, formatKg, formatNumber, formatPercent } from './format';
+import { formatDate, formatKg, formatNumber, formatPercent, formatTime } from './format';
 
 const NBSP = ' ';
 
@@ -39,7 +39,7 @@ describe('formatKg', () => {
 });
 
 describe('formatPercent', () => {
-  it('formats a fraction of 1RM as a percentage', () => {
+  it('formats a fraction as a percentage', () => {
     expect(formatPercent(0.75, 'en')).toBe('75%');
     expect(formatPercent(0.875, 'en')).toBe('87.5%');
     expect(formatPercent(0.875, 'pt-BR')).toBe('87,5%');
@@ -58,5 +58,20 @@ describe('formatDate', () => {
     const numeric = { day: '2-digit', month: '2-digit', year: 'numeric' } as const;
     expect(formatDate(date, 'en', numeric)).toBe('11/05/2026');
     expect(formatDate(date, 'pt-BR', numeric)).toBe('05/11/2026');
+  });
+});
+
+describe('formatTime', () => {
+  const morning = new Date(2026, 10, 5, 6, 42);
+  const evening = new Date(2026, 10, 5, 18, 5);
+
+  it('shows a 12-hour clock without a leading zero in English', () => {
+    expect(formatTime(morning, 'en')).toMatch(/^6:42\sAM$/);
+    expect(formatTime(evening, 'en')).toMatch(/^6:05\sPM$/);
+  });
+
+  it('shows a 24-hour clock with a leading zero in Portuguese', () => {
+    expect(formatTime(morning, 'pt-BR')).toBe('06:42');
+    expect(formatTime(evening, 'pt-BR')).toBe('18:05');
   });
 });

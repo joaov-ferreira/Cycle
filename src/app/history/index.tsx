@@ -6,8 +6,8 @@ export default function HistoryRoute() {
   const router = useRouter();
   return (
     <HistoryScreen
+      onOpenWorkout={(id) => router.push({ pathname: '/history/[id]', params: { id: String(id) } })}
       onBack={() => router.back()}
-      onOpen={(id) => router.push({ pathname: '/history/[id]', params: { id: String(id) } })}
     />
   );
 }

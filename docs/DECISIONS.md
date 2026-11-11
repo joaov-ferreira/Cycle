@@ -949,3 +949,80 @@ the reference shipped with the installed package
   `actionlint` 1.7.7 (Docker images) report nothing; the signing plugin was also run through a real
   `expo prebuild` and produced the expected `app/build.gradle`. The Actions runs on `main` are the
   end-to-end check, and the APK was not installed on an emulator or device in this stage.
+
+## 2026-11-11 — v2: pivot to a general weight-training app
+
+- **Decision (owner request).** CYCLE changes from a powerlifting periodization manager to a general
+  weight-training ("musculação") app: exercise library with custom exercises, importable plans,
+  load/deload cycles, set/reps/load logbook and automatic load progression from history. New
+  `docs/SPEC.md` (v2) and `docs/PLAN.md` (v2); the v1 documents moved to `docs/archive/`.
+- **Replace, not extend.** The v1 model (three lifts, reference 1RMs, percentage programs, three-week
+  generator, RTS e1RM history) is removed from the code instead of being kept next to the new model.
+  Alternative considered: keep the percentage programs as a second kind of plan — rejected because it
+  doubles the data model and the UI (two meanings of "periodization") for a feature the new product
+  does not ask for. The v1 code stays in git history (last v1 commit `3774916`).
+- **v1 user data is preserved.** Migrations 001–009 are immutable and the v1 tables are not dropped;
+  migration 010 copies completed v1 sessions into the v2 logbook (SPEC §11.3).
+- **Training-driven weeks.** A cycle week is `sessionsPerWeek` completed plan sessions, not a calendar
+  week, so a missed day never burns a week of the cycle and A/B/C rotations work at any frequency.
+  Alternative: calendar weeks anchored to a start date — rejected because skipped weeks would trigger
+  a deload nobody trained for.
+- **Progression model.** Double progression inside the plan's rep range (SPEC §6): increase the load
+  when every set reaches the top of the range, add reps otherwise, reduce after two sessions below the
+  range. Deterministic rules with reason codes so every suggestion can be explained in the UI.
+  The cycle lengths per experience level, the stall rule and the deload factors are app-defined,
+  editable heuristics, not transcriptions of a published method.
+- **e1RM.** Only the RIR-adjusted Epley formula remains, computed on the fly from logged sets as a
+  trend metric (no stored e1RM history, no formula setting).
+- **Import formats.** A versioned JSON document (`cycle-plan` v1) and a plain-text format; exercise
+  names are matched exactly after normalization and never guessed — unmatched names are resolved by
+  the user in the import preview (pick an existing exercise or create a custom one).
+- **Workflow.** Owner instruction for this migration: one integration branch
+  (`claude/bodybuilding-training-app-lr6egj`), one PR to `main` at the end, squash merge. Stages are
+  delegated to sub-agents (haiku/sonnet/opus by complexity, escalating on failure); independent stages
+  run in parallel git worktrees and are merged by the orchestrator. Supersedes the 2026-11-05
+  "Orchestration" entry (direct-to-main fallback) for this migration: GitHub PR tooling is available.
+
+## 2026-11-11 — v2 implementation record
+
+Decisions taken while the v2 stages were implemented and reviewed (stage ids as in `docs/PLAN.md`).
+
+- **Orchestration.** Stages 1–2 ran alone; waves 3, 4 and 5 ran in parallel git worktrees with
+  disjoint file ownership and were merged into the integration branch after review. Model use:
+  haiku for stage 2, 3a, 3d, 4a, 4c, 4d, 5f, 5h; sonnet for 1, 3b, 3c, 3e, 4b, 5a, 5b, 5c, 5d, 5e, 5g,
+  6. No stage needed escalation to a higher model; 4c (shared UI) and 5f (Home) each took one fix
+  round with the same agent. Stages 5b and 5e of the original plan were split (5g plan editor, 5h
+  progress) to keep each agent's scope small.
+- **Domain arithmetic.** Loads are computed in integer grams and e1RM sums in micro-kilograms
+  (`src/domain/metrics.ts`), so no suggestion or statistic depends on floating-point rounding.
+- **Deadlift classification.** `conventional-deadlift` has `lowerBack` as its primary muscle
+  (glutes, hamstrings and traps secondary); weekly volume counts follow that.
+- **Exercise matching never guesses.** Unresolved import names get up to three suggestions ranked by
+  shared tokens; the user decides. A custom exercise created during an import is only persisted when
+  the plan is saved, and is rolled back if saving the plan fails.
+- **Import leniency.** The JSON reader ignores unknown properties, accepts chatbot answers with
+  prose and code fences, treats `null` as absent for optional properties and reports all structural
+  errors together. A wrong `format`/`version` stops validation early. A top-level JSON array is
+  reported as `notAnObject`. The JSON Schema is stricter than the reader on the shape of custom
+  exercise keys (kebab-case); writers should follow the schema.
+- **Persistence.** Plans are stored as JSON documents (content and cycle state); workouts are
+  normalized (`workouts`, `workout_exercises`, `workout_sets`) so the sessions of an exercise can be
+  queried. `workout_sets.kind` has no CHECK constraint on purpose (v3 adds a kind). At most one
+  in-progress workout per profile is enforced by a partial unique index. v1 sets with out-of-range
+  values are skipped by the carry-over instead of failing the migration.
+- **Store.** One zustand store with slices (`exercises`, `plans`, `workouts`), an injectable clock and
+  memoized selectors. Draft edits update memory immediately and are persisted through a serialized
+  queue. Half-typed out-of-range values stay in memory only. The early-deload dismissal is not
+  persisted (it resets when a session is finished or the app restarts).
+- **Navigation contracts.** `/plans/scratch/edit` opens the editor in create mode; `/plans/[id]/export`
+  shows the JSON; `/(tabs)/progress?exerciseId=` preselects an exercise. Screens take navigation
+  callbacks as props and route files wire them, so screen tests need no router.
+- **Document picker.** `expo-document-picker` and `expo-file-system` (SDK 58, installed with
+  `npx expo install`); the picked file is read with `File(uri).text()` on native and the picker's
+  `File` object on web. No config plugin is needed (the picker's plugin is only for iCloud on iOS).
+- **Web layout.** Browser `<input>` elements have an intrinsic minimum width and shrink by default;
+  the set row pins its numeric inputs (`minWidth: 0`, no grow/shrink) so the logger keeps one line
+  per set on a 360 pt screen. Found by running the app on web with Playwright during review.
+- **Not verified in this migration:** behavior on a physical Android device (the APK is built by the
+  GitHub Actions pipeline; screens were exercised with jest and on web only).
+

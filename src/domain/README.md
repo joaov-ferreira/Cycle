@@ -1,36 +1,20 @@
-# `src/domain/` — pure math engine
+# `src/domain/` — pure logic
 
-Rounding, loads, periodization, RIR/RPE, e1RM, statistics and input validation rules.
+Everything that decides something, with no framework in sight.
 
-Contents: `lifts.ts` (the three lifts), `number-validation.ts` (generic decimal rules, incl.
-the `step` rule), `validation.ts` (reference 1RM and profile name rules), `rounding.ts`
-(load increments, rounding modes and `roundLoad`, SPEC §5), `periodization.ts`
-(`generatePeriodization`: slots × templates × 1RMs × rounding × parameters → three-week
-periodization with exact/rounded loads, volume and warning codes, SPEC §4; `findSession` looks
-a session up by its key; on multi-lift days only the slot lift's items are calculated, the other lifts'
-items go to `otherItems` and a day without work for the slot lift raises `liftNotInDay`) and
-`rpe.ts` (RIR ↔ RPE table and conversions, half points, divergence check, SPEC §7),
-`performance.ts` (the sets to log from a generated session, field validation, prescribed-vs-actual
-comparison, the completion snapshot, snapshot session ids, the queue of pending sessions) and
-`session-slots.ts` (slot editing rules: program filtered by lift, day and start week kept in range;
-`missingProgramDays` for "Add all days of this program") and `e1rm/` (SPEC §8: `rts-table.ts`, the
-transcribed RTS RPE chart with its sources, the unverified cell with its readings and the RTS TRAC
-differences as a note;
-`estimate.ts`, the formulas `rts`, `epley-rir` and `brzycki-rir` on integer arithmetic, rounded to
-0.1 kg, and the validity rules; `session.ts`, the representative set per lift, the candidate sets of a
-performed session (named variations excluded) and Δ kg / Δ % against the previous estimate), `stats.ts`
-(SPEC §9: the period filter, current / latest / previous / highest and the improvement over the baseline of
-the period) `history.ts` (SPEC §10: newest-first ordering, lift / program / period filters, equivalent previous
-sessions, Δ tonnage and Δ e1RM, set groups for summaries) `block-progress.ts` (the current week of an activated three-week block from its start date and today, for the Dashboard) and `chart-scale.ts` (nice axis ticks, linear scales and `buildChartModel`, the pixel
-coordinates of the progress chart).
+- `exercise.ts` (model, muscle groups, equipment, load increments), `exercise-match.ts` (name normalization,
+  matching, suggestions, custom-exercise validation).
+- `plan.ts` (plan model, limits, `validatePlanContent`), `plan-import.ts` (text and JSON parsers, import draft,
+  resolution), `plan-export.ts`.
+- `cycle.ts` (cycle state machine, deload prescription and advice, `suggestCycle`, timeline),
+  `progression.ts` (double progression, stall detection), `metrics.ts` (e1RM, volume, work load, session score).
+- `workout.ts` (logged workout model and validation), `workout-builder.ts` (draft from a plan workout),
+  `stats.ts` (chart series, personal records, weekly muscle sets), `period.ts`, `chart-scale.ts`.
+- `rounding.ts`, `number-validation.ts`, `validation.ts` — generic helpers.
 
 Dependency rules:
 
-- Pure TypeScript only. **No imports** of React, React Native, Expo, `src/data/`,
-  `src/i18n/`, `src/state/` or `src/components/`. `periodization.ts` may import the pure
-  `src/programs/` layer (schema, blocks, parameters).
-- No I/O, no clocks, no randomness: pass dates and values in as arguments.
-- Return error/warning **codes** (e.g. `'aboveMax'`), never display strings. The UI maps
-  codes to localized messages.
-- Coverage must stay ≥ 95 % lines (enforced by `jest.config.js`). Tests use exact,
-  hand-computed expected values.
+- Pure TypeScript only: **no imports** of React, React Native, Expo, `src/data/`, `src/i18n/`, `src/state/`,
+  `src/components/`. No I/O, clocks or randomness: pass dates and values in.
+- Return error/warning **codes**, never display strings; the UI maps them to localized messages.
+- Coverage stays ≥ 95 % lines (with `src/library/`); tests use exact, hand-computed values.

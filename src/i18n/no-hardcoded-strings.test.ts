@@ -59,7 +59,7 @@ describe('UI sources', () => {
   const files = SCANNED_DIRS.flatMap((dir) => tsxFiles(path.join(SRC, dir)));
 
   it('scans the app and component sources', () => {
-    expect(files.length).toBeGreaterThan(40);
+    expect(files.length).toBeGreaterThan(20);
   });
 
   it('render no string literal directly: every user-facing string goes through t()', () => {

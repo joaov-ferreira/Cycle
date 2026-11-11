@@ -1,9 +1,10 @@
 /**
- * Pure scale and layout logic of the progression chart (SPEC §9): "nice" axis ticks, linear
- * scales and `buildChartModel`, which turns one lift's e1RM and reference-1RM history plus the
- * period filter into pixel coordinates. The chart component only draws this model.
+ * Pure scale and layout logic of the line chart: "nice" axis ticks, linear scales and
+ * `buildChartModel`, which turns a dated value series (plus an optional reference series drawn as
+ * a step line) and the period filter into pixel coordinates. The chart component only draws
+ * this model.
  */
-import { periodStart, type Dated, type Period } from './stats';
+import { periodStart, type Period } from './period';
 
 const MS_PER_DAY = 86_400_000;
 /** The shortest time axis: two days. */
@@ -64,12 +65,16 @@ export type ChartLayout = {
   padding: { top: number; right: number; bottom: number; left: number };
 };
 
-export type ChartE1rm = Dated & { id: number };
+/** A value at a moment (`at` is an ISO 8601 timestamp). */
+export type DatedValue = { at: string; value: number };
 
-export type ChartPoint = ChartE1rm & { x: number; y: number };
+/** One entry of the charted series; `id` identifies it for selection. */
+export type ChartEntry = DatedValue & { id: number };
+
+export type ChartPoint = ChartEntry & { x: number; y: number };
 
 export type ChartModel = {
-  /** True when no e1RM falls inside the period: there is nothing to draw. */
+  /** True when no entry falls inside the period: there is nothing to draw. */
   empty: boolean;
   plot: { left: number; right: number; top: number; bottom: number };
   /** Time domain in milliseconds. */
@@ -77,15 +82,16 @@ export type ChartModel = {
   yDomain: [number, number];
   xTicks: { time: number; x: number }[];
   yTicks: { value: number; y: number }[];
-  /** The e1RM line, oldest first. */
+  /** The series line, oldest first. */
   points: ChartPoint[];
-  /** Vertices of the reference-1RM step line. */
+  /** Vertices of the reference step line. */
   referenceSteps: { x: number; y: number }[];
 };
 
 export type ChartModelInput = {
-  e1rms: readonly ChartE1rm[];
-  references: readonly Dated[];
+  series: readonly ChartEntry[];
+  /** Reference values over time, drawn as a step line; may be empty. */
+  references: readonly DatedValue[];
   period: Period;
   now: Date;
   layout: ChartLayout;
@@ -93,21 +99,21 @@ export type ChartModelInput = {
   yTickCount?: number;
 };
 
-type Step = { time: number; valueKg: number };
+type Step = { time: number; value: number };
 
-/** The reference-1RM steps visible in `[start, end]`: the value in effect at `start`, then each change. */
-function visibleSteps(references: readonly Dated[], start: number, end: number): Step[] {
+/** The reference steps visible in `[start, end]`: the value in effect at `start`, then each change. */
+function visibleSteps(references: readonly DatedValue[], start: number, end: number): Step[] {
   const sorted = references
-    .map((reference, index) => ({ time: Date.parse(reference.at), valueKg: reference.valueKg, index }))
+    .map((reference, index) => ({ time: Date.parse(reference.at), value: reference.value, index }))
     .sort((a, b) => a.time - b.time || a.index - b.index);
   const before = sorted.filter((step) => step.time <= start);
   const inside = sorted.filter((step) => step.time > start && step.time <= end);
-  const carried = before.length > 0 ? [{ time: start, valueKg: before[before.length - 1].valueKg }] : [];
+  const carried = before.length > 0 ? [{ time: start, value: before[before.length - 1].value }] : [];
   return [...carried, ...inside];
 }
 
 export function buildChartModel({
-  e1rms,
+  series,
   references,
   period,
   now,
@@ -122,7 +128,7 @@ export function buildChartModel({
     bottom: layout.height - layout.padding.bottom,
   };
   const startDate = periodStart(period, now);
-  const inPeriod = e1rms
+  const inPeriod = series
     .map((entry, index) => ({ entry, index, time: Date.parse(entry.at) }))
     .filter(({ time }) => startDate === null || time >= startDate.getTime())
     .sort((a, b) => a.time - b.time || a.index - b.index);
@@ -142,8 +148,8 @@ export function buildChartModel({
     start = Math.min(...times);
     end = Math.max(...times);
   }
-  // A span shorter than two days (a single instant, or a first session a few minutes after the
-  // onboarding 1RM) is widened to one day each side of its centre, so the time ticks show distinct dates.
+  // A span shorter than two days (a single instant, or a first entry a few minutes after the
+  // reference) is widened to one day each side of its centre, so the time ticks show distinct dates.
   if (end - start < MIN_X_SPAN_MS) {
     const centre = (start + end) / 2;
     start = centre - MIN_X_SPAN_MS / 2;
@@ -151,7 +157,7 @@ export function buildChartModel({
   }
 
   const steps = visibleSteps(references, start, end);
-  const values = [...inPeriod.map(({ entry }) => entry.valueKg), ...steps.map((step) => step.valueKg)];
+  const values = [...inPeriod.map(({ entry }) => entry.value), ...steps.map((step) => step.value)];
   const ticks = niceTicks(Math.min(...values), Math.max(...values), yTickCount);
 
   const xScale = linearScale([start, end], [plot.left, plot.right]);
@@ -160,10 +166,10 @@ export function buildChartModel({
   const referenceSteps: { x: number; y: number }[] = [];
   steps.forEach((step, index) => {
     const x = xScale(step.time);
-    if (index > 0) referenceSteps.push({ x, y: yScale(steps[index - 1].valueKg) });
-    referenceSteps.push({ x, y: yScale(step.valueKg) });
+    if (index > 0) referenceSteps.push({ x, y: yScale(steps[index - 1].value) });
+    referenceSteps.push({ x, y: yScale(step.value) });
   });
-  if (steps.length > 0) referenceSteps.push({ x: plot.right, y: yScale(steps[steps.length - 1].valueKg) });
+  if (steps.length > 0) referenceSteps.push({ x: plot.right, y: yScale(steps[steps.length - 1].value) });
 
   return {
     empty: false,
@@ -172,7 +178,7 @@ export function buildChartModel({
     yDomain: [ticks.min, ticks.max],
     xTicks: timeTicks(start, end, xTickCount).map((time) => ({ time, x: xScale(time) })),
     yTicks: ticks.ticks.map((value) => ({ value, y: yScale(value) })),
-    points: inPeriod.map(({ entry, time }) => ({ ...entry, x: xScale(time), y: yScale(entry.valueKg) })),
+    points: inPeriod.map(({ entry, time }) => ({ ...entry, x: xScale(time), y: yScale(entry.value) })),
     referenceSteps,
   };
 }

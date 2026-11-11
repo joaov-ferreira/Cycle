@@ -7,10 +7,12 @@ export default function HistoryDetailRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
   return (
     <HistoryDetailScreen
-      // a non-numeric id gives NaN, which matches no session
-      performedSessionId={Number(id)}
+      workoutId={Number(id)}
       onBack={() => router.back()}
-      onOpen={(sessionId) => router.push({ pathname: '/history/[id]', params: { id: String(sessionId) } })}
+      onOpenExercise={(exerciseId) =>
+        router.push({ pathname: '/exercises/[id]', params: { id: exerciseId } })
+      }
+      onDeleted={() => router.back()}
     />
   );
 }

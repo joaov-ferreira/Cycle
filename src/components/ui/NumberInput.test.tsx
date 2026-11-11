@@ -1,5 +1,8 @@
+import { useState } from 'react';
+
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+import { palettes } from '@/constants/theme';
 import type { NumberRules } from '@/domain/number-validation';
 import { I18nProvider, type AppLocale } from '@/i18n';
 
@@ -116,5 +119,118 @@ describe('NumberInput step rule', () => {
     );
     await fireEvent.changeText(screen.getByLabelText('Incremento'), '2,52');
     expect(screen.getByText('Use múltiplos de 0,05')).toBeOnTheScreen();
+  });
+});
+
+describe('NumberInput compact mode', () => {
+  it('hides the visible label and unit but keeps the accessible name', async () => {
+    await render(
+      <I18nProvider locale="en">
+        <NumberInput label="Set 2 weight" unit="kg" value={40} rules={rules} onChange={jest.fn()} compact />
+      </I18nProvider>,
+    );
+    expect(screen.getByLabelText('Set 2 weight')).toHaveDisplayValue('40');
+    expect(screen.queryByText('Set 2 weight')).toBeNull();
+    expect(screen.queryByText('kg')).toBeNull();
+  });
+
+  it('hides the inline error text but turns the border to the danger color', async () => {
+    await render(
+      <I18nProvider locale="en">
+        <NumberInput label="Set 2 weight" value={40} rules={rules} onChange={jest.fn()} compact />
+      </I18nProvider>,
+    );
+    await fireEvent.changeText(screen.getByLabelText('Set 2 weight'), '700');
+    expect(screen.queryByText('Must be at most 600')).toBeNull();
+    expect(screen.getByLabelText('Set 2 weight')).toHaveStyle({ borderColor: palettes.dark.danger });
+  });
+});
+
+describe('NumberInput external value changes', () => {
+  function Harness({ locale, initial }: { locale: AppLocale; initial: number | null }) {
+    const [value, setValue] = useState<number | null>(initial);
+    return (
+      <I18nProvider locale={locale}>
+        <NumberInput
+          label="Bench"
+          value={value}
+          rules={rules}
+          onChange={({ value: next }) => setValue(next)}
+        />
+      </I18nProvider>
+    );
+  }
+
+  it('shows a new value from the parent in English', async () => {
+    const { rerender } = await render(
+      <I18nProvider locale="en">
+        <NumberInput label="Bench" value={40} rules={rules} onChange={jest.fn()} />
+      </I18nProvider>,
+    );
+    await rerender(
+      <I18nProvider locale="en">
+        <NumberInput label="Bench" value={42.5} rules={rules} onChange={jest.fn()} />
+      </I18nProvider>,
+    );
+    expect(screen.getByLabelText('Bench')).toHaveDisplayValue('42.5');
+  });
+
+  it('shows a new value from the parent in pt-BR with a comma', async () => {
+    const { rerender } = await render(
+      <I18nProvider locale="pt-BR">
+        <NumberInput label="Carga" value={40} rules={rules} onChange={jest.fn()} />
+      </I18nProvider>,
+    );
+    await rerender(
+      <I18nProvider locale="pt-BR">
+        <NumberInput label="Carga" value={42.5} rules={rules} onChange={jest.fn()} />
+      </I18nProvider>,
+    );
+    expect(screen.getByLabelText('Carga')).toHaveDisplayValue('42,5');
+  });
+
+  it('clears the field when the parent sets null', async () => {
+    const { rerender } = await render(
+      <I18nProvider locale="en">
+        <NumberInput label="Bench" value={40} rules={rules} onChange={jest.fn()} />
+      </I18nProvider>,
+    );
+    await rerender(
+      <I18nProvider locale="en">
+        <NumberInput label="Bench" value={null} rules={rules} onChange={jest.fn()} />
+      </I18nProvider>,
+    );
+    expect(screen.getByLabelText('Bench')).toHaveDisplayValue('');
+  });
+
+  it('clears a previous error when the parent replaces the value', async () => {
+    const { rerender } = await render(
+      <I18nProvider locale="en">
+        <NumberInput label="Bench" value={40} rules={rules} onChange={jest.fn()} />
+      </I18nProvider>,
+    );
+    await fireEvent.changeText(screen.getByLabelText('Bench'), '700');
+    expect(screen.getByText('Must be at most 600')).toBeOnTheScreen();
+    await rerender(
+      <I18nProvider locale="en">
+        <NumberInput label="Bench" value={50} rules={rules} onChange={jest.fn()} />
+      </I18nProvider>,
+    );
+    expect(screen.getByLabelText('Bench')).toHaveDisplayValue('50');
+    expect(screen.queryByText('Must be at most 600')).toBeNull();
+  });
+
+  it('keeps a partial pt-BR input such as "42," when the parent echoes the same number', async () => {
+    await render(<Harness locale="pt-BR" initial={40} />);
+    const input = screen.getByLabelText('Bench');
+    await fireEvent.changeText(input, '42,');
+    expect(screen.getByLabelText('Bench')).toHaveDisplayValue('42,');
+  });
+
+  it('keeps an out-of-range text the user typed when the parent echoes null', async () => {
+    await render(<Harness locale="en" initial={40} />);
+    await fireEvent.changeText(screen.getByLabelText('Bench'), '700');
+    expect(screen.getByLabelText('Bench')).toHaveDisplayValue('700');
+    expect(screen.getByText('Must be at most 600')).toBeOnTheScreen();
   });
 });

@@ -3,27 +3,38 @@ import { Pressable, StyleSheet, View, type LayoutChangeEvent, type TextStyle } f
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
 import { layout as uiLayout, spacing } from '@/constants/theme';
-import { buildChartModel, type ChartE1rm, type ChartLayout } from '@/domain/chart-scale';
-import type { Lift } from '@/domain/lifts';
-import type { Dated, Period } from '@/domain/stats';
+import { buildChartModel, type ChartEntry, type ChartLayout, type DatedValue } from '@/domain/chart-scale';
+import type { Period } from '@/domain/period';
 import { useI18n } from '@/i18n';
 
 import { useTheme } from '../theme-provider';
 import { Text } from '../ui';
 
 export type LineChartProps = {
-  lift: Lift;
-  /** The lift's e1RM history (SPEC §8.4), any order. */
-  e1rms: readonly ChartE1rm[];
-  /** The lift's reference 1RM records (SPEC §2), any order. */
-  references: readonly Dated[];
+  /** Localized name of what is charted (e.g. an exercise), used in the accessible labels. */
+  label: string;
+  /** Localized legend text of the series line; no legend entry when omitted. */
+  seriesLabel?: string;
+  /** Localized legend text of the reference step line; no legend entry when omitted. */
+  referenceLabel?: string;
+  /** The charted values over time (kg), any order. */
+  series: readonly ChartEntry[];
+  /** Optional reference values over time (kg), drawn as a dashed step line, any order. */
+  references?: readonly DatedValue[];
   period: Period;
   /** The clock, passed in so the chart is deterministic. */
   now: Date;
-  /** Localized "originating session" text of each e1RM, by e1RM id. */
-  sessionLabels: ReadonlyMap<number, string>;
+  /** Localized extra line shown under the selected point's tooltip, by entry id. */
+  detailLabels?: ReadonlyMap<number, string>;
+  /** Localized unit shown above the y axis; defaults to kg. */
+  unit?: string;
+  /** Formats a charted value for the summary, tooltips and point labels; defaults to kg. */
+  formatValue?: (value: number) => string;
   height?: number;
 };
+
+const NO_REFERENCES: readonly DatedValue[] = [];
+const NO_DETAILS: ReadonlyMap<number, string> = new Map();
 
 const DEFAULT_WIDTH = 320;
 const DEFAULT_HEIGHT = 220;
@@ -35,11 +46,22 @@ const X_LABEL_WIDTH = 96;
 const HIT_SIZE = uiLayout.minTouchTarget;
 
 /**
- * Historical chart of one lift (SPEC §9): the e1RM line with a tappable / hoverable point each,
- * and the reference 1RM as a step line. Drawn with `react-native-svg` from the pure
- * `buildChartModel`; no animation.
+ * Line chart of a dated value series (kg) with a tappable / hoverable point each and an optional
+ * reference step line. Drawn with `react-native-svg` from the pure `buildChartModel`; no animation.
  */
-export function LineChart({ lift, e1rms, references, period, now, sessionLabels, height = DEFAULT_HEIGHT }: LineChartProps) {
+export function LineChart({
+  label,
+  seriesLabel,
+  referenceLabel,
+  series,
+  references = NO_REFERENCES,
+  period,
+  now,
+  detailLabels = NO_DETAILS,
+  unit,
+  formatValue: formatValueOverride,
+  height = DEFAULT_HEIGHT,
+}: LineChartProps) {
   const { t, formatKg, formatNumber, formatDate } = useI18n();
   const { colors } = useTheme();
   const [width, setWidth] = useState(DEFAULT_WIDTH);
@@ -47,14 +69,17 @@ export function LineChart({ lift, e1rms, references, period, now, sessionLabels,
 
   const chartLayout: ChartLayout = useMemo(() => ({ width, height, padding: PADDING }), [width, height]);
   const model = useMemo(
-    () => buildChartModel({ e1rms, references, period, now, layout: chartLayout }),
-    [e1rms, references, period, now, chartLayout],
+    () => buildChartModel({ series, references, period, now, layout: chartLayout }),
+    [series, references, period, now, chartLayout],
   );
-  const liftName = t(`lifts.${lift}`);
 
-  if (e1rms.length === 0) return <Text tone="secondary">{t('progress.empty', { lift: liftName })}</Text>;
+  if (series.length === 0) return <Text tone="secondary">{t('progress.chart.empty', { label })}</Text>;
   if (model.empty) {
-    return <Text tone="secondary">{t('progress.emptyPeriod', { lift: liftName, period: t(`progress.periodNames.${period}`) })}</Text>;
+    return (
+      <Text tone="secondary">
+        {t('progress.chart.emptyPeriod', { label, period: t(`progress.periodNames.${period}`) })}
+      </Text>
+    );
   }
 
   const onLayout = (event: LayoutChangeEvent) => {
@@ -69,19 +94,19 @@ export function LineChart({ lift, e1rms, references, period, now, sessionLabels,
     : { day: 'numeric', month: 'short' };
   const last = model.points[model.points.length - 1];
   const selected = model.points.find((point) => point.id === selectedId) ?? null;
-  const value = (kg: number) => formatKg(kg, { maximumFractionDigits: 1 });
+  const formatValue = formatValueOverride ?? ((kg: number) => formatKg(kg, { maximumFractionDigits: 1 }));
   const pointDate = (at: string) => formatDate(new Date(at));
   const summary = t('progress.chart.summary', {
-    lift: liftName,
+    label,
     period: t(`progress.periodNames.${period}`),
     count: model.points.length,
-    latest: value(last.valueKg),
+    latest: formatValue(last.value),
     date: pointDate(last.at),
   });
 
   return (
     <View style={styles.container}>
-      <View accessibilityLabel={t('progress.chart.label', { lift: liftName })} onLayout={onLayout} style={{ height }} testID={`line-chart-${lift}`}>
+      <View accessibilityLabel={t('progress.chart.label', { label })} onLayout={onLayout} style={{ height }} testID="line-chart">
         <View accessibilityLabel={summary} style={StyleSheet.absoluteFill}>
           <Svg width={width} height={height}>
             {model.yTicks.map((tick) => (
@@ -109,7 +134,7 @@ export function LineChart({ lift, e1rms, references, period, now, sessionLabels,
           </Svg>
         </View>
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          <AxisLabel style={{ left: 0, width: plot.left - 6, top: 0, textAlign: 'right' }}>{t('progress.chart.yAxis')}</AxisLabel>
+          <AxisLabel style={{ left: 0, width: plot.left - 6, top: 0, textAlign: 'right' }}>{unit ?? t('progress.chart.yAxis')}</AxisLabel>
           {model.yTicks.map((tick) => (
             <AxisLabel key={`y-${tick.value}`} style={{ left: 0, width: plot.left - 6, top: tick.y - AXIS_LINE / 2, textAlign: 'right' }}>
               {formatNumber(tick.value, { maximumFractionDigits: 1 })}
@@ -136,7 +161,7 @@ export function LineChart({ lift, e1rms, references, period, now, sessionLabels,
           <Pressable
             key={point.id}
             accessibilityRole="button"
-            accessibilityLabel={t('progress.chart.point', { date: pointDate(point.at), value: value(point.valueKg) })}
+            accessibilityLabel={t('progress.chart.point', { date: pointDate(point.at), value: formatValue(point.value) })}
             accessibilityState={{ selected: point.id === selectedId }}
             onPress={() => setSelectedId((current) => (current === point.id ? null : point.id))}
             onHoverIn={() => setSelectedId(point.id)}
@@ -144,19 +169,21 @@ export function LineChart({ lift, e1rms, references, period, now, sessionLabels,
           />
         ))}
       </View>
-      <View style={styles.legend}>
-        <LegendItem color={colors.text} label={t('progress.chart.legendE1rm')} />
-        <LegendItem color={colors.textSecondary} label={t('progress.chart.legendReference')} dashed />
-      </View>
+      {seriesLabel || referenceLabel ? (
+        <View style={styles.legend}>
+          {seriesLabel ? <LegendItem color={colors.text} label={seriesLabel} /> : null}
+          {referenceLabel ? <LegendItem color={colors.textSecondary} label={referenceLabel} dashed /> : null}
+        </View>
+      ) : null}
       <View accessibilityLiveRegion="polite" style={styles.details}>
         {selected ? (
           <>
             <Text variant="label" tabular>
-              {t('progress.chart.tooltip', { date: pointDate(selected.at), value: value(selected.valueKg) })}
+              {t('progress.chart.tooltip', { date: pointDate(selected.at), value: formatValue(selected.value) })}
             </Text>
-            {sessionLabels.get(selected.id) ? (
+            {detailLabels.get(selected.id) ? (
               <Text variant="caption" tone="secondary">
-                {sessionLabels.get(selected.id)}
+                {detailLabels.get(selected.id)}
               </Text>
             ) : null}
           </>
