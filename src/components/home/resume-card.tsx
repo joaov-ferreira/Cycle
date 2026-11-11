@@ -10,9 +10,9 @@ import { Text } from '../ui';
 /** The workout in progress, first on Home; tapping it returns to the logger. */
 export function ResumeCard({ workout, onPress }: { workout: Workout; onPress: () => void }) {
   const t = useT();
-  const { formatDate } = useI18n();
+  const { formatTime } = useI18n();
   const { colors } = useTheme();
-  const time = formatDate(new Date(workout.startedAt), { hour: '2-digit', minute: '2-digit' });
+  const time = formatTime(new Date(workout.startedAt));
   return (
     <Pressable
       accessibilityRole="button"

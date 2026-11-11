@@ -15,6 +15,27 @@ const setOf = (store: AppStore, exercise: number, set: number): LoggedSet =>
   store.getState().currentWorkout!.exercises[exercise].sets[set];
 
 describe('WorkoutScreen: logging', () => {
+  it('shows the start time with the shared time format, per locale', async () => {
+    await renderWorkout({
+      prepare: async ({ store, clock }) => {
+        clock.set(new Date(2026, 2, 2, 6, 42));
+        await store.getState().startPlanWorkout('w-a');
+      },
+    });
+    expect(await screen.findByText(/^Started 6:42\sAM$/)).toBeOnTheScreen();
+  });
+
+  it('shows the start time in 24-hour format in Portuguese', async () => {
+    await renderWorkout({
+      language: 'pt-BR',
+      prepare: async ({ store, clock }) => {
+        clock.set(new Date(2026, 2, 2, 6, 42));
+        await store.getState().startPlanWorkout('w-a');
+      },
+    });
+    expect(await screen.findByText('Iniciado às 06:42')).toBeOnTheScreen();
+  });
+
   it('shows the header, targets, suggestions and one row per set', async () => {
     await renderWorkout({ prepare: startA });
     expect(await screen.findByRole('header', { name: 'A' })).toBeOnTheScreen();

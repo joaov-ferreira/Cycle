@@ -21,7 +21,7 @@ export function NextWorkoutCard({
   const t = useT();
   const { colors } = useTheme();
   return (
-    <Card>
+    <Card testID="next-workout-card">
       <Text variant="caption" tone="secondary">
         {t('home.next.title')}
       </Text>

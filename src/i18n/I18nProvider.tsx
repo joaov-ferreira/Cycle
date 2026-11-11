@@ -6,6 +6,7 @@ import {
   formatKg,
   formatNumber,
   formatPercent,
+  formatTime,
   type FractionDigits,
 } from './format';
 import type { AppLocale } from './locale';
@@ -20,6 +21,7 @@ export type I18nValue = {
   formatKg: (value: number, options?: FractionDigits) => string;
   formatPercent: (fraction: number) => string;
   formatDate: (date: Date, options?: Intl.DateTimeFormatOptions) => string;
+  formatTime: (date: Date) => string;
 };
 
 function createI18nValue(locale: AppLocale): I18nValue {
@@ -31,6 +33,7 @@ function createI18nValue(locale: AppLocale): I18nValue {
     formatKg: (value, options) => formatKg(value, locale, options),
     formatPercent: (fraction) => formatPercent(fraction, locale),
     formatDate: (date, options) => formatDate(date, locale, options),
+    formatTime: (date) => formatTime(date, locale),
   };
 }
 

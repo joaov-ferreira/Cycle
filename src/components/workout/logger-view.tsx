@@ -28,7 +28,7 @@ type Picker = { mode: 'add' } | { mode: 'replace'; index: number };
 /** The workout in progress (SPEC §7.3): header, one card per exercise, notes, finish and discard. */
 export function WorkoutLogger({ workout }: { workout: Workout }) {
   const { colors } = useTheme();
-  const { t, formatDate } = useI18n();
+  const { t, formatTime } = useI18n();
   const exerciseLabel = useExerciseName();
   const suggestions: Record<string, Suggestion> = useAppStore(selectWorkoutSuggestions);
   const plan = useAppStore(selectActivePlan);
@@ -84,7 +84,7 @@ export function WorkoutLogger({ workout }: { workout: Workout }) {
       ) : null}
       <Text variant="caption" tone="secondary">
         {t('workout.started', {
-          time: formatDate(new Date(workout.startedAt), { hour: 'numeric', minute: '2-digit' }),
+          time: formatTime(new Date(workout.startedAt)),
         })}
       </Text>
       {error ? (

@@ -72,7 +72,7 @@ function LoadedDetail({
   onOpenExercise,
   onDeleted,
 }: Omit<HistoryDetailScreenProps, 'workoutId'> & { workout: Workout }) {
-  const { t, formatDate, formatKg } = useI18n();
+  const { t, formatDate, formatKg, formatTime } = useI18n();
   const planName = useAppStore((s) =>
     workout.planId === null ? null : (s.plans.find((p) => p.id === workout.planId)?.name ?? null),
   );
@@ -210,7 +210,7 @@ function LoadedDetail({
         <Text>
           {t('history.dateTime', {
             date: formatDate(completedAt),
-            time: formatDate(completedAt, { hour: 'numeric', minute: '2-digit' }),
+            time: formatTime(completedAt),
           })}
         </Text>
         {durationMinutes !== null ? (

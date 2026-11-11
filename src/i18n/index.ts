@@ -1,6 +1,6 @@
 export { catalogs, type Catalog, type MessageKey } from './catalogs';
 export { formatDecimalInput, normalizeDecimalInput } from './decimal-input';
-export { formatDate, formatKg, formatNumber, formatPercent, type FractionDigits } from './format';
+export { formatDate, formatKg, formatNumber, formatPercent, formatTime, type FractionDigits } from './format';
 export { I18nProvider, useI18n, useT, type I18nValue, type TFunction } from './I18nProvider';
 export {
   APP_LOCALES,

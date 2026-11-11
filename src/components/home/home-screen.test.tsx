@@ -277,6 +277,22 @@ describe('HomeScreen: deload advice', () => {
 });
 
 describe('HomeScreen: resume', () => {
+  it('shows the start time like the logger does, per locale', async () => {
+    const { store, repos, clock } = await setup();
+    clock.set(new Date(2026, 2, 2, 6, 42));
+    await store.getState().startFreeWorkout('Legs');
+    await renderHome(store, repos);
+    expect(await screen.findByText(/^Started 6:42\sAM$/)).toBeOnTheScreen();
+  });
+
+  it('shows the start time in 24-hour format in Portuguese', async () => {
+    const { store, repos, clock } = await setup();
+    clock.set(new Date(2026, 2, 2, 6, 42));
+    await store.getState().startFreeWorkout('Legs');
+    await renderHome(store, repos, callbacks(), 'pt-BR');
+    expect(await screen.findByText('Iniciado às 06:42')).toBeOnTheScreen();
+  });
+
   it('shows the workout in progress first and opens it', async () => {
     const { store, repos } = await setup();
     await seedPlan(store);
