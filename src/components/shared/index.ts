@@ -11,4 +11,5 @@ export { EmptyState, type EmptyStateProps } from './empty-state';
 export { ExercisePicker, type ExercisePickerProps } from './exercise-picker';
 export { FilterChips, type FilterChipsProps, type FilterOption } from './filter-chips';
 export { SetRow, type SetRowChange, type SetRowProps } from './set-row';
+export { SetRowHeader } from './set-row-header';
 export { Stepper, type StepperProps } from './stepper';
