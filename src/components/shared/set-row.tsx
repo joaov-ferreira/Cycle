@@ -27,6 +27,18 @@ export type SetRowProps = {
   testID?: string;
 };
 
+/**
+ * Column geometry of the set row, shared with `SetRowHeader` so the captions line up: first
+ * line `[set 44] [kg flex] [reps] [RIR] [done 44]`, separated by `gap`.
+ */
+export const SET_ROW_LAYOUT = {
+  gap: spacing.sm,
+  control: layout.minTouchTarget,
+  reps: 60,
+  rir: 52,
+  weightMinWidth: 72,
+} as const;
+
 /** Localized message key for every error code of `SetErrors`. */
 const SET_ERROR_KEYS: { [F in keyof SetErrors]-?: Record<NonNullable<SetErrors[F]>, MessageKey> } = {
   weightKg: {
@@ -52,8 +64,10 @@ const WEIGHT_RULES = {
   maxDecimals: WORKOUT_LIMITS.weightKg.maxDecimals,
 };
 
+/** Space around the Remove text, so its touch target reaches 44 pt. */
+const REMOVE_HIT_SLOP = { top: 13, bottom: 13, left: 12, right: 12 };
+
 type IntegerFieldProps = {
-  caption: string;
   label: string;
   value: number | null;
   placeholder?: number | null;
@@ -61,36 +75,34 @@ type IntegerFieldProps = {
   onChange: (value: number | null) => void;
 };
 
-/** Whole-number input with a numeric keyboard; only digits are kept. */
-function IntegerField({ caption, label, value, placeholder, width, onChange }: IntegerFieldProps) {
+/** Compact whole-number input with a numeric keyboard; only digits are kept. */
+function IntegerField({ label, value, placeholder, width, onChange }: IntegerFieldProps) {
   const { colors } = useTheme();
   return (
-    <View style={[styles.integer, { width }]}>
-      <Text variant="caption" tone="secondary">
-        {caption}
-      </Text>
-      <TextInput
-        accessibilityLabel={label}
-        keyboardType="number-pad"
-        inputMode="numeric"
-        value={value === null ? '' : String(value)}
-        placeholder={placeholder === null || placeholder === undefined ? undefined : String(placeholder)}
-        placeholderTextColor={colors.textSecondary}
-        onChangeText={(text) => {
-          const digits = text.replace(/\D/g, '');
-          onChange(digits === '' ? null : Number(digits));
-        }}
-        style={[
-          styles.input,
-          tabularNumbers,
-          { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
-      />
-    </View>
+    <TextInput
+      accessibilityLabel={label}
+      keyboardType="number-pad"
+      inputMode="numeric"
+      value={value === null ? '' : String(value)}
+      placeholder={placeholder === null || placeholder === undefined ? undefined : String(placeholder)}
+      placeholderTextColor={colors.textSecondary}
+      onChangeText={(text) => {
+        const digits = text.replace(/\D/g, '');
+        onChange(digits === '' ? null : Number(digits));
+      }}
+      style={[
+        styles.input,
+        tabularNumbers,
+        { width, color: colors.text, backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    />
   );
 }
 
-/** One logged set (SPEC §7.3): warm-up marker, weight, reps, RIR, done, remove, with errors. */
+/**
+ * One logged set (SPEC §7.3). The first line holds every control and never wraps; the second
+ * line carries the last time and the Remove action; errors sit below.
+ */
 export function SetRow({
   index,
   set,
@@ -123,24 +135,7 @@ export function SetRow({
 
   return (
     <View testID={testID} style={styles.container}>
-      {lastTime ? (
-        <View style={styles.lastTime}>
-          <Text variant="caption" tone="secondary">
-            {t('common.lastTime')}
-          </Text>
-          <Text
-            variant="caption"
-            tone="secondary"
-            tabular
-            accessibilityLabel={t('common.lastTimeAccessible', {
-              weight: lastTime.weightKg,
-              reps: lastTime.reps,
-            })}>
-            {t('common.lastTimeValue', { weight: lastTime.weightKg, reps: lastTime.reps })}
-          </Text>
-        </View>
-      ) : null}
-      <View style={styles.line}>
+      <View testID="set-row-controls" style={styles.line}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('common.setType', { number: numberText })}
@@ -151,28 +146,26 @@ export function SetRow({
             {warmup ? t('common.warmupMarker') : numberText}
           </Text>
         </Pressable>
-        <View style={styles.weight}>
+        <View testID="set-row-weight" style={styles.weight}>
           <NumberInput
             label={t('common.setWeight', { number: numberText })}
-            unit={t('common.kg')}
             value={set.weightKg}
             rules={WEIGHT_RULES}
             onChange={({ value }) => onChange({ weightKg: value })}
+            compact
           />
         </View>
         <IntegerField
-          caption={t('common.reps')}
           label={t('common.setReps', { number: numberText })}
           value={set.reps}
           placeholder={placeholderReps}
-          width={72}
+          width={SET_ROW_LAYOUT.reps}
           onChange={(reps) => onChange({ reps })}
         />
         <IntegerField
-          caption={t('common.rir')}
           label={t('common.setRir', { number: numberText })}
           value={set.rir}
-          width={64}
+          width={SET_ROW_LAYOUT.rir}
           onChange={(rir) => onChange({ rir })}
         />
         <Pressable
@@ -188,20 +181,39 @@ export function SetRow({
           ]}>
           {set.done ? <Text style={[typography.heading, { color: colors.onAccent }]}>✓</Text> : null}
         </Pressable>
+      </View>
+      <View style={styles.footer}>
+        {lastTime ? (
+          <View style={styles.lastTime}>
+            <Text variant="caption" tone="secondary">
+              {t('common.lastTime')}
+            </Text>
+            <Text
+              variant="caption"
+              tone="secondary"
+              tabular
+              accessibilityLabel={t('common.lastTimeAccessible', {
+                weight: lastTime.weightKg,
+                reps: lastTime.reps,
+              })}>
+              {t('common.lastTimeValue', { weight: lastTime.weightKg, reps: lastTime.reps })}
+            </Text>
+          </View>
+        ) : (
+          <View />
+        )}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('common.removeSet', { number: numberText })}
-          onPress={onRemove}
-          style={[styles.control, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-          <Text variant="heading">×</Text>
+          hitSlop={REMOVE_HIT_SLOP}
+          onPress={onRemove}>
+          <Text variant="caption" tone="secondary" style={styles.remove}>
+            {t('common.remove')}
+          </Text>
         </Pressable>
       </View>
       {messages.map((message) => (
-        <Text
-          key={message}
-          variant="caption"
-          tone="danger"
-          accessibilityLiveRegion="polite">
+        <Text key={message} variant="caption" tone="danger" accessibilityLiveRegion="polite">
           {message}
         </Text>
       ))}
@@ -211,29 +223,34 @@ export function SetRow({
 
 const styles = StyleSheet.create({
   container: { gap: spacing.xs },
-  lastTime: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
   line: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'flex-end',
-    gap: spacing.sm,
+    alignItems: 'center',
+    gap: SET_ROW_LAYOUT.gap,
   },
   control: {
-    minWidth: layout.minTouchTarget,
-    minHeight: layout.minTouchTarget,
+    minWidth: SET_ROW_LAYOUT.control,
+    minHeight: SET_ROW_LAYOUT.control,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  weight: { flexGrow: 1, flexShrink: 1, minWidth: 120 },
-  integer: { gap: spacing.xs },
+  weight: { flexGrow: 1, flexShrink: 1, minWidth: SET_ROW_LAYOUT.weightMinWidth },
   input: {
     ...typography.body,
-    minHeight: layout.minTouchTarget,
-    paddingHorizontal: spacing.sm,
+    minHeight: SET_ROW_LAYOUT.control,
+    paddingHorizontal: spacing.xs,
     borderWidth: 1,
     borderRadius: radius.md,
     textAlign: 'center',
   },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  lastTime: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center', flexShrink: 1 },
+  remove: { textDecorationLine: 'underline' },
 });

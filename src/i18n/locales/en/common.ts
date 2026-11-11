@@ -53,6 +53,25 @@ export const common = {
       notInteger: 'Use a whole number',
     },
   },
+  exerciseErrors: {
+    name: {
+      required: 'Enter a name',
+      tooLong: 'Use at most {{max}} characters',
+      duplicateName: 'An exercise with this name already exists',
+    },
+    primaryMuscle: {
+      invalidMuscle: 'Choose a primary muscle group',
+    },
+    equipment: {
+      invalidEquipment: 'Choose the equipment',
+    },
+    mechanics: {
+      invalidMechanics: 'Choose a type',
+    },
+    secondaryMuscles: {
+      invalidSecondaryMuscles: 'Choose different secondary muscle groups',
+    },
+  },
   muscles: {
     chest: 'Chest',
     back: 'Back',

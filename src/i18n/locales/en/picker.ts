@@ -12,4 +12,10 @@ export const picker = {
   emptyMessage: 'Try another search or filter.',
   createExercise: 'Create “{{name}}”',
   createNew: 'New exercise',
+  createSubmit: 'Create exercise',
+  formName: 'Name',
+  formPrimaryMuscle: 'Primary muscle',
+  formEquipment: 'Equipment',
+  formMechanics: 'Type',
+  formSecondaryMuscles: 'Secondary muscles',
 };
