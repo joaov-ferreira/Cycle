@@ -1,7 +1,11 @@
 import { WorkoutNotFoundError, type WorkoutDraft } from '@/data/repositories';
-import { completeSession } from '@/domain/cycle';
+import { completeSession, weekTargetRir } from '@/domain/cycle';
 import type { Equipment } from '@/domain/exercise';
+import { dropSetLoad } from '@/domain/metrics';
+import { supersetLayout } from '@/domain/plan';
+import { restSecondsFor } from '@/domain/rest-timer';
 import { newRecords } from '@/domain/stats';
+import { warmupSets } from '@/domain/warmup';
 import { buildWorkoutExercises, targetRepsPlaceholder } from '@/domain/workout-builder';
 import {
   canCompleteWorkout,
@@ -9,6 +13,7 @@ import {
   hasSetErrors,
   validateNote,
   validateSet,
+  validateSetOrder,
   WORKOUT_LIMITS,
   workoutSummary,
   type LoggedSet,
@@ -26,13 +31,16 @@ import {
   UnknownExerciseError,
   WorkoutIndexError,
   WorkoutInProgressError,
+  WorkoutSetOrderError,
   WorkoutValidationError,
   type WorkoutNoteIssue,
   type WorkoutSetIssue,
 } from '../errors';
 import {
   selectActivePlan,
+  selectBarKg,
   selectExerciseById,
+  selectIncrement,
   selectExerciseSessions,
   selectSuggestions,
   selectWorkoutSuggestions,
@@ -56,6 +64,9 @@ export type WorkoutActions = Pick<
   | 'discardWorkout'
   | 'finishWorkout'
   | 'clearLastFinish'
+  | 'addDropSet'
+  | 'addWarmupSets'
+  | 'repeatWorkout'
   | 'amendWorkout'
   | 'deleteWorkout'
 >;
@@ -134,7 +145,7 @@ function checkNote(text: string) {
 }
 
 export function createWorkoutActions(ctx: StoreContext): WorkoutActions {
-  const { repos, get, set, now, requireReady, enqueue } = ctx;
+  const { repos, get, set, now, requireReady, enqueue, rest } = ctx;
 
   const equipmentOf = (exerciseId: string): Equipment =>
     selectExerciseById(get(), exerciseId)?.equipment ?? 'other';
@@ -156,14 +167,28 @@ export function createWorkoutActions(ctx: StoreContext): WorkoutActions {
   }
 
   /** Applies a synchronous change to the in-progress workout, then persists it. */
-  async function mutate(change: (workout: Workout) => Workout): Promise<void> {
+  async function mutate(
+    change: (workout: Workout) => Workout,
+    afterSet?: (next: Workout) => void,
+  ): Promise<void> {
     const profile = requireReady();
     const current = get().currentWorkout;
     if (!current) throw new NoWorkoutInProgressError();
     const next = change(current);
     if (next === current) return;
     set({ currentWorkout: next });
+    afterSet?.(next);
     await persist(profile.id, next);
+  }
+
+  /** Starts the rest timer after a set was marked done (SPEC-v3 §1.2; superset rule of §4.1). */
+  function startRestAfter(workout: Workout, exerciseIndex: number, setIndex: number) {
+    const block = supersetLayout(workout.exercises).find((b) => b.indices.includes(exerciseIndex));
+    if (block && block.label !== null && block.indices[block.indices.length - 1] !== exerciseIndex) return;
+    const settings = get().settings;
+    if (!settings) return;
+    const seconds = restSecondsFor(workout.exercises[exerciseIndex].target?.restSeconds, settings.defaultRestSeconds);
+    rest.start(workout, exerciseIndex, setIndex, seconds);
   }
 
   async function start(
@@ -198,7 +223,9 @@ export function createWorkoutActions(ctx: StoreContext): WorkoutActions {
           phase: plan.cycleState.phase,
           cycleNumber: plan.cycleState.cycleNumber,
           cycleWeek: plan.cycleState.week,
-          exercises: buildWorkoutExercises(planWorkout, suggestions),
+          exercises: buildWorkoutExercises(planWorkout, suggestions, {
+            targetRir: weekTargetRir(plan.cycle, plan.cycleState),
+          }),
         };
       });
     },
@@ -234,25 +261,113 @@ export function createWorkoutActions(ctx: StoreContext): WorkoutActions {
 
     async toggleSetDone(exerciseIndex, setIndex) {
       let errors: SetErrors = {};
-      await mutate((workout) =>
-        withSet(workout, exerciseIndex, setIndex, (current) => {
-          if (current.done) return { ...current, done: false };
-          const exercise = workout.exercises[exerciseIndex];
-          let candidate = current;
-          if (candidate.reps === null && exercise.planExerciseId !== null) {
-            const suggestion = selectWorkoutSuggestions(get())[exercise.planExerciseId];
-            const placeholder = suggestion ? targetRepsPlaceholder(suggestion, setIndex) : null;
-            if (placeholder !== null) candidate = { ...candidate, reps: placeholder };
-          }
-          errors = validateSet(candidate, equipmentOf(exercise.exerciseId));
-          return hasSetErrors(errors) ? current : { ...candidate, done: true };
-        }),
+      let becameDone = false;
+      await mutate(
+        (workout) =>
+          withSet(workout, exerciseIndex, setIndex, (current) => {
+            if (current.done) return { ...current, done: false };
+            const exercise = workout.exercises[exerciseIndex];
+            let candidate = current;
+            if (candidate.reps === null && exercise.planExerciseId !== null) {
+              const suggestion = selectWorkoutSuggestions(get())[exercise.planExerciseId];
+              const placeholder = suggestion ? targetRepsPlaceholder(suggestion, setIndex) : null;
+              if (placeholder !== null) candidate = { ...candidate, reps: placeholder };
+            }
+            errors = validateSet(candidate, equipmentOf(exercise.exerciseId));
+            if (hasSetErrors(errors)) return current;
+            if (candidate.kind === 'drop') {
+              // Only done sets count when the workout is finished, so a drop set needs a done parent.
+              const doneOrThis = exercise.sets.filter((s, i) => s.done || i === setIndex);
+              const position = doneOrThis.indexOf(current);
+              if (validateSetOrder(doneOrThis).some((issue) => issue.index === position)) {
+                throw new WorkoutSetOrderError(exerciseIndex, setIndex);
+              }
+            }
+            becameDone = true;
+            return { ...candidate, done: true };
+          }),
+        (next) => {
+          if (becameDone) startRestAfter(next, exerciseIndex, setIndex);
+        },
       );
       return errors;
     },
 
+    // Toggles working <-> warm-up; drop sets are created by `addDropSet` and keep their kind.
     setSetKind: (exerciseIndex, setIndex, kind) =>
-      mutate((workout) => withSet(workout, exerciseIndex, setIndex, (current) => ({ ...current, kind }))),
+      mutate((workout) =>
+        withSet(workout, exerciseIndex, setIndex, (current) =>
+          current.kind === 'drop' || kind === 'drop' || current.kind === kind ? current : { ...current, kind },
+        ),
+      ),
+
+    addDropSet: (exerciseIndex, setIndex) =>
+      mutate((workout) =>
+        withExercise(workout, exerciseIndex, (exercise) => {
+          const parent = exercise.sets[setIndex];
+          if (!parent) throw new WorkoutIndexError(exerciseIndex, setIndex);
+          if (parent.kind === 'warmup') throw new WorkoutSetOrderError(exerciseIndex, setIndex);
+          let at = setIndex + 1;
+          while (exercise.sets[at]?.kind === 'drop') at += 1;
+          const drop: LoggedSet = {
+            kind: 'drop',
+            weightKg:
+              parent.weightKg === null ? null : dropSetLoad(parent.weightKg, selectIncrement(get(), exercise.exerciseId)),
+            reps: null,
+            rir: null,
+            done: false,
+          };
+          return { ...exercise, sets: [...exercise.sets.slice(0, at), drop, ...exercise.sets.slice(at)] };
+        }),
+      ),
+
+    async addWarmupSets(exerciseIndex) {
+      let added = false;
+      await mutate((workout) =>
+        withExercise(workout, exerciseIndex, (exercise) => {
+          const first = exercise.sets.find((s) => s.kind === 'working');
+          if (!first || first.weightKg === null) return exercise;
+          const state = get();
+          const bar = equipmentOf(exercise.exerciseId) === 'barbell' ? selectBarKg(state, exercise.exerciseId) : 0;
+          const ramp = warmupSets(first.weightKg, selectIncrement(state, exercise.exerciseId), bar);
+          if (ramp.length === 0) return exercise;
+          const kept = exercise.sets.filter((s) => s.kind !== 'warmup' || s.done);
+          const at = kept.findIndex((s) => s.kind !== 'warmup');
+          const warmups: LoggedSet[] = ramp.map((w) => ({
+            kind: 'warmup',
+            weightKg: w.weightKg,
+            reps: w.reps,
+            rir: null,
+            done: false,
+          }));
+          added = true;
+          return { ...exercise, sets: [...kept.slice(0, at), ...warmups, ...kept.slice(at)] };
+        }),
+      );
+      return added;
+    },
+
+    async repeatWorkout(workoutId) {
+      const profile = requireReady();
+      const source = get().workouts.find((w) => w.id === workoutId);
+      if (!source) throw new WorkoutNotFoundError(workoutId);
+      return start(profile.id, () => ({
+        planId: null,
+        planWorkoutId: null,
+        name: source.name,
+        phase: 'load',
+        cycleNumber: null,
+        cycleWeek: null,
+        exercises: source.exercises.map((e) => ({
+          exerciseId: e.exerciseId,
+          planExerciseId: null,
+          target: null,
+          supersetGroup: e.supersetGroup ?? null,
+          note: '',
+          sets: e.sets.map((s) => ({ kind: s.kind, weightKg: s.weightKg, reps: null, rir: null, done: false })),
+        })),
+      }));
+    },
 
     addSet: (exerciseIndex) =>
       mutate((workout) =>
@@ -310,6 +425,7 @@ export function createWorkoutActions(ctx: StoreContext): WorkoutActions {
       const current = get().currentWorkout;
       if (!current) throw new NoWorkoutInProgressError();
       set({ currentWorkout: null });
+      rest.clear();
       await enqueue(() => repos.workouts.delete(profile.id, current.id));
     },
 
@@ -333,6 +449,7 @@ export function createWorkoutActions(ctx: StoreContext): WorkoutActions {
         const summary = workoutSummary(completed);
 
         let plans = get().plans;
+        let completedCycle = get().completedCycle;
         const plan = plans.find((p) => p.id === completed.planId);
         const index = plan ? plan.workouts.findIndex((w) => w.id === completed.planWorkoutId) : -1;
         if (plan && index >= 0) {
@@ -342,7 +459,11 @@ export function createWorkoutActions(ctx: StoreContext): WorkoutActions {
             completeSession(plan, plan.cycleState, index),
           );
           plans = plans.map((p) => (p.id === advanced.id ? advanced : p));
+          if (advanced.cycleState.cycleNumber > plan.cycleState.cycleNumber) {
+            completedCycle = { planId: plan.id, cycleNumber: plan.cycleState.cycleNumber };
+          }
         }
+        rest.clear();
 
         const lastFinish = { workout: completed, summary, records };
         set({
@@ -351,6 +472,7 @@ export function createWorkoutActions(ctx: StoreContext): WorkoutActions {
           workouts: await repos.workouts.listCompleted(profile.id),
           deloadAdviceDismissed: false,
           lastFinish,
+          completedCycle,
         });
         return lastFinish;
       });

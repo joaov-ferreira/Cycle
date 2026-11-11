@@ -3,6 +3,7 @@ import { validateCustomExercise } from '@/domain/exercise-match';
 import { CustomExerciseValidationError } from '../errors';
 import { selectAllExercises } from '../selectors';
 import type { AppState, StoreContext } from '../types';
+import { reloadExerciseSettings } from './settings';
 
 export type ExerciseActions = Pick<
   AppState,
@@ -53,6 +54,7 @@ export function createExerciseActions(ctx: StoreContext): ExerciseActions {
       const profile = requireReady();
       const incrementOverrides = await repos.exercises.setIncrementOverride(profile.id, exerciseId, incrementKg);
       set({ incrementOverrides });
+      await reloadExerciseSettings(ctx, profile.id);
     },
   };
 }

@@ -453,6 +453,9 @@ export function backupSummary(backup: BackupDocument): {
   };
 }
 
+/** What a backup file contains, for the restore confirmation. */
+export type BackupSummary = ReturnType<typeof backupSummary>;
+
 export function backupFileName(profileName: string, date: Date): string {
   const slug = profileName
     .normalize('NFD')
