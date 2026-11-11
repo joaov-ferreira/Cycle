@@ -37,7 +37,7 @@ Same method as v2 and v3:
 |---|---|---|---|---|
 | 0 | — | User journeys, spec v4, plan v4 | orchestrator | ✅ |
 | 1a | 1 | e1RM formulas, RTS chart, confidence, effort scale, half-point RIR | haiku | ⬜ |
-| 1b | 1 | Reference 1RM, percent schemes, prescriptions, prescribed vs actual, strength dashboard | sonnet | ⬜ |
+| 1b | 1 | Reference 1RM, percent schemes, prescriptions, prescribed vs actual, strength dashboard | sonnet | ✅ |
 | 1c | 1 | Program schema and functions, program data restored from v1, library exercises for variations and accessories | sonnet | ⬜ |
 | 2a | 2 | Plan model: percent schemes and program blocks, validation, `expandWorkout`, builder, `programToPlan`, import/export (JSON and text), hybrid template, AI prompt builders | sonnet | ⬜ |
 | 2b | 2 | Persistence: migration 012, reference-max repository, settings, plan/workout fields, v1 carry-over, backup and CSV | sonnet | ⬜ |
