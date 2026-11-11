@@ -28,8 +28,18 @@ function setLine(s: ProgramSet): string {
   return line;
 }
 
+/**
+ * The one deliberate v4 addition to the v1 data: Smolov's 1RM tests and switching-phase lines are
+ * exercise sessions without prescribed sets, so they carry the role `squat` (v4 turns them into
+ * `free` items on the mapped exercise instead of notes, and the day is not a rest day). v1 had no
+ * lift on them; the rest-day lines still have none.
+ */
+function infoRole(t: ProgramTemplate, role: string | undefined): string {
+  return t.id === 'smolov' && role === 'squat' ? '' : (role ?? '');
+}
+
 /** The same canonical lines the v1 fixture holds, computed from a v4 template. */
-export function canonicalLines(t: ProgramTemplate): string[] {
+function canonicalLines(t: ProgramTemplate): string[] {
   const lines: string[] = [
     `meta|${t.id}|${t.family}|${t.name}|${t.variant ?? ''}|${t.version}|${t.verification}|${t.durationWeeks}|${t.daysPerWeek}`,
     `source|${JSON.stringify(t.source)}`,
@@ -53,7 +63,7 @@ export function canonicalLines(t: ProgramTemplate): string[] {
           const sets = `${it.sets} sets × ${it.reps} reps/${it.sets} séries × ${it.reps} repetições`;
           lines.push(`${ip}|accessory|${text(it.name)}|${sets}|note=${text(it.note)}`);
         } else {
-          lines.push(`${ip}|info|${it.role ?? ''}|${text(it.text)}|${it.unverified ? 'unverified' : ''}|note=${text(it.note)}`);
+          lines.push(`${ip}|info|${infoRole(t, it.role)}|${text(it.text)}|${it.unverified ? 'unverified' : ''}|note=${text(it.note)}`);
         }
       });
     }
