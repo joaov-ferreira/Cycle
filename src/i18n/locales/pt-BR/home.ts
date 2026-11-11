@@ -39,7 +39,7 @@ export const home: typeof enHome = {
     dismiss: 'Dispensar',
   },
   backup: {
-    message: 'Faz um tempo desde o seu último backup',
+    message: 'Seu diário não tem backup recente',
     action: 'Fazer backup agora',
   },
   error: {

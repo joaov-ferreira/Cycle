@@ -101,27 +101,27 @@ describe('Home: backup reminder', () => {
   it('is hidden without workouts', async () => {
     const s = await setup();
     await s.render();
-    expect(screen.queryByText('It has been a while since your last backup')).toBeNull();
+    expect(screen.queryByText('Your logbook has no recent backup')).toBeNull();
   });
 
   it('shows once a workout exists and no backup was made, then goes away after a backup', async () => {
     const s = await setup();
     await workoutOn(s, '2026-11-10T12:00:00.000Z');
     await s.render();
-    expect(screen.getByText('It has been a while since your last backup')).toBeOnTheScreen();
+    expect(screen.getByText('Your logbook has no recent backup')).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Back up now' }));
     expect(s.callbacks.onOpenSettings).toHaveBeenCalledTimes(1);
 
     await act(() => s.store.getState().markBackupDone());
-    expect(screen.queryByText('It has been a while since your last backup')).toBeNull();
+    expect(screen.queryByText('Your logbook has no recent backup')).toBeNull();
   });
 
   it('is written in Portuguese', async () => {
     const s = await setup('pt-BR');
     await workoutOn(s, '2026-11-10T12:00:00.000Z');
     await s.render();
-    expect(screen.getByText('Faz um tempo desde o seu último backup')).toBeOnTheScreen();
+    expect(screen.getByText('Seu diário não tem backup recente')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Fazer backup agora' })).toBeOnTheScreen();
   });
 });

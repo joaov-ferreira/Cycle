@@ -37,7 +37,7 @@ export const home = {
     dismiss: 'Dismiss',
   },
   backup: {
-    message: 'It has been a while since your last backup',
+    message: 'Your logbook has no recent backup',
     action: 'Back up now',
   },
   error: {

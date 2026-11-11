@@ -49,7 +49,7 @@ AGENTS.md as the extension of `docs/SPEC.md`.
 | 4e | 4 | Body screen | haiku | ✅ |
 | 4f | 4 | Progress: Volume and Calendar tabs; Home: streak, cycle-complete banner, backup reminder | sonnet | ✅ |
 | 4h | 4 | History and exercise detail: drop sets, supersets, repeat workout, note, bar weight, similar, how-to | haiku | ✅ |
-| 5 | 5 | Integration: E2E v3 flow, audits, docs (IMPORT_FORMAT, BACKUP_FORMAT, README), screenshots | sonnet | ⬜ |
+| 5 | 5 | Integration: E2E v3 flow, audits, docs (IMPORT_FORMAT, BACKUP_FORMAT, README), screenshots | sonnet | ✅ |
 | 6 | — | Final review, PR, CI, APK on the PR, merge, release check | orchestrator | ⬜ |
 
 Legend: ⬜ pending · 🟨 in progress · ✅ done · ⚠️ done with a recorded gap.

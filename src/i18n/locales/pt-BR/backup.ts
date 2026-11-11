@@ -5,7 +5,7 @@ export const backup: typeof en = {
   title: 'Dados',
   lastBackup: 'Último backup: {{date}}',
   noBackup: 'Nenhum backup ainda',
-  reminder: 'Faz tempo desde o último backup. Exporte um para manter seu diário seguro.',
+  reminder: 'Seu diário não tem backup recente. Exporte um para manter seu diário seguro.',
   export: 'Exportar backup',
   exportDone: 'Backup exportado.',
   exportFailed: 'Não foi possível salvar ou compartilhar o backup.',

@@ -76,7 +76,7 @@ describe('Settings → Data: export', () => {
     await store.getState().markBackupDone();
     clock.advance(31 * DAY_MS);
     await renderInApp(<SettingsScreen now={clock} />, { store, repos });
-    expect(await screen.findByText(/It has been a while since your last backup/)).toBeOnTheScreen();
+    expect(await screen.findByText(/Your logbook has no recent backup/)).toBeOnTheScreen();
   });
 
   it('shows no reminder without workouts or right after a backup', async () => {

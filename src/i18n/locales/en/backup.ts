@@ -3,7 +3,7 @@ export const backup = {
   title: 'Data',
   lastBackup: 'Last backup: {{date}}',
   noBackup: 'No backup yet',
-  reminder: 'It has been a while since your last backup. Export one to keep your logbook safe.',
+  reminder: 'Your logbook has no recent backup. Export one to keep your logbook safe.',
   export: 'Export backup',
   exportDone: 'Backup exported.',
   exportFailed: 'The backup could not be saved or shared.',

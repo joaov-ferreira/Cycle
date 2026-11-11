@@ -332,7 +332,7 @@ describe('v3 links: cycle report, Review with AI, backup, Body and repeat', () =
 
   it('Home backup reminder → Settings', async () => {
     const { router } = await openAfterCycle();
-    expect(await screen.findByText('It has been a while since your last backup')).toBeOnTheScreen();
+    expect(await screen.findByText('Your logbook has no recent backup')).toBeOnTheScreen();
     await press('Back up now');
     expect(await header('Settings')).toBeOnTheScreen();
     expect(router.getPathname()).toBe('/settings');
