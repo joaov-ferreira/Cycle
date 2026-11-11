@@ -33,10 +33,10 @@
 | 1 | 1 | Remove v1 features, v2 skeleton (routes, tabs, catalogs split) | sonnet | ✅ |
 | 2 | 2 | Domain types, metrics, rounding helpers | haiku | ✅ |
 | 3a | 3 | Built-in exercise library + registry | haiku | ✅ |
-| 3b | 3 | Exercise matching, plan validation, import/export | sonnet | ⬜ |
+| 3b | 3 | Exercise matching, plan validation, import/export | sonnet | ✅ |
 | 3c | 3 | Cycle engine, progression engine, deload advice | sonnet | ✅ |
 | 3d | 3 | Workout validation, stats (PRs, weekly volume, chart series) | haiku | ✅ |
-| 3e | 3 | Persistence: migration 010, repositories, v1 data carry-over | sonnet | ⬜ |
+| 3e | 3 | Persistence: migration 010, repositories, v1 data carry-over | sonnet | ✅ |
 | 4a | 4 | Built-in plan templates | haiku | ⬜ |
 | 4b | 4 | State store and selectors | sonnet | ⬜ |
 | 4c | 4 | Shared UI: exercise picker, set row, stepper | haiku | ⬜ |
