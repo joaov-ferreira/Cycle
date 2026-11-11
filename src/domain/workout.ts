@@ -52,6 +52,17 @@ export interface Workout {
   exercises: WorkoutExercise[];
 }
 
+/** One past session of one exercise, as read by progression and statistics (newest first in lists). */
+export interface ExerciseSession {
+  workoutId: number;
+  /** ISO 8601 timestamp of the workout's completion. */
+  completedAt: string;
+  phase: Phase;
+  cycleNumber: number | null;
+  planId: number | null;
+  sets: LoggedSet[];
+}
+
 /** Field limits of a logged set and of the free-text fields (SPEC §7.1). */
 export const WORKOUT_LIMITS = {
   weightKg: { min: 0, max: 1000, maxDecimals: 2 },

@@ -1,4 +1,18 @@
-import { WORKOUT_LIMITS, type Workout } from './workout';
+import { WORKOUT_LIMITS, type ExerciseSession, type Workout } from './workout';
+
+describe('ExerciseSession type (SPEC §9)', () => {
+  it('describes one past session of one exercise', () => {
+    const session: ExerciseSession = {
+      workoutId: 7,
+      completedAt: '2026-01-05T18:30:00.000Z',
+      phase: 'deload',
+      cycleNumber: 2,
+      planId: 1,
+      sets: [{ kind: 'working', weightKg: 60, reps: 5, rir: 2, done: true }],
+    };
+    expect(session.sets[0]?.weightKg).toBe(60);
+  });
+});
 
 describe('WORKOUT_LIMITS (SPEC §7.1)', () => {
   it('holds the set and note limits', () => {
