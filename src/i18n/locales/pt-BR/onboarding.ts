@@ -20,7 +20,20 @@ export const onboarding: typeof enOnboarding = {
     },
     hint: 'Define o ciclo sugerido: {{loadWeeks}} semanas de carga + {{deloadWeeks}} de deload.',
   },
+  focus: {
+    title: 'Para que você treina?',
+  },
+  lifts: {
+    title: 'Seus levantamentos',
+    intro: 'Informe o 1RM dos levantamentos que você treina, ou estime-o a partir de uma série. Linhas vazias são ignoradas; você pode preenchê-las depois.',
+    kgLabel: '1RM de {{exercise}}',
+    remove: 'Remover {{exercise}}',
+    add: 'Adicionar exercício',
+    pickerTitle: 'Adicionar um levantamento',
+  },
+  next: 'Continuar',
   actions: {
+    programs: 'Escolher um programa de força',
     template: 'Escolher um modelo',
     import: 'Importar periodização',
     later: 'Depois',
