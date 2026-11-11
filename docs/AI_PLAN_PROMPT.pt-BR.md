@@ -154,6 +154,10 @@ conventional-deadlift — Levantamento terra — lowerBack — barbell
 back-extension — Hiperextensão lombar — lowerBack — machine
 good-morning — Bom dia — lowerBack — barbell
 trap-bar-deadlift — Levantamento terra com barra hexagonal — lowerBack — barbell
+seated-good-morning — Bom dia sentado — lowerBack — barbell
+deadlift-to-knees — Levantamento terra até os joelhos — lowerBack — barbell
+deadlift-from-boxes — Levantamento terra em blocos — lowerBack — barbell
+deficit-deadlift — Levantamento terra em déficit — lowerBack — barbell
 reverse-hyperextension — Hiperextensão reversa — lowerBack — machine
 barbell-hip-thrust — Elevação pélvica com barra — glutes — barbell
 dumbbell-hip-thrust — Elevação pélvica com halter — glutes — dumbbell

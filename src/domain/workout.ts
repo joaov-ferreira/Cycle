@@ -6,6 +6,7 @@ import type { Phase } from './cycle';
 import { RIR_STEP } from './effort';
 import { allowsZeroLoad, type Equipment } from './exercise';
 import { countedSets, volume } from './metrics';
+import type { Prescription } from './prescription';
 
 /** One set as logged. Only `kind === 'working'` and `done` sets count for metrics (§6.1); drop sets count for volume only. */
 export interface LoggedSet {
@@ -39,6 +40,8 @@ export interface WorkoutExercise {
   /** At most 500 characters. */
   note: string;
   sets: LoggedSet[];
+  /** Snapshot of the percent prescription taken when the workout started (SPEC-v4 §7). */
+  prescription?: Prescription | null;
 }
 
 /** A logged training session (the logbook entry). */

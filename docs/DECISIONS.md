@@ -1087,3 +1087,43 @@ Decisions taken while the v2 stages were implemented and reviewed (stage ids as 
 - **Effort.** Logged RIR accepts half points and can be shown as RPE; plan targets stay integers.
 - **Program data** is the v1 transcription moved without changing a number (pinned by a snapshot
   test); variations and accessories now point to library exercises.
+
+## 2026-11-11 — v4 implementation record
+
+Decisions taken while the v4 stages were implemented and reviewed (stage ids as in `docs/PLAN.md`).
+
+- **1a — RTS chart.** Restored from v1 with its source notes. 5 reps @ RPE 9 = 83.7 %, so the spec
+  example 80 kg × 5 @ RIR 1 gives 95.579 kg. The one unverified cell (12 reps @ RPE 6) has no value
+  and falls back to Epley with low confidence, like any set outside the chart.
+- **1c — exercises behind the programs' variations and accessories.** Four exercises were added to
+  the library (`deadlift-to-knees`, `deadlift-from-boxes`, `deficit-deadlift`,
+  `seated-good-morning`). Mapping of the programs' original names (the original name stays on the
+  item and is shown next to the exercise):
+
+  | Original | Library exercise | Note |
+  |---|---|---|
+  | Deadlift up to knees | `deadlift-to-knees` | new |
+  | Deadlift from boxes | `deadlift-from-boxes` | new |
+  | Deficit deadlift | `deficit-deadlift` | new |
+  | Front squat | `barbell-front-squat` | |
+  | Dumbbell fly | `dumbbell-fly` | |
+  | Good morning (standing) | `good-morning` | |
+  | Good morning (sitting) | `seated-good-morning` | new |
+  | Incline bench press | `incline-barbell-bench-press` | |
+  | Dip | `parallel-bar-dip` | |
+  | Push up | `push-up` | |
+  | Leg press | `leg-press` | |
+  | Back extension | `back-extension` | |
+  | Lunge | `dumbbell-walking-lunge` | generic name; the app picks one concrete exercise |
+  | Abs | `crunch` | generic name |
+  | Press | `overhead-press` | generic name |
+  | French press | `barbell-skull-crusher` | generic name (lying triceps extension) |
+  | Triceps | `triceps-pushdown` | generic name |
+
+- **1c — Smolov tests and switching phase.** In v1 these info lines had no lift; they now carry the
+  role `squat`, so the day generates the mapped exercise with free sets (the user logs the test)
+  instead of reading as a rest day. It is the only change against the v1 data and the snapshot test
+  names it. Sheiko #32's "Competition (or max test)" line keeps no role (it involves all lifts), so
+  that day reads as a rest day; the test can be logged as a free workout.
+- **1c — set notes.** A program set's note is not part of the generated `SchemeSet`; the notes of a
+  main item's sets are collected on the generated item.

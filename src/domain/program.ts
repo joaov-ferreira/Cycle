@@ -377,10 +377,7 @@ export function resolveParams(template: ProgramTemplate, params?: ProgramParams)
 // Weeks and days
 // ---------------------------------------------------------------------------------------------
 
-/** Program week reached in cycle week `cycleWeek` when cycle week 1 is `startWeek` (wraps). */
-export function programWeekFor(startWeek: number, cycleWeek: number, durationWeeks: number): number {
-  return ((((startWeek - 1 + cycleWeek - 1) % durationWeeks) + durationWeeks) % durationWeeks) + 1;
-}
+export { programWeekFor } from './percent-scheme';
 
 /** The day `day` of program week `week`, or null. */
 export function programDay(template: ProgramTemplate, week: number, day: number): ProgramDay | null {

@@ -154,6 +154,10 @@ conventional-deadlift — Conventional Deadlift — lowerBack — barbell
 back-extension — Back Extension — lowerBack — machine
 good-morning — Good Morning — lowerBack — barbell
 trap-bar-deadlift — Trap Bar Deadlift — lowerBack — barbell
+seated-good-morning — Seated Good Morning — lowerBack — barbell
+deadlift-to-knees — Deadlift to Knees — lowerBack — barbell
+deadlift-from-boxes — Deadlift from Boxes — lowerBack — barbell
+deficit-deadlift — Deficit Deadlift — lowerBack — barbell
 reverse-hyperextension — Reverse Hyperextension — lowerBack — machine
 barbell-hip-thrust — Barbell Hip Thrust — glutes — barbell
 dumbbell-hip-thrust — Dumbbell Hip Thrust — glutes — dumbbell

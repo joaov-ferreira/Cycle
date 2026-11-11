@@ -5,6 +5,9 @@
 import type { CycleConfig, CycleState } from './cycle';
 import { allowsZeroLoad, type Exercise } from './exercise';
 
+import type { PercentProgression } from './percent-scheme';
+import type { ProgramLink } from './program';
+
 export { DEFAULT_CYCLE, type CycleConfig } from './cycle';
 
 /** An exercise inside a plan workout, with its target. */
@@ -31,6 +34,8 @@ export interface PlanExercise {
    * same label form a superset of 2–4 exercises.
    */
   supersetGroup?: string;
+  /** Percent-of-1RM scheme (SPEC-v4 §5.1); absent = automatic progression. */
+  percent?: PercentProgression;
 }
 
 /** One training day of a plan. */
@@ -40,6 +45,8 @@ export interface PlanWorkout {
   name: string;
   /** 1–30 exercises. */
   exercises: PlanExercise[];
+  /** Program blocks generated each week before `exercises` (SPEC-v4 §5.2); 0–4. */
+  programs?: ProgramLink[];
 }
 
 /** The user-editable content of a plan. */
