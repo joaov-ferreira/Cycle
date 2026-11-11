@@ -7,6 +7,7 @@ import { useI18n, type TFunction } from '@/i18n';
 
 import { useExerciseName } from '../shared';
 import { Button, Card, Screen, Text } from '../ui';
+import { StrengthSummary } from './summary-strength';
 import { summaryText } from './summary-text';
 
 export type WorkoutSummaryProps = {
@@ -61,6 +62,8 @@ export function WorkoutSummary({ result, onOpenWorkoutDetail, share }: WorkoutSu
           </View>
         ))}
       </Card>
+
+      <StrengthSummary workoutId={workout.id} />
 
       {records.length > 0 ? (
         <Card testID="summary-records">

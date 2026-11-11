@@ -1,6 +1,7 @@
 import {
   NoActivePlanError,
   NoteValidationError,
+  ReferenceMaxValidationError,
   NothingLoggedError,
   PlanWorkoutNotFoundError,
   WorkoutInProgressError,
@@ -20,6 +21,9 @@ describe('actionErrorMessage', () => {
     [new WorkoutInProgressError(), 'A workout is already in progress.', 'Já existe um treino em andamento.'],
     [new NoActivePlanError(), 'There is no active plan.', 'Não há periodização ativa.'],
     [new PlanWorkoutNotFoundError('w-x'), 'That workout is no longer in the plan.', 'Esse treino não está mais na periodização.'],
+    [new ReferenceMaxValidationError('outOfRange'), 'Use a value up to 1,000 kg', 'Use um valor de até 1.000 kg'],
+    [new ReferenceMaxValidationError('tooManyDecimals'), 'Use at most 2 decimal places', 'Use no máximo 2 casas decimais'],
+    [new ReferenceMaxValidationError('required'), 'Enter the 1RM', 'Informe o 1RM'],
     [new Error('boom'), 'Something went wrong. Please try again.', 'Algo deu errado. Tente novamente.'],
     ['text', 'Something went wrong. Please try again.', 'Algo deu errado. Tente novamente.'],
     [null, 'Something went wrong. Please try again.', 'Algo deu errado. Tente novamente.'],

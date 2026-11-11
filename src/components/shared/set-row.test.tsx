@@ -147,7 +147,7 @@ describe('SetRow (en)', () => {
     await renderRow({ errors });
     expect(screen.getByText('Enter the weight')).toBeOnTheScreen();
     expect(screen.getByText('Use from 1 to 100 reps')).toBeOnTheScreen();
-    expect(screen.getByText('Use a whole number')).toBeOnTheScreen();
+    expect(screen.getByText('Use steps of 0.5')).toBeOnTheScreen();
   });
 
   it('shows the last time of the same exercise', async () => {
@@ -265,5 +265,101 @@ describe('SetRow drop sets', () => {
     expect(screen.getByRole('button', { name: 'Drop-set' })).toBeOnTheScreen();
     expect(screen.getByLabelText('Carga do drop-set')).toHaveDisplayValue('32,5');
     expect(screen.getByRole('checkbox', { name: 'Drop-set concluído' })).toBeOnTheScreen();
+  });
+});
+
+describe('SetRow effort input', () => {
+  it('takes half points of RIR and shows them with the locale separator', async () => {
+    const { onChange } = await renderRow();
+    await fireEvent.changeText(screen.getByLabelText('Set 2 RIR'), '1.5');
+    expect(onChange).toHaveBeenLastCalledWith({ rir: 1.5 });
+    await renderRow({ set: { ...working, rir: 0.5 } }, 'pt-BR');
+    expect(screen.getByLabelText('RIR da série 2')).toHaveDisplayValue('0,5');
+  });
+
+  it('accepts a comma in pt-BR and ignores text that is not a number', async () => {
+    const { onChange } = await renderRow({}, 'pt-BR');
+    await fireEvent.changeText(screen.getByLabelText('RIR da série 2'), '1,5');
+    expect(onChange).toHaveBeenLastCalledWith({ rir: 1.5 });
+    onChange.mockClear();
+    await fireEvent.changeText(screen.getByLabelText('RIR da série 2'), 'abc');
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('passes an off-step value on, so the domain can name it', async () => {
+    const { onChange } = await renderRow();
+    await fireEvent.changeText(screen.getByLabelText('Set 2 RIR'), '1.3');
+    expect(onChange).toHaveBeenLastCalledWith({ rir: 1.3 });
+  });
+
+  it('shows and takes RPE when the scale is RPE, storing RIR', async () => {
+    const { onChange } = await renderRow({ effortScale: 'rpe', set: { ...working, reps: 5, rir: 2 } });
+    expect(screen.queryByLabelText('Set 2 RIR')).toBeNull();
+    expect(screen.getByLabelText('Set 2 RPE')).toHaveDisplayValue('8');
+    await fireEvent.changeText(screen.getByLabelText('Set 2 RPE'), '9.5');
+    expect(onChange).toHaveBeenLastCalledWith({ rir: 0.5 });
+    await fireEvent.changeText(screen.getByLabelText('Set 2 RPE'), '');
+    expect(onChange).toHaveBeenLastCalledWith({ rir: null });
+  });
+
+  it('names the drop set effort field by the scale', async () => {
+    await renderRow({ effortScale: 'rpe', set: { kind: 'drop', weightKg: 30, reps: null, rir: null, done: false } });
+    expect(screen.getByLabelText('Drop set RPE')).toBeOnTheScreen();
+  });
+
+  it('keeps the RPE input in the effort column width', async () => {
+    await renderRow({ effortScale: 'rpe' });
+    expect(screen.getByLabelText('Set 2 RPE')).toHaveStyle({ width: 48 });
+  });
+});
+
+describe('SetRow prescription', () => {
+  const prescribed = {
+    reps: 5,
+    amrap: false,
+    unverified: false,
+    percent: 72.5,
+    addKg: 0,
+    exactKg: 74.313,
+    kg: 75,
+  };
+
+  it('shows the percent and the exact and rounded loads', async () => {
+    await renderRow({ prescribed, placeholderReps: 5 });
+    expect(screen.getByText(/^72\.5% → 74\.31 → 75\skg$/)).toBeOnTheScreen();
+    expect(screen.getByLabelText('Set 2 reps')).toHaveProp('placeholder', '5');
+  });
+
+  it('formats the load line in Portuguese', async () => {
+    await renderRow({ prescribed }, 'pt-BR');
+    expect(screen.getByText(/^72,5% → 74,31 → 75\skg$/)).toBeOnTheScreen();
+  });
+
+  it('marks an AMRAP set and writes its reps placeholder as 5+', async () => {
+    await renderRow({ prescribed: { ...prescribed, amrap: true }, placeholderReps: 5 });
+    expect(screen.getByText('AMRAP')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Set 2 reps')).toHaveProp('placeholder', '5+');
+  });
+
+  it('badges an unverified set with no load', async () => {
+    await renderRow({ prescribed: { ...prescribed, unverified: true, percent: null, exactKg: null, kg: null } });
+    expect(screen.getByText('Unverified data')).toBeOnTheScreen();
+    expect(screen.queryByText(/kg/)).toBeNull();
+  });
+
+  it('labels a set beyond the prescription as extra', async () => {
+    await renderRow({ extra: true });
+    expect(screen.getByText('Extra')).toBeOnTheScreen();
+  });
+
+  it('shows the e1RM of a done set', async () => {
+    await renderRow({ estimateKg: 96 });
+    expect(screen.getByText(/^e1RM ≈ 96\skg$/)).toBeOnTheScreen();
+  });
+
+  it('shows no prescription line for a plain set', async () => {
+    await renderRow();
+    expect(screen.queryByText(/→/)).toBeNull();
+    expect(screen.queryByText('Extra')).toBeNull();
   });
 });

@@ -66,3 +66,8 @@ export function summaryText(
   }
   return lines.join('\n');
 }
+
+/** `+6 kg` / `−675 kg` / `+5.9%`: a signed change; `text` is the formatted magnitude. */
+export function signedChange(t: Formatters['t'], value: number, text: string): string {
+  return t(value < 0 ? 'workout.deltaMinus' : 'workout.deltaPlus', { value: text });
+}

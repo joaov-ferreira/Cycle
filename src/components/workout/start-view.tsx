@@ -4,19 +4,24 @@ import { StyleSheet, View } from 'react-native';
 import { spacing } from '@/constants/theme';
 import { weekTargetRir } from '@/domain/cycle';
 import type { Plan } from '@/domain/plan';
+import { programWeekFor } from '@/domain/percent-scheme';
 import { useI18n } from '@/i18n';
+import { findProgram } from '@/library';
 import {
   selectActivePlan,
+  selectEffectiveWorkout,
+  selectEffortScale,
   selectFindExercise,
   selectNextPlanWorkout,
-  selectSuggestions,
   useAppStore,
 } from '@/state';
 
-import { Chip, EmptyState, useExerciseName } from '../shared';
+import { Chip, EmptyState, Tag, useExerciseName } from '../shared';
 import { Button, Card, Screen, Text } from '../ui';
 import { Badge } from './badge';
 import { targetLine } from './exercise-target';
+import { prescriptionPreview } from './prescription-preview';
+import { localizedText } from './program-text';
 import { suggestionText } from './suggestion-text';
 import { useAction } from './use-action';
 
@@ -32,6 +37,7 @@ export function WorkoutStart({ onNewPlan }: WorkoutStartProps) {
   const next = useAppStore(selectNextPlanWorkout);
   const startPlanWorkout = useAppStore((s) => s.startPlanWorkout);
   const startFreeWorkout = useAppStore((s) => s.startFreeWorkout);
+  const completeRestDay = useAppStore((s) => s.completeRestDay);
   const [chosenId, setChosenId] = useState<string | null>(null);
   const { error, run } = useAction();
 
@@ -61,6 +67,7 @@ export function WorkoutStart({ onNewPlan }: WorkoutStartProps) {
             isSuggested={selectedId === next.id}
             onSelect={setChosenId}
             onStart={() => void run(() => startPlanWorkout(selectedId))}
+            onRestDone={() => void run(() => completeRestDay(plan.id))}
           />
           {freeWorkout}
         </>
@@ -85,16 +92,30 @@ type PlanWorkoutCardProps = {
   isSuggested: boolean;
   onSelect: (workoutId: string) => void;
   onStart: () => void;
+  onRestDone: () => void;
 };
 
-function PlanWorkoutCard({ plan, workoutId, isSuggested, onSelect, onStart }: PlanWorkoutCardProps) {
+function PlanWorkoutCard({ plan, workoutId, isSuggested, onSelect, onStart, onRestDone }: PlanWorkoutCardProps) {
   const i18n = useI18n();
-  const { t, formatKg } = i18n;
+  const { t, locale, formatKg } = i18n;
   const exerciseLabel = useExerciseName();
   const findExercise = useAppStore(selectFindExercise);
-  const suggestions = useAppStore((s) => selectSuggestions(s, plan.id, workoutId));
-  const workout = plan.workouts.find((w) => w.id === workoutId);
-  if (!workout) return null;
+  const effortScale = useAppStore(selectEffortScale);
+  const index = plan.workouts.findIndex((w) => w.id === workoutId);
+  const view = useAppStore((s) => selectEffectiveWorkout(s, plan.id, index));
+  const workout = plan.workouts[index];
+  if (!workout || !view) return null;
+  const { suggestions, prescriptions } = view;
+  const { isRestDay, notes } = view.workout;
+
+  const missingMax = [
+    ...new Set(
+      Object.values(prescriptions).flatMap((p) => (p?.warnings.includes('missingReferenceMax') ? [p.basisExerciseId] : [])),
+    ),
+  ].map((id) => {
+    const found = findExercise(id);
+    return found ? exerciseLabel(found) : id;
+  });
 
   const { cycleNumber, phase, week } = plan.cycleState;
   const deload = phase === 'deload';
@@ -116,6 +137,19 @@ function PlanWorkoutCard({ plan, workoutId, isSuggested, onSelect, onStart }: Pl
       <Text tone="secondary">
         {t(deload ? 'workout.cycleDeload' : 'workout.cycleLoad', { cycle: cycleNumber, week })}
       </Text>
+      {(workout.programs ?? []).map((link) => {
+        const program = findProgram(link.programId);
+        return (
+          <Text key={link.id} variant="caption" tone="secondary">
+            {t('workout.rxOriginProgram', {
+              program: program?.name ?? link.programId,
+              week: program ? programWeekFor(link.startWeek, deload ? 1 : week, program.durationWeeks) : link.startWeek,
+              day: link.day,
+            })}
+          </Text>
+        );
+      })}
+      {isRestDay ? <Badge label={t('workout.restDayBadge')} /> : null}
 
       {plan.workouts.length > 1 ? (
         <View accessibilityLabel={t('workout.chooseWorkout')} style={styles.chips}>
@@ -126,20 +160,40 @@ function PlanWorkoutCard({ plan, workoutId, isSuggested, onSelect, onStart }: Pl
       ) : null}
 
       <View style={styles.exercises}>
-        {workout.exercises.map((pe) => {
+        {notes.map((note) => (
+          <Text key={note.en}>{localizedText(note, locale)}</Text>
+        ))}
+        {view.workout.exercises.map((pe) => {
           const exercise = findExercise(pe.exerciseId);
           const suggestion = suggestions[pe.id];
+          const prescription = prescriptions[pe.id] ?? null;
+          const free = pe.generated?.kind === 'free';
           return (
             <View key={pe.id} testID={`preview-${pe.id}`} style={styles.exercise}>
               <Text variant="label">{exercise ? exerciseLabel(exercise) : pe.exerciseId}</Text>
-              <Text variant="caption" tone="secondary" tabular>
-                {targetLine(
-                  t,
-                  rampRir === undefined ? pe : { ...pe, targetRir: rampRir },
-                  suggestion?.sets,
-                  rampRir !== undefined,
-                )}
-              </Text>
+              {free ? (
+                <>
+                  {pe.generated?.note ? <Text>{localizedText(pe.generated.note, locale)}</Text> : null}
+                  {pe.generated?.unverified ? <Tag label={t('common.unverified')} tone="danger" /> : null}
+                </>
+              ) : prescription ? (
+                <>
+                  <Text tabular>{prescriptionPreview(i18n, prescription)}</Text>
+                  {prescription.sets.some((set) => set.unverified) ? (
+                    <Tag label={t('common.unverified')} tone="danger" />
+                  ) : null}
+                </>
+              ) : (
+                <Text variant="caption" tone="secondary" tabular>
+                  {targetLine(
+                    t,
+                    rampRir === undefined ? pe : { ...pe, targetRir: rampRir },
+                    suggestion?.sets,
+                    rampRir !== undefined,
+                    effortScale,
+                  )}
+                </Text>
+              )}
               {suggestion ? (
                 <>
                   <Text tabular>
@@ -157,7 +211,17 @@ function PlanWorkoutCard({ plan, workoutId, isSuggested, onSelect, onStart }: Pl
         })}
       </View>
 
-      <Button label={t('workout.startWorkout')} onPress={onStart} />
+      {missingMax.length > 0 ? (
+        <Text variant="caption" tone="secondary">
+          {t('workout.startMissingMax', { exercises: missingMax.join(', ') })}
+        </Text>
+      ) : null}
+
+      {isRestDay ? (
+        isSuggested ? <Button label={t('workout.markRestDone')} onPress={onRestDone} /> : null
+      ) : (
+        <Button label={t('workout.startWorkout')} onPress={onStart} />
+      )}
     </Card>
   );
 }

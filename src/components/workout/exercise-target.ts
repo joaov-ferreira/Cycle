@@ -1,3 +1,4 @@
+import { rpeFromRir, type EffortScale } from '@/domain/effort';
 import type { TFunction } from '@/i18n';
 
 import { repsRange } from './suggestion-text';
@@ -19,6 +20,8 @@ export function targetLine(
   sets: number = target.sets,
   /** The target RIR comes from the plan's RIR ramp: "RIR 2 this week". */
   rirThisWeek = false,
+  /** With `rpe` the plan's RIR target reads as RPE (10 − RIR). */
+  effortScale: EffortScale = 'rir',
 ): string {
   const parts = [
     t('workout.targetSetsReps', {
@@ -26,12 +29,13 @@ export function targetLine(
       reps: repsRange(target.repMin, target.repMax),
     }),
   ];
-  if (target.targetRir !== undefined)
+  if (target.targetRir !== undefined) {
     parts.push(
-      t(rirThisWeek ? 'workout.targetRirWeek' : 'workout.targetRir', {
-        rir: target.targetRir,
-      }),
+      effortScale === 'rpe'
+        ? t(rirThisWeek ? 'workout.targetRpeWeek' : 'workout.targetRpe', { rpe: rpeFromRir(target.targetRir) })
+        : t(rirThisWeek ? 'workout.targetRirWeek' : 'workout.targetRir', { rir: target.targetRir }),
     );
+  }
   if (target.restSeconds !== undefined) parts.push(t('workout.targetRest', { seconds: target.restSeconds }));
   return parts.join(' · ');
 }

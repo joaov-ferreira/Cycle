@@ -29,6 +29,16 @@ describe('SetRowHeader', () => {
     expect(screen.getByText('RIR')).toBeOnTheScreen();
   });
 
+  it('captions the effort column RPE with the RPE scale', async () => {
+    await render(
+      <I18nProvider locale="en">
+        <SetRowHeader effortScale="rpe" />
+      </I18nProvider>,
+    );
+    expect(screen.getByText('RPE')).toBeOnTheScreen();
+    expect(screen.queryByText('RIR')).toBeNull();
+  });
+
   it('shows no interactive controls', async () => {
     await renderHeader('en');
     expect(screen.queryByRole('button')).toBeNull();
