@@ -229,7 +229,7 @@ describe('Plan editor: percent progression', () => {
     await setup({ language: 'pt-BR' });
     const name = findExercise(BENCH)?.name['pt-BR'] as string;
     await fireEvent.press(await screen.findByRole('button', { name: `Editar metas de ${name}` }));
-    await press('Porcentagem do 1RM');
+    await press('Percentual do 1RM');
     expect(screen.getByText('Semana 1')).toBeOnTheScreen();
     expect(screen.getByLabelText(`${name}, semana 1, grupo 1: % do 1RM`)).toHaveDisplayValue('70');
     await press(`Adicionar uma semana ao esquema de ${name}`);
@@ -431,7 +431,7 @@ describe('Plan editor: program blocks', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Adicionar treino' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Adicionar um bloco de programa a Treino A' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Smolov Jr.' }));
-    expect(screen.getByText('Escolha um exercício para ao menos um papel.')).toBeOnTheScreen();
+    expect(screen.getByText('Escolha um exercício para ao menos uma parte do programa.')).toBeOnTheScreen();
     expect(screen.getByLabelText('Incremento semanal')).toBeOnTheScreen();
   });
 });

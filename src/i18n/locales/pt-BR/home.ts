@@ -20,7 +20,7 @@ export const home: typeof enHome = {
     markRestDone: 'Marcar dia de descanso como concluído',
   },
   missingMaxes: {
-    title: '1RMs em falta',
+    title: '1RMs faltando',
     message: 'Estes exercícios precisam de um 1RM para ter cargas: {{names}}',
     action: 'Definir 1RMs',
   },

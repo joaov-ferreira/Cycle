@@ -3,7 +3,7 @@ export const programs = {
   // ---- List ----
   list: {
     title: 'Programas de força',
-    intro: 'Programas baseados em porcentagens, com fonte documentada. Abra um para ver a estrutura completa e depois inicie-o como plano.',
+    intro: 'Programas baseados em percentuais do 1RM, com fonte documentada. Abra um para ver a estrutura completa e depois inicie-o como plano.',
     open: 'Abrir {{name}}',
     weeks: { one: '{{count}} semana', other: '{{count}} semanas' },
     days: { one: '{{count}} dia por semana', other: '{{count}} dias por semana' },
@@ -22,7 +22,7 @@ export const programs = {
     verified: 'Verificado',
     partial: 'Parcialmente verificado',
     unverified: 'Não verificado',
-    verifiedHint: 'Todas as séries, repetições e porcentagens conferem com a fonte citada.',
+    verifiedHint: 'Todas as séries, repetições e percentuais conferem com a fonte citada.',
     partialHint: 'Parte dos dados vem de fontes secundárias ou precisou ser interpretada. Veja as notas da fonte.',
     unverifiedHint: 'Os dados não puderam ser confirmados em uma fonte. Use com cautela.',
   },

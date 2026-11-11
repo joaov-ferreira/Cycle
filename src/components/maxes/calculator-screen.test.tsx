@@ -153,7 +153,7 @@ describe('CalculatorScreen', () => {
     expect(await screen.findByRole('button', { name: `Epley, 96,0${NBSP}kg` })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: `Brzycki, 92,9${NBSP}kg` })).toBeOnTheScreen();
     expect(screen.getByText('Sua fórmula')).toBeOnTheScreen();
-    expect(screen.getByText('Cargas por porcentagem')).toBeOnTheScreen();
+    expect(screen.getByText('Cargas por percentual')).toBeOnTheScreen();
     expect(row(90).getByText(`87,5${NBSP}kg`)).toBeOnTheScreen();
     expect(row(90).getByText('90%')).toBeOnTheScreen();
     expect(screen.getByText('Arredondamento: Mais próximo')).toBeOnTheScreen();

@@ -11,6 +11,6 @@ export const navigation: typeof enNavigation = {
     settings: 'Perfil, tema e idioma.',
     programs: 'Programas de força: 5/3/1, Smolov, Sheiko.',
     maxes: '1RMs de referência dos seus exercícios.',
-    calculator: 'Estime um 1RM e veja a carga de cada porcentagem.',
+    calculator: 'Estime um 1RM e veja a carga de cada percentual.',
   },
 };

@@ -28,7 +28,7 @@ export const workout: typeof enWorkout = {
   rxMax: '1RM {{kg}}',
   rxMaxBasis: '1RM {{kg}} ({{exercise}})',
   rxAsWritten: 'No programa: {{name}}',
-  rxMissingMax: 'Informe o 1RM para obter as cargas',
+  rxMissingMax: 'Defina o 1RM para obter as cargas',
   rxMaxInput: '1RM de {{exercise}}',
   rxSaveMax: 'Salvar 1RM',
   rxMaxErrors: {

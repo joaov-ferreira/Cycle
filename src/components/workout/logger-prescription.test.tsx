@@ -198,7 +198,7 @@ describe('logger: missing 1RM', () => {
 
   it('accepts a decimal comma in Portuguese', async () => {
     await renderWorkout({ language: 'pt-BR', planContent: missing(), prepare: startX });
-    expect(await card(0).findByText('Informe o 1RM para obter as cargas')).toBeOnTheScreen();
+    expect(await card(0).findByText('Defina o 1RM para obter as cargas')).toBeOnTheScreen();
     await fireEvent.changeText(card(0).getByLabelText('1RM de Levantamento terra'), '182,5');
     await fireEvent.press(card(0).getByRole('button', { name: 'Salvar 1RM' }));
     expect(await card(0).findAllByText(nbsp('80% → 146 → 145 kg'))).toHaveLength(2);

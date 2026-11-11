@@ -38,7 +38,7 @@ export const maxes: typeof enMaxes = {
   list: {
     emptyTitle: 'Nenhum 1RM de referência ainda',
     emptyMessage:
-      'O 1RM de referência é a maior carga que você levantaria uma única vez em um exercício. Programas e periodizações em porcentagem usam esse valor para calcular suas cargas.',
+      'O 1RM de referência é a maior carga que você levantaria uma única vez em um exercício. Programas e periodizações por percentual usam esse valor para calcular suas cargas.',
     add: 'Adicionar exercício',
     pickerTitle: 'Adicionar um 1RM de…',
     rowLabel: '{{name}}, {{value}}, desde {{date}}',
@@ -70,14 +70,14 @@ export const maxes: typeof enMaxes = {
   },
   calculator: {
     title: 'Calculadora de 1RM',
-    intro: 'Estime seu 1RM a partir de uma série e veja as cargas de cada porcentagem.',
+    intro: 'Estime seu 1RM a partir de uma série e veja as cargas de cada percentual.',
     estimatesTitle: 'Estimativas',
     yourFormula: 'Sua fórmula',
     lowConfidence: 'Baixa confiança',
     noEstimate: 'Sem estimativa',
     estimateRow: '{{formula}}, {{value}}',
     formulaGroup: 'Fórmula da tabela',
-    tableTitle: 'Cargas por porcentagem',
+    tableTitle: 'Cargas por percentual',
     increment: 'Arredondar para',
     incrementGroup: 'Incremento de arredondamento',
     rounding: 'Arredondamento: {{mode}}',

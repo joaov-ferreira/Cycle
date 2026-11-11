@@ -41,7 +41,7 @@ export const settings: typeof enSettings = {
     focus: {
       label: 'Foco do treino',
       general: { label: 'Treino geral', description: 'Músculo, saúde e condicionamento.' },
-      strength: { label: 'Força', description: 'Powerlifting e programas em porcentagem.' },
+      strength: { label: 'Força', description: 'Powerlifting e programas por percentual.' },
     },
     formula: {
       label: 'Fórmula de estimativa do 1RM',
