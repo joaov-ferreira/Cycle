@@ -1,4 +1,4 @@
-import { renderRouter, screen, waitFor } from 'expo-router/testing-library';
+import { fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { openSqliteRepositories } from '@/data/sqlite/open-database';
@@ -21,6 +21,7 @@ async function useRepositories({ onboarded }: { onboarded: boolean }) {
   const profile = await repos.profiles.create({ name: 'Ana' });
   await repos.settings.update(profile.id, { onboardingCompleted: onboarded });
   (openSqliteRepositories as jest.Mock).mockResolvedValue(repos);
+  return { repos, profileId: profile.id as number };
 }
 
 const routes = {
@@ -38,10 +39,19 @@ describe('root layout', () => {
     await waitFor(() => expect(SplashScreen.hideAsync).toHaveBeenCalledTimes(1));
   });
 
-  it('goes straight to the tabs on first run (the onboarding gate is a pass-through)', async () => {
+  it('shows the onboarding instead of the tabs on first run', async () => {
     await useRepositories({ onboarded: false });
     await renderRouter(routes, { initialUrl: '/' });
+    expect(await screen.findByRole('header', { name: 'Welcome to CYCLE' })).toBeOnTheScreen();
+    expect(screen.queryByRole('header', { name: 'Home' })).toBeNull();
+  });
+
+  it('shows the tabs and completes the onboarding after choosing "Later"', async () => {
+    const { repos, profileId } = await useRepositories({ onboarded: false });
+    await renderRouter(routes, { initialUrl: '/' });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Later' }));
     expect(await screen.findByRole('header', { name: 'Home' })).toBeOnTheScreen();
     expect(screen.queryByRole('header', { name: 'Welcome to CYCLE' })).toBeNull();
+    expect((await repos.settings.get(profileId)).onboardingCompleted).toBe(true);
   });
 });
