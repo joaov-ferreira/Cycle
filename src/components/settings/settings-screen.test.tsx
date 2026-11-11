@@ -26,11 +26,38 @@ describe('SettingsScreen: language', () => {
   });
 });
 
+describe('SettingsScreen: experience', () => {
+  it('shows the stored experience level and its suggested cycle', async () => {
+    await renderInApp(<SettingsScreen />, {
+      seed: (repos, profileId) => repos.settings.update(profileId, { experience: 'advanced' }),
+    });
+    expect(await screen.findByRole('button', { name: 'Advanced', selected: true })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Beginner', selected: false })).toBeOnTheScreen();
+    expect(screen.getByText('Sets the suggested cycle: 4 load weeks + 1 deload.')).toBeOnTheScreen();
+  });
+
+  it('changes the experience level and persists it', async () => {
+    const { repos, profileId } = await renderInApp(<SettingsScreen />);
+    expect(await screen.findByRole('button', { name: 'Intermediate', selected: true })).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Beginner' }));
+    expect(await screen.findByRole('button', { name: 'Beginner', selected: true })).toBeOnTheScreen();
+    expect(screen.getByText('Sets the suggested cycle: 8 load weeks + 1 deload.')).toBeOnTheScreen();
+    expect((await repos.settings.get(profileId)).experience).toBe('beginner');
+  });
+
+  it('is available in Portuguese', async () => {
+    await renderInApp(<SettingsScreen />, { language: 'pt-BR' });
+    expect(await screen.findByRole('header', { name: 'Experiência' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Intermediário', selected: true })).toBeOnTheScreen();
+    expect(screen.getByText('Define o ciclo sugerido: 6 semanas de carga + 1 de deload.')).toBeOnTheScreen();
+  });
+});
+
 describe('SettingsScreen: theme', () => {
-  it('shows only the profile, theme and language sections', async () => {
+  it('shows the profile, experience, theme and language sections in this order', async () => {
     await renderInApp(<SettingsScreen />);
     const headers = (await screen.findAllByRole('header')).map((h) => h.props.children);
-    expect(headers).toEqual(['Settings', 'Profile', 'Theme', 'Language']);
+    expect(headers).toEqual(['Settings', 'Profile', 'Experience', 'Theme', 'Language']);
   });
 
   it('switches the theme and persists it', async () => {
