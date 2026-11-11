@@ -71,9 +71,13 @@ export function ExerciseRow({
 
   const error = (field: string) => errors[`${path}.${field}`] ?? null;
   const hasIssue = Object.keys(errors).some((key) => key === path || key.startsWith(`${path}.`));
-  useEffect(() => {
+  // An issue that appears opens the row (and keeps it open once it is fixed): adjusting state
+  // while rendering, as React recommends for state derived from props.
+  const [sawIssue, setSawIssue] = useState(hasIssue);
+  if (hasIssue !== sawIssue) {
+    setSawIssue(hasIssue);
     if (hasIssue) setExpanded(true);
-  }, [hasIssue]);
+  }
   const repsError = error('repMin') ?? error('repMax');
   const summary = [
     t('planEditor.summary', {
@@ -263,7 +267,7 @@ function LoadField({ label, value, onChange, onInvalid, error }: LoadFieldProps)
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  title: { flex: 1, gap: spacing.xs },
+  title: { flex: 1, gap: spacing.xs, minHeight: layout.minTouchTarget, justifyContent: 'center' },
   targets: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   target: { gap: spacing.xs },
   options: { gap: spacing.md },

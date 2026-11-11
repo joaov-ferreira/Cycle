@@ -13,7 +13,7 @@ import { adviceText, cycleStatusText } from '../plan/cycle-text';
 import { Button, Card, Text } from '../ui';
 import type { RunAction } from './home-screen';
 
-type CycleSummary = NonNullable<HomeSummary['cycle']>;
+type CycleStatus = NonNullable<HomeSummary['cycle']>;
 
 /**
  * Compact cycle summary of the active plan (SPEC §5.5): position in the cycle, sessions of the
@@ -29,7 +29,7 @@ export function CycleSummary({
   onOpenPlan,
 }: {
   plan: Plan;
-  cycle: CycleSummary;
+  cycle: CycleStatus;
   advice: DeloadAdvice;
   run: RunAction;
   onOpenPlan: () => void;
