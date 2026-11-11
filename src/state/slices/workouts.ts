@@ -44,6 +44,7 @@ import {
   selectExerciseSessions,
   selectSuggestions,
   selectWorkoutSuggestions,
+  formulaOf,
 } from '../selectors';
 import type { AppState, StoreContext } from '../types';
 
@@ -447,7 +448,7 @@ export function createWorkoutActions(ctx: StoreContext): WorkoutActions {
           notes: workout.notes,
           completedAt: now().toISOString(),
         });
-        const records = newRecords(completed, (id) => selectExerciseSessions(get(), id));
+        const records = newRecords(completed, (id) => selectExerciseSessions(get(), id), formulaOf(get()));
         const summary = workoutSummary(completed);
 
         let plans = get().plans;

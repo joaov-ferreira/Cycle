@@ -11,6 +11,7 @@ import {
   type TimelineCell,
 } from '@/domain/cycle';
 import { DEFAULT_SETTINGS } from '@/data/repositories';
+import type { E1rmFormula } from '@/domain/e1rm';
 import { incrementFor, type Exercise, type MuscleGroup } from '@/domain/exercise';
 import type { Period } from '@/domain/period';
 import type { Plan, PlanExercise, PlanWorkout } from '@/domain/plan';
@@ -29,6 +30,9 @@ import { listExercises } from '@/library';
 
 import { memoSelector } from './memo';
 import type { AppState } from './types';
+
+/** The e1RM formula of the profile (SPEC-v4 §3.1); Epley until the settings are loaded. */
+export const formulaOf = (state: AppState): E1rmFormula => state.settings?.e1rmFormula ?? DEFAULT_SETTINGS.e1rmFormula;
 
 export type FindExercise = (id: string) => Exercise | undefined;
 
@@ -276,15 +280,15 @@ export const selectTrainedExerciseIds = memoSelector(
 
 /** One point per session, oldest first, within the period (SPEC §9.1). */
 export const selectSeries = memoSelector(
-  (s: AppState) => [s.workouts],
+  (s: AppState) => [s.workouts, s.settings?.e1rmFormula],
   (s, exerciseId: string, metric: Metric, period: Period, now: Date): SeriesPoint[] =>
-    exerciseSeries(selectExerciseSessions(s, exerciseId), metric, { period, now }),
+    exerciseSeries(selectExerciseSessions(s, exerciseId), metric, { period, now }, formulaOf(s)),
   (exerciseId, metric, period, now) => `${exerciseId}|${metric}|${period}|${now.getTime()}`,
 );
 
 export const selectPersonalRecords = memoSelector(
-  (s: AppState) => [s.workouts],
-  (s, exerciseId: string): PersonalRecords => personalRecords(selectExerciseSessions(s, exerciseId)),
+  (s: AppState) => [s.workouts, s.settings?.e1rmFormula],
+  (s, exerciseId: string): PersonalRecords => personalRecords(selectExerciseSessions(s, exerciseId), formulaOf(s)),
   (exerciseId) => exerciseId,
 );
 

@@ -7,6 +7,7 @@ import type { Repositories } from '@/data/repositories';
 import { DEFAULT_CYCLE } from '@/domain/cycle';
 import type { BodyMetric, BodyMetricInput } from '@/domain/body';
 import type { Plan, PlanContent } from '@/domain/plan';
+import type { ReferenceMax, ReferenceMaxOrigin } from '@/domain/reference-max';
 import { createAppStore } from '@/state/app-store';
 import type { AppStore, FinishResult, RestNotifier } from '@/state/types';
 
@@ -253,4 +254,86 @@ export async function seedCompletedCycle(store: AppStore, clock: TestClock): Pro
     results.push(await seedCompletedWorkout(store));
   }
   return results;
+}
+
+// ---- v4 (strength mode) ----
+
+/** Library ids of the three classic lifts used by the strength seeds. */
+export const SQUAT = 'barbell-back-squat';
+export const BENCH = 'barbell-bench-press';
+export const DEADLIFT = 'conventional-deadlift';
+
+/** Adds a reference 1RM through the store (`kg` for `exerciseId`, origin `manual` unless given). */
+export function seedReferenceMax(
+  store: AppStore,
+  exerciseId: string,
+  kg: number,
+  options: { origin?: ReferenceMaxOrigin; effectiveAt?: string } = {},
+): Promise<ReferenceMax> {
+  return store.getState().addReferenceMax({ exerciseId, kg, ...options });
+}
+
+/**
+ * Plan content with v4 features: workout `w-531` holds the custom 5/3/1 block `p531` mapped to
+ * Bench Press plus an automatic accessory (`pe-pulldown`); workout `w-mix` holds a percent-scheme
+ * Back Squat (`pe-squat-pct`: week 1 `3×5 @ 70`, week 2 `3×3 @ 80`) and the Smolov Jr. block `psj`
+ * (day 1) mapped to Bench Press. 2 sessions per week, cycle 3 load weeks + 0 deload.
+ */
+export function v4PlanContent(overrides: Partial<PlanContent> = {}): PlanContent {
+  return {
+    name: 'V4 plan',
+    description: '',
+    sessionsPerWeek: 2,
+    cycle: { ...DEFAULT_CYCLE, loadWeeks: 3, deloadWeeks: 0 },
+    workouts: [
+      {
+        id: 'w-531',
+        name: 'Press day',
+        programs: [
+          { id: 'p531', programId: 'cycle-531-custom', day: 1, startWeek: 1, roles: { lift: BENCH }, accessories: false },
+        ],
+        exercises: [{ id: 'pe-pulldown', exerciseId: 'lat-pulldown', sets: 3, repMin: 8, repMax: 12 }],
+      },
+      {
+        id: 'w-mix',
+        name: 'Squat day',
+        programs: [
+          {
+            id: 'psj',
+            programId: 'smolov-jr',
+            day: 1,
+            startWeek: 1,
+            roles: { lift: BENCH },
+            accessories: false,
+            params: { weeklyIncrementKg: 2.5 },
+          },
+        ],
+        exercises: [
+          {
+            id: 'pe-squat-pct',
+            exerciseId: SQUAT,
+            sets: 3,
+            repMin: 3,
+            repMax: 5,
+            percent: {
+              weeks: [{ sets: [{ reps: 5, percent: 70, repeat: 3 }] }, { sets: [{ reps: 3, percent: 80, repeat: 3 }] }],
+            },
+          },
+        ],
+      },
+    ],
+    ...overrides,
+  };
+}
+
+/** Focus strength and the 1RMs Back Squat 140, Bench Press 100, Deadlift 180 (origin `onboarding`). */
+export async function seedStrengthProfile(store: AppStore): Promise<void> {
+  await store.getState().completeOnboarding({
+    focus: 'strength',
+    maxes: [
+      { exerciseId: SQUAT, kg: 140 },
+      { exerciseId: BENCH, kg: 100 },
+      { exerciseId: DEADLIFT, kg: 180 },
+    ],
+  });
 }
