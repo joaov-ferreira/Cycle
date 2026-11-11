@@ -5,7 +5,8 @@ import { spacing } from '@/constants/theme';
 import { suggestCycle } from '@/domain/cycle';
 import type { Plan } from '@/domain/plan';
 import { useI18n, type TFunction } from '@/i18n';
-import { instantiateTemplate, listPlanTemplates, type PlanTemplate } from '@/library/plan-templates';
+import { findProgram } from '@/library/programs';
+import { instantiateTemplate, listAllPlanTemplates, type PlanTemplate } from '@/library/plan-templates';
 import { selectFindExercise } from '@/state/selectors';
 import { useAppStore } from '@/state/app-store-context';
 
@@ -38,7 +39,12 @@ export function PlanTemplatesScreen({ onCreated, onBack }: PlanTemplatesScreenPr
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  const templates = listPlanTemplates();
+  const exerciseLabel = (exerciseId: string): string => {
+    const exercise = findExercise(exerciseId);
+    return exercise ? exerciseName(exercise, locale) : exerciseId;
+  };
+
+  const templates = listAllPlanTemplates();
   const open = templates.find((template) => template.id === openId) ?? null;
 
   const use = async (template: PlanTemplate) => {
@@ -63,11 +69,18 @@ export function PlanTemplatesScreen({ onCreated, onBack }: PlanTemplatesScreenPr
         {open.workouts.map((workout, workoutIndex) => (
           <Card key={workoutIndex}>
             <Text variant="heading">{workout.name[locale]}</Text>
+            {(workout.programs ?? []).map((block, index) => (
+              <Text key={`block-${index}`} variant="label" tone="accent">
+                {t('planImport.templates.block', {
+                  program: findProgram(block.programId)?.name ?? block.programId,
+                  exercise: [...new Set(Object.values(block.roles))].map(exerciseLabel).join(', '),
+                })}
+              </Text>
+            ))}
             {workout.exercises.map((item, index) => {
-              const exercise = findExercise(item.exerciseId);
               return (
                 <View key={index} style={styles.row}>
-                  <Text style={styles.rowName}>{exercise ? exerciseName(exercise, locale) : item.exerciseId}</Text>
+                  <Text style={styles.rowName}>{exerciseLabel(item.exerciseId)}</Text>
                   <Text tone="secondary" tabular>
                     {targetLabel(item.sets, item.repMin, item.repMax)}
                   </Text>

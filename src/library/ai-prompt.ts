@@ -34,7 +34,10 @@ Reply with ONE JSON document inside a single \`\`\`json code block, with no comm
     { "name": "workout name, up to 40 characters",
       "exercises": [
         { "exercise": "barbell-bench-press", "sets": 4, "reps": "8-12", "rir": 2, "rest": 120,
-          "startLoad": 60, "note": "optional, up to 200 characters" }
+          "startLoad": 60, "note": "optional, up to 200 characters" },
+        { "exercise": "barbell-back-squat", "rest": 240,
+          "percent": { "weeks": [ [ { "sets": 3, "reps": 5, "percent": 75 } ],
+                                  [ { "sets": 3, "reps": 3, "percent": 85 }, { "sets": 1, "reps": 1, "percent": 90, "amrap": true } ] ] } }
       ] }
   ]
 }
@@ -51,6 +54,9 @@ RULES
 9. All weights in kilograms. Write names and notes in the language I am using.
 10. Supersets: to have 2 to 4 consecutive exercises done back to back, give each of them the same "superset" label, for example "superset": "A". Leave it out otherwise.
 11. Effort ramp (optional): add "rirRamp": { "start": 3, "end": 0 } inside "cycle" to make the target RIR fall week by week during the load weeks. Use it only if I ask for it or it suits my experience.
+
+12. Strength, powerlifting or percentage-based programs: when I ask for one, give the main lifts a "percent" scheme instead of "sets" and "reps" (leave out "rir" and "startLoad" on those exercises). "weeks" lists the weeks in order, one array per week; a scheme shorter than the cycle repeats. Each week is a list of groups: "sets" is the number of identical sets, "reps" the reps per set, "percent" the percentage of my 1RM (1–120, steps of 0.5). Optional: "amrap": true for an as-many-reps-as-possible set (reps is then the minimum), "addKg" (−100 to 100) to add or subtract fixed kilograms, an empty week [] to skip the exercise that week. Optional on "percent": "of", the exercise whose 1RM the percentages refer to (default: the exercise itself), and "startWeek", the scheme week of the first training week. Limits: 1–16 weeks, up to 20 groups and 40 sets per week. Keep the accessories on rep ranges with "reps": "8-12".
+13. "referenceMaxes" (optional, up to 50) is a list of objects with "exercise" (an id from the list) and "kg" (for example 140) holding my current 1RMs. Include it only with values I gave you; never invent a 1RM.
 
 EXERCISE LIST (id — name — primary muscle — equipment)
 {{EXERCISES}}`,
@@ -77,7 +83,10 @@ Responda com UM documento JSON dentro de um único bloco de código \`\`\`json, 
     { "name": "nome do treino, até 40 caracteres",
       "exercises": [
         { "exercise": "barbell-bench-press", "sets": 4, "reps": "8-12", "rir": 2, "rest": 120,
-          "startLoad": 60, "note": "opcional, até 200 caracteres" }
+          "startLoad": 60, "note": "opcional, até 200 caracteres" },
+        { "exercise": "barbell-back-squat", "rest": 240,
+          "percent": { "weeks": [ [ { "sets": 3, "reps": 5, "percent": 75 } ],
+                                  [ { "sets": 3, "reps": 3, "percent": 85 }, { "sets": 1, "reps": 1, "percent": 90, "amrap": true } ] ] } }
       ] }
   ]
 }
@@ -94,6 +103,9 @@ REGRAS
 9. Todas as cargas em quilogramas. Escreva nomes e observações em português.
 10. Bi-sets: para que 2 a 4 exercícios seguidos sejam feitos sem descanso entre eles, dê a cada um o mesmo rótulo "superset", por exemplo "superset": "A". Caso contrário, omita.
 11. Rampa de esforço (opcional): acrescente "rirRamp": { "start": 3, "end": 0 } dentro de "cycle" para que a meta de RIR caia semana a semana durante as semanas de carga. Use somente se eu pedir ou se combinar com a minha experiência.
+
+12. Programas de força, powerlifting ou em porcentagem: quando eu pedir um, dê aos exercícios principais um esquema "percent" no lugar de "sets" e "reps" (omita "rir" e "startLoad" nesses exercícios). "weeks" lista as semanas em ordem, uma lista por semana; um esquema mais curto que o ciclo se repete. Cada semana é uma lista de grupos: "sets" é o número de séries idênticas, "reps" as repetições por série, "percent" a porcentagem do meu 1RM (1–120, de 0,5 em 0,5, escrita com ponto, como 77.5). Opcionais: "amrap": true para uma série com o máximo de repetições (reps é então o mínimo), "addKg" (−100 a 100) para somar ou subtrair quilos fixos, uma semana vazia [] para não fazer o exercício naquela semana. Opcionais em "percent": "of", o exercício cujo 1RM as porcentagens usam (padrão: o próprio exercício), e "startWeek", a semana do esquema na primeira semana de treino. Limites: 1–16 semanas, até 20 grupos e 40 séries por semana. Mantenha os acessórios em faixas de repetições, com "reps": "8-12".
+13. "referenceMaxes" (opcional, até 50) é uma lista de objetos com "exercise" (um id da lista) e "kg" (por exemplo 140) com os meus 1RMs atuais. Inclua somente com valores que eu informei; nunca invente um 1RM.
 
 LISTA DE EXERCÍCIOS (id — nome — músculo principal — equipamento)
 {{EXERCISES}}`,

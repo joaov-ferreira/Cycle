@@ -12,6 +12,8 @@ export const planImport = {
     importBody: 'Paste plan text or JSON, pick a file, or have an AI chatbot write it for you.',
     scratchTitle: 'Start from scratch',
     scratchBody: 'Build your own workouts and exercises in the plan editor.',
+    strengthTitle: 'Start a strength program',
+    strengthBody: 'Pick a documented program (Smolov, Sheiko, 5/3/1…), choose your lifts and 1RMs, and get the whole cycle planned.',
   },
 
   // ---- Templates ----
@@ -25,6 +27,7 @@ export const planImport = {
     backToList: 'All templates',
     use: 'Use this template',
     useError: 'The plan could not be created. Try again.',
+    block: '{{program}} → {{exercise}}',
   },
 
   // ---- Shared target formatting ----
@@ -36,6 +39,7 @@ export const planImport = {
     title: 'Import plan',
     pasteLabel: 'Plan text',
     hint: 'Paste a plan as plain text or JSON. Answers from AI chatbots can be pasted as they are. Start a line with + to join the previous exercise in a superset, and add a line such as rir: 3-0 to raise the effort week by week.',
+    percentHint: 'For loads as a percentage of a 1RM, write the scheme on the exercise line, for example: Back Squat 3x5 @75% / 3x3 @85%. A “/” starts the next week, a “,” adds a group to the week, and a “+” after the reps (1x1+) marks an AMRAP set.',
     exampleTitle: 'Plain-text example',
     example:
       '# My plan\ncycle: 6+1\nsessions: 2\n\n## Upper\nBarbell Bench Press | 4x6-10 | rir 2 | rest 150\nLat Pulldown | 3x8-12\n\n## Lower\nBarbell Back Squat | 4x6-10',
@@ -75,6 +79,14 @@ export const planImport = {
     invalidDirective: 'This setting could not be read.',
     emptyWorkout: 'This workout has no exercises.',
     noWorkouts: 'The plan has no workouts.',
+    notAllowedWithPercent: 'RIR and starting load cannot be used together with a percent scheme.',
+    emptyScheme: 'The percent scheme has no sets in any week.',
+    unknownProgram: 'This program does not exist in the app.',
+    unknownRole: 'This program has no role with this name.',
+    unknownParam: 'This program has no parameter with this name.',
+    paramOutOfRange: 'This program parameter is outside its allowed range.',
+    paramOffStep: 'This program parameter does not match its allowed step.',
+    mixedPercent: 'Give a percentage to every group of the line, or to none (e.g. 3x5 @75% / 3x3 @85%).',
   },
 
   // ---- Create with AI ----
@@ -112,6 +124,17 @@ export const planImport = {
     resolvedCreate: '{{name}} → new exercise "{{target}}"',
     change: 'Change {{name}}',
     pending: 'Resolve all exercises to save.',
+    schemeWeek: 'Week {{week}}: {{groups}}',
+    schemeRest: 'Week {{week}}: not trained',
+    schemeBasis: 'Percentages of the 1RM of {{exercise}}',
+    blockLine: '{{program}} · day {{day}} → {{exercise}}',
+    blockWeek: 'Starts at program week {{week}}',
+    blockAccessories: 'With accessories',
+    maxesTitle: '1RMs',
+    maxesWillSet: 'Will be set',
+    maxesKept: 'Kept: the exercise already has a 1RM',
+    maxWillSet: '{{exercise}}: {{kg}}',
+    maxKept: '{{exercise}}: {{kg}} in the file, current {{current}}',
     unresolvedCount: { one: '{{count}} exercise to resolve', other: '{{count}} exercises to resolve' },
     activate: 'Activate this plan',
     save: 'Save plan',
@@ -146,6 +169,14 @@ export const planImport = {
     supersetNotAdjacent: 'Exercises of the same superset must be next to each other.',
     supersetSize: 'A superset needs 2 to 4 exercises.',
     invalidRirRamp: 'The effort ramp needs RIR values from 0 to 5, starting at or above the final value.',
+    notAllowedWithPercent: 'RIR and starting load do not apply to a percent scheme',
+    emptyScheme: 'the scheme has no sets in any week',
+    unknownProgram: 'unknown program',
+    unknownRole: 'unknown program role',
+    noRoleMapped: 'no exercise chosen for the program',
+    unknownParam: 'unknown program parameter',
+    paramOutOfRange: 'program parameter out of range',
+    paramOffStep: 'program parameter off its step',
   },
 
   // ---- Export ----

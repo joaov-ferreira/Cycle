@@ -1,9 +1,11 @@
 import { StyleSheet } from 'react-native';
 
 import { spacing } from '@/constants/theme';
-import { useT } from '@/i18n';
+import { useI18n, useT } from '@/i18n';
+import { selectFindExercise, useAppStore } from '@/state';
 import type { CompletedCycle } from '@/state/types';
 
+import { useExerciseName } from '../shared';
 import { Button, Card, Text } from '../ui';
 
 /** "Cycle N complete" with the report link and a dismissal (SPEC-v3 §6). */
@@ -33,6 +35,24 @@ export function BackupReminderCard({ onOpenSettings }: { onOpenSettings: () => v
     <Card testID="backup-reminder" style={styles.card}>
       <Text tone="secondary">{t('home.backup.message')}</Text>
       <Button variant="secondary" label={t('home.backup.action')} onPress={onOpenSettings} />
+    </Card>
+  );
+}
+
+/** The exercises of the active plan that miss a reference 1RM, with the way to set them (SPEC-v4 §10.7). */
+export function MissingMaxesNotice({ exerciseIds, onOpenMaxes }: { exerciseIds: readonly string[]; onOpenMaxes: () => void }) {
+  const { t } = useI18n();
+  const nameOf = useExerciseName();
+  const find = useAppStore(selectFindExercise);
+  const names = exerciseIds.map((id) => {
+    const exercise = find(id);
+    return exercise ? nameOf(exercise) : id;
+  });
+  return (
+    <Card testID="missing-maxes-notice" style={styles.card}>
+      <Text variant="heading">{t('home.missingMaxes.title')}</Text>
+      <Text tone="secondary">{t('home.missingMaxes.message', { names: names.join(', ') })}</Text>
+      <Button variant="secondary" label={t('home.missingMaxes.action')} onPress={onOpenMaxes} />
     </Card>
   );
 }

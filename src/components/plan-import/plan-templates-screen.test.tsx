@@ -1,18 +1,19 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { validatePlanContent } from '@/domain/plan';
-import { listPlanTemplates } from '@/library/plan-templates';
+import { listAllPlanTemplates } from '@/library/plan-templates';
 import { selectFindExercise } from '@/state/selectors';
 import { renderInApp } from '@/test-utils/render-app';
 
 import { PlanTemplatesScreen } from './plan-templates-screen';
 
-const templates = listPlanTemplates();
+const templates = listAllPlanTemplates();
 
 describe('PlanTemplatesScreen', () => {
-  it('lists the six templates in English with their summary', async () => {
+  it('lists the seven templates (hybrid included) in English with their summary', async () => {
     await renderInApp(<PlanTemplatesScreen onCreated={jest.fn()} />);
-    expect(templates).toHaveLength(6);
+    expect(templates).toHaveLength(7);
+    expect(templates.map((template) => template.id)).toContain('hybrid-531');
     for (const template of templates) {
       expect(await screen.findByRole('button', { name: `Open ${template.name.en}` })).toBeOnTheScreen();
     }
@@ -20,7 +21,7 @@ describe('PlanTemplatesScreen', () => {
     expect(screen.getByText('3 workouts · 6 sessions per week')).toBeOnTheScreen();
   });
 
-  it('lists the six templates in Portuguese', async () => {
+  it('lists the seven templates in Portuguese', async () => {
     await renderInApp(<PlanTemplatesScreen onCreated={jest.fn()} />, { language: 'pt-BR' });
     for (const template of templates) {
       expect(await screen.findByRole('button', { name: `Abrir ${template.name['pt-BR']}` })).toBeOnTheScreen();
@@ -39,6 +40,35 @@ describe('PlanTemplatesScreen', () => {
     expect(screen.getByRole('button', { name: 'Usar este modelo' })).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Todos os modelos' }));
     expect(await screen.findByRole('button', { name: `Abrir ${upperLower.name['pt-BR']}` })).toBeOnTheScreen();
+  });
+
+  it('shows the program blocks of the hybrid template: program name → exercise', async () => {
+    await renderInApp(<PlanTemplatesScreen onCreated={jest.fn()} />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Open Strength + hypertrophy (5/3/1)' }));
+    expect(await screen.findByText('Squat day')).toBeOnTheScreen();
+    expect(screen.getByText('5/3/1 (custom) → Barbell Back Squat')).toBeOnTheScreen();
+    expect(screen.getByText('5/3/1 (custom) → Barbell Bench Press')).toBeOnTheScreen();
+    expect(screen.getByText('Leg Press')).toBeOnTheScreen();
+  });
+
+  it('shows the program blocks in Portuguese', async () => {
+    await renderInApp(<PlanTemplatesScreen onCreated={jest.fn()} />, { language: 'pt-BR' });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Abrir Força + hipertrofia (5/3/1)' }));
+    expect(await screen.findByText('5/3/1 (custom) → Agachamento livre')).toBeOnTheScreen();
+  });
+
+  it('creates the hybrid plan with its blocks and its own 3 + 1 cycle', async () => {
+    const onCreated = jest.fn();
+    const created = await renderInApp(<PlanTemplatesScreen onCreated={onCreated} />, {
+      seed: (r, profileId) => r.settings.update(profileId, { experience: 'advanced' }),
+    });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Open Strength + hypertrophy (5/3/1)' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Use this template' }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+    const plan = created.store.getState().plans[0];
+    expect(plan.cycle.loadWeeks).toBe(3);
+    expect(plan.cycle.deloadWeeks).toBe(1);
+    expect(plan.workouts[0].programs?.[0]).toMatchObject({ programId: 'cycle-531-custom', roles: { lift: 'barbell-back-squat' } });
   });
 
   it('creates a valid plan with the experience cycle and UI-language names', async () => {

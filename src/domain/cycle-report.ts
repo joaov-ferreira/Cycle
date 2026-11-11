@@ -6,6 +6,7 @@ import { isStalled } from './cycle';
 import type { Exercise, MuscleGroup } from './exercise';
 import { countedSets, sessionScore, workLoad } from './metrics';
 import type { Plan } from './plan';
+import { DEFAULT_E1RM_FORMULA, type E1rmFormula } from './e1rm';
 import { newRecords } from './stats';
 import { toExerciseSession, workoutSummary, type ExerciseSession, type Workout } from './workout';
 
@@ -67,8 +68,10 @@ export function cycleReport(input: {
   /** Every completed workout of the profile, in any order. */
   workouts: readonly Workout[];
   findExercise: (id: string) => Pick<Exercise, 'primaryMuscle' | 'secondaryMuscles'> | undefined;
+  /** The e1RM formula the records are compared with (default `epley`, the v2 rule). */
+  formula?: E1rmFormula;
 }): CycleReport {
-  const { plan, cycleNumber, findExercise } = input;
+  const { plan, cycleNumber, findExercise, formula = DEFAULT_E1RM_FORMULA } = input;
   const completed = input.workouts.filter(isCompleted).sort(oldestFirst);
   const inCycle = completed.filter((w) => w.planId === plan.id && w.cycleNumber === cycleNumber);
   const loadWorkouts = inCycle.filter((w) => w.phase === 'load');
@@ -89,7 +92,7 @@ export function cycleReport(input: {
         .filter((other) => oldestFirst(other, workout) < 0)
         .map((other) => toExerciseSession(other, exerciseId))
         .filter((session): session is ExerciseSession => session !== null);
-    for (const record of newRecords(workout, historyBefore)) {
+    for (const record of newRecords(workout, historyBefore, formula)) {
       recordsByExercise.set(record.exerciseId, (recordsByExercise.get(record.exerciseId) ?? 0) + 1);
     }
   }

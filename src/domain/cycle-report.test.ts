@@ -265,3 +265,25 @@ describe('cycleNumbersWithWorkouts', () => {
     expect(cycleNumbersWithWorkouts(7, odd)).toEqual([]);
   });
 });
+
+describe('cycleReport: e1RM formula of the records', () => {
+  // 98 × 1 first (98.0 in every formula), then 90 × 3 @ RIR 0: a lower weight, so only an e1RM record.
+  // Epley 90 × (1 + 3/30) = 99.0 beats 98.0. RTS 90 / 0.922 = 97.614 does not.
+  const logs = () => [
+    workout([['bench', sets(1, 98, 1, 0)]], { cycleWeek: 1, completedAt: '2026-01-05T10:00:00.000Z' }),
+    workout([['bench', sets(1, 90, 3, 0)]], { cycleWeek: 1, completedAt: '2026-01-08T10:00:00.000Z' }),
+  ];
+  const recordsOfBench = (formula?: 'epley' | 'brzycki' | 'rts') =>
+    cycleReport({ plan, cycleNumber: 1, workouts: logs(), findExercise, formula }).exercises.find(
+      (e) => e.exerciseId === 'bench',
+    )?.records;
+
+  it('counts records with Epley by default', () => {
+    expect(recordsOfBench()).toBe(1);
+    expect(recordsOfBench('epley')).toBe(1);
+  });
+
+  it('counts records with the selected formula', () => {
+    expect(recordsOfBench('rts')).toBe(0);
+  });
+});

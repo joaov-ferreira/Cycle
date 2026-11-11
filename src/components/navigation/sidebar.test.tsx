@@ -12,7 +12,10 @@ import WorkoutRoute from '@/app/(tabs)/workout';
 import ExercisesRoute from '@/app/exercises/index';
 import HistoryRoute from '@/app/history/index';
 import PlanEditRoute from '@/app/plans/[id]/edit';
+import MaxDetailRoute from '@/app/maxes/[exerciseId]';
+import MaxesRoute from '@/app/maxes/index';
 import SettingsRoute from '@/app/settings';
+import OneRepMaxRoute from '@/app/tools/one-rep-max';
 import { createMemoryRepositories } from '@/data/memory/memory-repositories';
 
 import { AppProviders } from '../app-providers';
@@ -58,6 +61,9 @@ const routes = {
   'history/index': HistoryRoute,
   'plans/[id]/edit': PlanEditRoute,
   settings: SettingsRoute,
+  'maxes/index': MaxesRoute,
+  'maxes/[exerciseId]': MaxDetailRoute,
+  'tools/one-rep-max': OneRepMaxRoute,
 };
 
 async function renderWide(initialUrl = '/', width = 1280) {
@@ -69,8 +75,32 @@ async function renderWide(initialUrl = '/', width = 1280) {
   return renderRouter(routes, { initialUrl, wrapper });
 }
 
-const EN_SECTIONS = ['Home', 'Plan', 'Workout', 'Progress', 'Exercises', 'History', 'Body', 'Settings'];
-const PT_SECTIONS = ['Início', 'Periodização', 'Treino', 'Progresso', 'Exercícios', 'Histórico', 'Corpo', 'Configurações'];
+const EN_SECTIONS = [
+  'Home',
+  'Plan',
+  'Workout',
+  'Progress',
+  'Programs',
+  '1RMs',
+  '1RM calculator',
+  'Exercises',
+  'History',
+  'Body',
+  'Settings',
+];
+const PT_SECTIONS = [
+  'Início',
+  'Periodização',
+  'Treino',
+  'Progresso',
+  'Programas',
+  '1RMs',
+  'Calculadora de 1RM',
+  'Exercícios',
+  'Histórico',
+  'Corpo',
+  'Configurações',
+];
 
 beforeEach(() => setDeviceLocale('en-US'));
 
@@ -113,6 +143,8 @@ describe('wide-screen sidebar', () => {
     ['exercises', '/exercises', 'Exercises'],
     ['history', '/history', 'History'],
     ['settings', '/settings', 'Settings'],
+    ['maxes', '/maxes', '1RMs'],
+    ['calculator', '/tools/one-rep-max', '1RM calculator'],
   ])('opens %s and keeps the sidebar', async (id, path, header) => {
     const result = await renderWide();
     await screen.findByRole('header', { name: 'Home' });
@@ -121,6 +153,12 @@ describe('wide-screen sidebar', () => {
     expect(result.getPathname()).toBe(path);
     expect(screen.getByTestId('navigation-sidebar')).toBeOnTheScreen();
     expect(screen.getByTestId(`sidebar-item-${id}`)).toBeSelected();
+  });
+
+  it('keeps 1RMs selected on the detail of an exercise', async () => {
+    await renderWide('/maxes/barbell-back-squat');
+    await screen.findByRole('header', { name: 'Barbell Back Squat' });
+    expect(screen.getByTestId('sidebar-item-maxes')).toBeSelected();
   });
 
   it('marks Home as selected on the root route', async () => {
@@ -158,6 +196,11 @@ describe('activeSection', () => {
     ['/exercises/new', 'exercises'],
     ['/history/4', 'history'],
     ['/settings', 'settings'],
+    ['/programs', 'programs'],
+    ['/programs/sheiko-29/start', 'programs'],
+    ['/maxes', 'maxes'],
+    ['/maxes/barbell-back-squat', 'maxes'],
+    ['/tools/one-rep-max', 'calculator'],
     ['/more', null],
     ['/unknown', null],
   ])('maps %s to %s', (pathname, section) => {

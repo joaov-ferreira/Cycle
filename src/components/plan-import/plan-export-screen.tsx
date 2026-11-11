@@ -1,9 +1,6 @@
-import { useMemo } from 'react';
-
-import { exportPlan, serializePlan } from '@/domain/plan-export';
 import { useT } from '@/i18n';
 import { useAppStore } from '@/state/app-store-context';
-import { selectFindExercise } from '@/state/selectors';
+import { selectPlanExportText } from '@/state/selectors-v4';
 
 import { EmptyState } from '../shared';
 import { Button, Screen, Text } from '../ui';
@@ -20,17 +17,12 @@ export type PlanExportScreenProps = {
 /** Plan export (SPEC §4.4): the plan as `cycle-plan` JSON, selectable and shareable. */
 export function PlanExportScreen({ planId, onBack, share = shareText }: PlanExportScreenProps) {
   const t = useT();
-  const plan = useAppStore((s) => s.plans.find((candidate) => candidate.id === planId));
-  const findExercise = useAppStore(selectFindExercise);
-  const json = useMemo(
-    () => (plan ? serializePlan(exportPlan(plan, findExercise)) : ''),
-    [plan, findExercise],
-  );
+  const json = useAppStore((s) => selectPlanExportText(s, planId));
 
   return (
     <Screen title={t('planImport.export.title')} testID="screen-plan-export">
       <Button variant="secondary" label={t('planImport.back')} onPress={onBack} />
-      {plan ? (
+      {json !== null ? (
         <>
           <Text tone="secondary">{t('planImport.export.note')}</Text>
           <Button label={t('planImport.export.share')} onPress={() => share(json)} />

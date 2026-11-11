@@ -6,6 +6,7 @@ import {
   planRestore,
   restorableBodyMetrics,
   restorableExerciseSettings,
+  restorableReferenceMaxes,
 } from '../backup-shared';
 import type { SqlDatabase } from '../database';
 import { customExerciseId } from '../logbook-shared';
@@ -38,8 +39,9 @@ export function createSqliteBackupRepository(
         const s = restore.settings;
         await db.runAsync(
           `INSERT INTO settings (profile_id, language, theme, onboarding_completed, experience,
-             default_rest_seconds, rest_notifications, keep_awake, bar_kg, plates, last_backup_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             default_rest_seconds, rest_notifications, keep_awake, bar_kg, plates, last_backup_at,
+             focus, strength_e1rm_formula, effort_scale, strength_rounding_mode)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             profileId,
             s.language,
@@ -52,6 +54,10 @@ export function createSqliteBackupRepository(
             s.barKg,
             JSON.stringify(s.platesKg),
             s.lastBackupAt,
+            s.focus,
+            s.e1rmFormula,
+            s.effortScale,
+            s.roundingMode,
           ],
         );
 
@@ -131,6 +137,14 @@ export function createSqliteBackupRepository(
             `INSERT INTO exercise_settings (profile_id, exercise_id, increment_kg, note, bar_kg)
              VALUES (?, ?, ?, ?, ?)`,
             [profileId, exerciseId, entry.incrementKg ?? null, entry.note ?? null, entry.barKg ?? null],
+          );
+        }
+
+        for (const max of restorableReferenceMaxes(remapped.referenceMaxes)) {
+          await db.runAsync(
+            `INSERT INTO reference_maxes (profile_id, exercise_id, kg, effective_at, origin)
+             VALUES (?, ?, ?, ?, ?)`,
+            [profileId, max.exerciseId, max.kg, max.effectiveAt, max.origin],
           );
         }
 

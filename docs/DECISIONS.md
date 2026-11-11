@@ -1063,3 +1063,94 @@ Decisions taken while the v2 stages were implemented and reviewed (stage ids as 
 - **Not verified:** behavior on a physical device (notifications, keep-awake, share sheet, file
   writing); verified by tests, on web, and by the APK build in CI.
 
+
+## 2026-11-11 — v4: strength mode
+
+- **Why.** v2 removed the powerlifting features; the owner asked for them back, without the three
+  lifts as the app's axis, so that one app serves general training and powerlifting. Spec:
+  `docs/SPEC-v4.md` (user journeys first, §1); plan: `docs/PLAN.md` (v4; the v3 plan moved to
+  `docs/archive/PLAN-v3.md`).
+- **Model.** Reference 1RMs are per exercise. Percent work enters a plan in two ways: a *percent
+  scheme* on a plan exercise (weeks of sets × reps @ % of 1RM; also the form an AI chatbot writes) and
+  a *program block* on a plan workout (a day of a built-in program, generated week by week with a
+  role → exercise mapping). Blocks are generated rather than materialized because Sheiko and Smolov
+  change the items and their order from week to week; a generated day keeps the original order.
+- **The cycle is the block.** The v1 three-week generator becomes the plan's cycle: cycle week 1 is
+  the block's start week; a program plan created by the wizard has a cycle as long as the program and
+  no deload.
+- **Roles, not lifts.** Program templates name roles (`lift`, `squat`, `bench`, `deadlift`) that the
+  user maps to any exercise; the app has no lift enumeration, no total, no Wilks/DOTS.
+- **e1RM.** Formula setting (`epley` default, `brzycki`, `rts`); history is derived from the logbook,
+  never stored. Charts and records keep the v2 selection so nothing a user saw changes; strength
+  surfaces use normal-confidence sets only (v1 §8.2 validity). v1's "smallest n" representative-set
+  rule is not restored: one selection rule per surface is easier to explain.
+- **Effort.** Logged RIR accepts half points and can be shown as RPE; plan targets stay integers.
+- **Program data** is the v1 transcription moved without changing a number (pinned by a snapshot
+  test); variations and accessories now point to library exercises.
+
+## 2026-11-11 — v4 implementation record
+
+Decisions taken while the v4 stages were implemented and reviewed (stage ids as in `docs/PLAN.md`).
+
+- **1a — RTS chart.** Restored from v1 with its source notes. 5 reps @ RPE 9 = 83.7 %, so the spec
+  example 80 kg × 5 @ RIR 1 gives 95.579 kg. The one unverified cell (12 reps @ RPE 6) has no value
+  and falls back to Epley with low confidence, like any set outside the chart.
+- **1c — exercises behind the programs' variations and accessories.** Four exercises were added to
+  the library (`deadlift-to-knees`, `deadlift-from-boxes`, `deficit-deadlift`,
+  `seated-good-morning`). Mapping of the programs' original names (the original name stays on the
+  item and is shown next to the exercise):
+
+  | Original | Library exercise | Note |
+  |---|---|---|
+  | Deadlift up to knees | `deadlift-to-knees` | new |
+  | Deadlift from boxes | `deadlift-from-boxes` | new |
+  | Deficit deadlift | `deficit-deadlift` | new |
+  | Front squat | `barbell-front-squat` | |
+  | Dumbbell fly | `dumbbell-fly` | |
+  | Good morning (standing) | `good-morning` | |
+  | Good morning (sitting) | `seated-good-morning` | new |
+  | Incline bench press | `incline-barbell-bench-press` | |
+  | Dip | `parallel-bar-dip` | |
+  | Push up | `push-up` | |
+  | Leg press | `leg-press` | |
+  | Back extension | `back-extension` | |
+  | Lunge | `dumbbell-walking-lunge` | generic name; the app picks one concrete exercise |
+  | Abs | `crunch` | generic name |
+  | Press | `overhead-press` | generic name |
+  | French press | `barbell-skull-crusher` | generic name (lying triceps extension) |
+  | Triceps | `triceps-pushdown` | generic name |
+
+- **1c — Smolov tests and switching phase.** In v1 these info lines had no lift; they now carry the
+  role `squat`, so the day generates the mapped exercise with free sets (the user logs the test)
+  instead of reading as a rest day. It is the only change against the v1 data and the snapshot test
+  names it. Sheiko #32's "Competition (or max test)" line keeps no role (it involves all lifts), so
+  that day reads as a rest day; the test can be logged as a free workout.
+- **1c — set notes.** A program set's note is not part of the generated `SchemeSet`; the notes of a
+  main item's sets are collected on the generated item.
+- **2a — percent groups without a percentage** are allowed in the JSON format (a group with no
+  `percent` has no load), so that export → import is lossless for program data with unverified sets.
+  In a program block of the JSON, `startWeek` defaults to 1 and `accessories` to false.
+- **2a — hybrid template.** `hybrid-531` carries its own cycle (3 load weeks + 1 deload); the gallery
+  lists it after the six general templates.
+- **2b — settings columns.** Migrations 004 and 008 (v1) already used `e1rm_formula` and a rounding
+  table with other value sets, so migration 012 adds `strength_e1rm_formula` and
+  `strength_rounding_mode`; the v1 columns stay unread. `percent` and `programs` live inside the
+  plan's JSON content; the prescription snapshot is a JSON column of the workout exercise. Logged RIR
+  keeps its column: SQLite stores 1.5 as a real despite the integer affinity (pinned by a test).
+- **2b — deleting a custom exercise** also deletes its reference 1RMs; an exercise used as a scheme
+  basis, a role target or a prescription basis counts as in use and cannot be deleted.
+- **3 — one core for "what is trained this week".** The logger's builder, the plan screen, Home and
+  the periodization table read the same memoized effective-workout selector, so they cannot disagree.
+  The cycle report's program rows are derived from the logged prescription snapshots, so they stay
+  true for past cycles after the blocks advance.
+- **3 — missing 1RM during a workout.** Saving the 1RM recomputes the prescription from the plan and
+  fills only sets that are not done and have no weight.
+- **4c — start wizard.** Every role of the program must be mapped in the wizard (a full program);
+  mapping a subset of roles is done with a program block in the plan editor.
+- **4e — Strength tab.** First when the focus is strength; last when the focus is general but the
+  profile has a reference 1RM; absent otherwise.
+- **5 — headers.** Screens draw their own localized title (the stack has no header), and routes that
+  can be opened directly fall back to their parent when there is nothing to go back to.
+- **Formula scope.** The e1RM formula setting drives charts, records, strength estimates and the
+  cycle report; the progression rules (session score) keep Epley so that a display preference never
+  changes a load suggestion.

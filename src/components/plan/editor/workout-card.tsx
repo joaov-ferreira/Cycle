@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { spacing } from '@/constants/theme';
 import { PLAN_LIMITS, supersetLayout, type PlanExercise, type PlanWorkout } from '@/domain/plan';
+import type { ProgramLink, ProgramTemplate } from '@/domain/program';
 import { useI18n } from '@/i18n';
 
 import { useTheme } from '../../theme-provider';
@@ -12,6 +13,7 @@ import { Text } from '../../ui/Text';
 import { TextField } from '../../ui/TextField';
 import { ExerciseRow } from './exercise-row';
 import { IconButton } from './icon-button';
+import { ProgramBlocks } from './program-blocks';
 import { canLinkNext, isLinkedToPrevious, offersLink } from './superset-ops';
 
 export type WorkoutCardProps = {
@@ -35,6 +37,13 @@ export type WorkoutCardProps = {
   onLoadInvalid: (planExerciseId: string, invalid: boolean) => void;
   /** Plan exercise ids that start expanded (added in this editing session). */
   newExerciseIds: ReadonlySet<string>;
+  /** An id for a program block added now. */
+  newBlockId: string;
+  findProgram: (id: string) => ProgramTemplate | undefined;
+  onAddBlock: (block: ProgramLink) => void;
+  onChangeBlock: (blockIndex: number, block: ProgramLink) => void;
+  onMoveBlock: (blockIndex: number, delta: -1 | 1) => void;
+  onRemoveBlock: (blockIndex: number) => void;
 };
 
 function supersetTitle(t: ReturnType<typeof useI18n>['t'], size: number): string {
@@ -61,6 +70,12 @@ export function WorkoutCard({
   onUnlinkExercise,
   onLoadInvalid,
   newExerciseIds,
+  newBlockId,
+  findProgram,
+  onAddBlock,
+  onChangeBlock,
+  onMoveBlock,
+  onRemoveBlock,
 }: WorkoutCardProps) {
   const { t } = useI18n();
   const { colors } = useTheme();
@@ -87,8 +102,21 @@ export function WorkoutCard({
         <IconButton glyph="✕" label={t('planEditor.removeWorkout', { name })} onPress={onRemove} />
       </View>
 
+      <ProgramBlocks
+        workoutName={name}
+        path={path}
+        blocks={workout.programs ?? []}
+        errors={errors}
+        newBlockId={newBlockId}
+        findProgram={findProgram}
+        onAdd={onAddBlock}
+        onChange={onChangeBlock}
+        onMove={onMoveBlock}
+        onRemove={onRemoveBlock}
+      />
+
       {workout.exercises.length === 0 ? (
-        <Text tone="secondary">{t('planEditor.noExercises')}</Text>
+        (workout.programs ?? []).length === 0 ? <Text tone="secondary">{t('planEditor.noExercises')}</Text> : null
       ) : (
         supersetLayout(workout.exercises).map((block) => {
           const rows = block.indices.map((exerciseIndex) => {

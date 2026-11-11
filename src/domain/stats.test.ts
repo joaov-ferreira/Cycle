@@ -11,6 +11,7 @@ import {
   newRecords,
   personalRecords,
   sameIsoWeek,
+  strengthE1rm,
   topWeight,
   trainedExerciseIds,
   weeklyMuscleSets,
@@ -403,6 +404,67 @@ describe('trainedExerciseIds (SPEC §9.1)', () => {
 
   it('is empty without counted sets', () => {
     expect(trainedExerciseIds([])).toEqual([]);
+  });
+});
+
+describe('e1RM formula parameter (SPEC-v4 §3.1)', () => {
+  const first = session(1, '2026-11-01T12:00:00.000Z', [set(80, 5, 1)]);
+
+  it('bestE1rm uses the formula: 80 × 5 @ RIR 1 is 96.0 (epley), 92.903 (brzycki), 95.579 (rts)', () => {
+    expect(bestE1rm([set(80, 5, 1)])).toBe(96);
+    expect(bestE1rm([set(80, 5, 1)], 'brzycki')).toBe(92.903);
+    expect(bestE1rm([set(80, 5, 1)], 'rts')).toBe(95.579);
+  });
+
+  it('exerciseSeries uses the formula for the e1RM series only', () => {
+    expect(exerciseSeries([first], 'e1rm', undefined, 'brzycki')).toEqual([
+      { workoutId: 1, at: '2026-11-01T12:00:00.000Z', value: 92.903 },
+    ]);
+    expect(exerciseSeries([first], 'topWeight', undefined, 'brzycki')).toEqual([
+      { workoutId: 1, at: '2026-11-01T12:00:00.000Z', value: 80 },
+    ]);
+  });
+
+  it('personalRecords uses the formula for the e1RM record', () => {
+    expect(personalRecords([first], 'brzycki').e1rm?.valueKg).toBe(92.903);
+    expect(personalRecords([first]).e1rm?.valueKg).toBe(96);
+  });
+
+  it('newRecords compares with the formula: 85 × 3 @ RIR 1 beats 96.0 with epley (96.333) but not with brzycki (92.727 < 92.903)', () => {
+    const histories: Record<string, ExerciseSession[]> = { bench: [first] };
+    const workout = completedWorkout({ exercises: [exerciseWith('bench', [set(85, 3, 1)])] });
+    const historyBefore = (exerciseId: string): ExerciseSession[] => histories[exerciseId] ?? [];
+    const e1rmRecords = (formula?: 'brzycki') =>
+      newRecords(workout, historyBefore, formula).filter((record) => record.kind === 'e1rm');
+
+    expect(e1rmRecords()).toEqual([{ exerciseId: 'bench', kind: 'e1rm', valueKg: 96.333, previousKg: 96 }]);
+    expect(e1rmRecords('brzycki')).toEqual([]);
+  });
+});
+
+describe('strengthE1rm (SPEC-v4 §3.2)', () => {
+  it('is null for a session of only 15-rep sets (low confidence)', () => {
+    expect(strengthE1rm([set(60, 15, 0), set(60, 15, 0)])).toBeNull();
+  });
+
+  it('is null without counted sets', () => {
+    expect(strengthE1rm([])).toBeNull();
+    expect(strengthE1rm([warmup(100, 5), notDone(100, 5)])).toBeNull();
+  });
+
+  it('picks the best normal-confidence set even when a low-confidence set estimates higher', () => {
+    // 100 × 10 @ RIR 3 (n = 13) is epley 143.333 but low; 80 × 5 @ RIR 1 is normal at 96.0
+    const sets = [warmup(40, 10), set(100, 10, 3), set(80, 5, 1)];
+    expect(strengthE1rm(sets)).toEqual({ kg: 96, setIndex: 2 });
+  });
+
+  it('returns the index in the given list and keeps the first of equal estimates', () => {
+    expect(strengthE1rm([set(60, 15, 0), set(90, 5, 0), set(90, 5, 0)])).toEqual({ kg: 105, setIndex: 1 });
+  });
+
+  it('uses the formula: 80 × 5 @ RIR 1 is 95.579 with rts and 92.903 with brzycki', () => {
+    expect(strengthE1rm([set(80, 5, 1)], 'rts')).toEqual({ kg: 95.579, setIndex: 0 });
+    expect(strengthE1rm([set(80, 5, 1)], 'brzycki')).toEqual({ kg: 92.903, setIndex: 0 });
   });
 });
 

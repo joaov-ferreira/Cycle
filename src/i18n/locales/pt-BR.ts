@@ -14,6 +14,9 @@ import { aiReview } from './pt-BR/aiReview';
 import { backup } from './pt-BR/backup';
 import { body } from './pt-BR/body';
 import { insights } from './pt-BR/insights';
+import { maxes } from './pt-BR/maxes';
+import { strength } from './pt-BR/strength';
+import { programs } from './pt-BR/programs';
 import { workout } from './pt-BR/workout';
 import { history } from './pt-BR/history';
 import { progress } from './pt-BR/progress';
@@ -41,6 +44,9 @@ export const ptBR: Catalog = {
   backup,
   body,
   insights,
+  maxes,
+  strength,
+  programs,
   workout,
   history,
   progress,

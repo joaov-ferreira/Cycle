@@ -3,6 +3,8 @@ import {
   canCompleteWorkout,
   finalizeExercises,
   hasSetErrors,
+  prescribedSetAt,
+  repsToConfirm,
   validateSetOrder,
   toExerciseSession,
   validateNote,
@@ -13,6 +15,7 @@ import {
   type Workout,
   type WorkoutExercise,
 } from './workout';
+import type { Prescription } from './prescription';
 
 describe('ExerciseSession type (SPEC §9)', () => {
   it('describes one past session of one exercise', () => {
@@ -181,12 +184,17 @@ describe('validateSet (SPEC §7.3)', () => {
     expect(validateSet(working({ reps: 12.5 }), 'barbell')).toEqual({ reps: 'notInteger' });
   });
 
-  it('requires RIR to be an integer from 0 to 10', () => {
+  it('requires RIR from 0 to 10 in steps of 0.5 (SPEC-v4 §3.3)', () => {
     expect(validateSet(working({ rir: 0 }), 'barbell')).toEqual({});
     expect(validateSet(working({ rir: 10 }), 'barbell')).toEqual({});
+    expect(validateSet(working({ rir: 1.5 }), 'barbell')).toEqual({});
+    expect(validateSet(working({ rir: 2.5 }), 'barbell')).toEqual({});
     expect(validateSet(working({ rir: 11 }), 'barbell')).toEqual({ rir: 'outOfRange' });
+    expect(validateSet(working({ rir: 10.5 }), 'barbell')).toEqual({ rir: 'outOfRange' });
     expect(validateSet(working({ rir: -1 }), 'barbell')).toEqual({ rir: 'outOfRange' });
-    expect(validateSet(working({ rir: 2.5 }), 'barbell')).toEqual({ rir: 'notInteger' });
+    expect(validateSet(working({ rir: -0.5 }), 'barbell')).toEqual({ rir: 'outOfRange' });
+    expect(validateSet(working({ rir: 2.3 }), 'barbell')).toEqual({ rir: 'notInteger' });
+    expect(validateSet(working({ rir: 0.25 }), 'barbell')).toEqual({ rir: 'notInteger' });
   });
 
   it('reports every invalid field at once', () => {
@@ -504,5 +512,57 @@ describe('toExerciseSession targetRir (SPEC-v3 §5)', () => {
     const legacy: WorkoutExercise = exerciseWith('bench', []);
     expect(exercise.supersetGroup).toBe('A');
     expect(legacy.supersetGroup).toBeUndefined();
+  });
+});
+
+describe('prescribedSetAt / repsToConfirm (SPEC-v4 §7)', () => {
+  const prescription: Prescription = {
+    basisExerciseId: 'bench',
+    basisKg: 100,
+    phase: 'load',
+    warnings: [],
+    source: { kind: 'scheme', schemeWeek: 1 },
+    sets: [
+      { reps: 5, amrap: false, unverified: false, percent: 75, addKg: 0, exactKg: 75, kg: 75 },
+      { reps: 3, amrap: false, unverified: false, percent: 85, addKg: 0, exactKg: 85, kg: 85 },
+      { reps: 1, amrap: true, unverified: false, percent: 95, addKg: 0, exactKg: 95, kg: 95 },
+    ],
+  };
+  const set = (kind: LoggedSet['kind']): LoggedSet => ({ kind, weightKg: null, reps: null, rir: null, done: false });
+  const exercise = (sets: LoggedSet[], withPrescription = true) => ({
+    sets,
+    prescription: withPrescription ? prescription : null,
+  });
+
+  it('pairs the i-th working set with the i-th prescribed set', () => {
+    const e = exercise([set('working'), set('working'), set('working')]);
+    expect(prescribedSetAt(e, 0)).toBe(prescription.sets[0]);
+    expect(prescribedSetAt(e, 2)).toBe(prescription.sets[2]);
+  });
+
+  it('skips warm-up and drop sets when counting, and returns null for them', () => {
+    const e = exercise([set('warmup'), set('working'), set('drop'), set('working')]);
+    expect(prescribedSetAt(e, 0)).toBeNull();
+    expect(prescribedSetAt(e, 1)).toBe(prescription.sets[0]);
+    expect(prescribedSetAt(e, 2)).toBeNull();
+    expect(prescribedSetAt(e, 3)).toBe(prescription.sets[1]);
+  });
+
+  it('returns null for extra sets, out-of-range indices and exercises without a prescription', () => {
+    const e = exercise([set('working'), set('working'), set('working'), set('working')]);
+    expect(prescribedSetAt(e, 3)).toBeNull();
+    expect(prescribedSetAt(e, 9)).toBeNull();
+    expect(prescribedSetAt(e, -1)).toBeNull();
+    expect(prescribedSetAt(exercise([set('working')], false), 0)).toBeNull();
+    expect(prescribedSetAt({ sets: [set('working')] }, 0)).toBeNull();
+  });
+
+  it('repsToConfirm gives the prescribed reps, null for AMRAP, extra sets and no prescription', () => {
+    const e = exercise([set('working'), set('working'), set('working'), set('working')]);
+    expect(repsToConfirm(e, 0)).toBe(5);
+    expect(repsToConfirm(e, 1)).toBe(3);
+    expect(repsToConfirm(e, 2)).toBeNull();
+    expect(repsToConfirm(e, 3)).toBeNull();
+    expect(repsToConfirm(exercise([set('working')], false), 0)).toBeNull();
   });
 });

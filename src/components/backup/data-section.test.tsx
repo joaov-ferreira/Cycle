@@ -113,7 +113,7 @@ describe('Settings → Data: CSV', () => {
     const file = saveFile.mock.calls[0][0];
     expect(file.mimeType).toBe('text/csv');
     expect(file.fileName).toMatch(/\.csv$/);
-    expect(file.text.split(/\r?\n/)[0]).toBe('date,workout,plan,phase,exercise_id,exercise,set,kind,weight_kg,reps,rir');
+    expect(file.text.split(/\r?\n/)[0]).toBe('date,workout,plan,phase,exercise_id,exercise,set,kind,weight_kg,reps,rir,prescribed_weight_kg,prescribed_reps,percent');
     expect(file.text).toContain('barbell-bench-press');
   });
 

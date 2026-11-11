@@ -3,13 +3,23 @@
  * route and every Back returns to where the user came from.
  */
 import * as Localization from 'expo-localization';
-import { fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
+import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
 import type { ReactNode } from 'react';
 
 import type { Repositories } from '@/data/repositories';
 import { appRoutes } from '@/test-utils/app-routes';
 import { createClock, DAY_MS } from '@/test-utils/clock';
-import { createTestStore, seedCompletedCycle, seedCompletedWorkout, seedPlan, v3PlanContent } from '@/test-utils/seed';
+import {
+  BENCH,
+  createTestStore,
+  seedCompletedCycle,
+  seedCompletedWorkout,
+  seedPlan,
+  seedReferenceMax,
+  seedStrengthProfile,
+  v1ExamplePlan,
+  v3PlanContent,
+} from '@/test-utils/seed';
 import type { AppStore } from '@/state/types';
 
 import { AppProviders } from '../app-providers';
@@ -435,5 +445,111 @@ describe('wide-screen sidebar highlights the section of every route', () => {
     await waitFor(() => expect(router.getPathname()).toBe('/workout'));
     expect(screen.getByTestId('sidebar-item-workout')).toBeSelected();
     expect(screen.getByTestId('sidebar-item-home')).not.toBeSelected();
+  });
+});
+
+describe('v4 links: programs, 1RMs and the periodization table', () => {
+  /** A strength profile with the v1 example plan active; `maxes: false` leaves the 1RMs out. */
+  async function openStrength(url: string, { maxes = true, width = 390 } = {}) {
+    setWindowWidth(width);
+    const { store, repos } = await createTestStore({ clock: createClock(new Date(2026, 2, 2, 9, 0)) });
+    if (maxes) await seedStrengthProfile(store);
+    await seedPlan(store, v1ExamplePlan());
+    return openWith(store, repos, url);
+  }
+
+  it('Home notice about missing 1RMs → the 1RMs, and Back', async () => {
+    const { router } = await openStrength('/', { maxes: false });
+    expect(await screen.findByTestId('missing-maxes-notice')).toBeOnTheScreen();
+    await press('Set 1RMs');
+    expect(await header('1RMs')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/maxes');
+    await pressBack();
+    expect(await screen.findByTestId('screen-home')).toBeOnTheScreen();
+  });
+
+  it('plan notice → the 1RM detail of the exercise, and Back', async () => {
+    const { router, store } = await openStrength('/plans/1', { maxes: false });
+    await press('Set the 1RM of Barbell Bench Press');
+    expect(await screen.findByTestId('screen-max-detail')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe(`/maxes/${BENCH}`);
+    await pressBack();
+    expect(router.getPathname()).toBe(`/plans/${store.getState().plans[0].id}`);
+  });
+
+  it('plan → periodization table, and Back', async () => {
+    const { router } = await openStrength('/plans/1');
+    await press('Periodization table');
+    expect(await screen.findByTestId('screen-periodization')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/plans/1/periodization');
+    await pressBack();
+    expect(await screen.findByTestId('screen-plan-detail')).toBeOnTheScreen();
+  });
+
+  it('Plan tab → periodization table (the active plan)', async () => {
+    const { router } = await openStrength('/plan');
+    await press('Periodization table');
+    expect(await screen.findByTestId('screen-periodization')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/plans/1/periodization');
+  });
+
+  it('New plan → strength programs → a program → its wizard → the periodization table of the new plan', async () => {
+    const { router, store } = await open({ url: '/plans/new', seed: false });
+    await press(/^Start a strength program/);
+    expect(await header('Strength programs')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/programs');
+
+    await press('Open Smolov Jr.');
+    expect(await header('Smolov Jr.')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/programs/smolov-jr');
+
+    await press('Start this program');
+    expect(await header('Start Smolov Jr.')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/programs/smolov-jr/start');
+    // Back returns to the program, and again to the list.
+    await pressBack();
+    expect(router.getPathname()).toBe('/programs/smolov-jr');
+    await press('Start this program');
+
+    await press(/^Lift:/);
+    await fireEvent.changeText(await screen.findByLabelText('Search exercises'), 'Barbell Back Squat');
+    await press('Barbell Back Squat');
+    await press('Create plan');
+    await waitFor(() => expect(router.getPathname()).toMatch(/^\/plans\/\d+\/periodization$/));
+    expect(await screen.findByTestId('screen-periodization')).toBeOnTheScreen();
+    expect(store.getState().plans).toHaveLength(1);
+  });
+
+  it('Progress → Strength card → the 1RM detail, and Back', async () => {
+    const { router, store } = await openStrength('/progress');
+    await act(async () => {
+      await seedReferenceMax(store, BENCH, 105);
+    });
+    await press('Strength');
+    await press('Open 1RM details for Barbell Bench Press');
+    expect(await screen.findByTestId('screen-max-detail')).toBeOnTheScreen();
+    expect(router.getPathname()).toBe(`/maxes/${BENCH}`);
+    await pressBack();
+    expect(await screen.findByTestId('screen-progress')).toBeOnTheScreen();
+  });
+
+  it('Settings → Strength → 1RMs → the calculator, with Back at each step', async () => {
+    const { router } = await openStrength('/settings');
+    await press('Open 1RMs');
+    expect(await header('1RMs')).toBeOnTheScreen();
+    await press('1RM calculator');
+    expect(router.getPathname()).toBe('/tools/one-rep-max');
+    await pressBack();
+    expect(router.getPathname()).toBe('/maxes');
+    await pressBack();
+    expect(router.getPathname()).toBe('/settings');
+  });
+
+  it('the wide-screen sidebar highlights programs, 1RMs and the table with the plan', async () => {
+    await openStrength('/plans/1/periodization', { width: 1280 });
+    expect(screen.getByTestId('sidebar-item-plan')).toBeSelected();
+    await press('Programs');
+    expect(await header('Strength programs')).toBeOnTheScreen();
+    expect(screen.getByTestId('sidebar-item-programs')).toBeSelected();
   });
 });

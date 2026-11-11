@@ -34,6 +34,34 @@ export const settings = {
       plates: 'Choose at least one plate.',
     },
   },
+  strength: {
+    title: 'Strength',
+    focus: {
+      label: 'Training focus',
+      general: { label: 'General training', description: 'Muscle, health and fitness.' },
+      strength: { label: 'Strength', description: 'Powerlifting and percentage-based programs.' },
+    },
+    formula: {
+      label: '1RM estimate formula',
+      epley: { label: 'Epley', description: 'The default. Weight × (1 + reps ÷ 30), counting reps in reserve as reps.' },
+      brzycki: { label: 'Brzycki', description: 'Weight × 36 ÷ (37 − reps). More conservative than Epley up to about 10 reps.' },
+      rts: { label: 'RTS', description: 'Reactive Training Systems chart of reps and RPE; Epley outside the chart.' },
+    },
+    effort: {
+      label: 'Effort scale',
+      rir: 'RIR',
+      rpe: 'RPE',
+      hint: 'RIR counts the reps left in reserve; RPE rates the effort from 1 to 10. Both allow half points.',
+    },
+    rounding: {
+      label: 'Rounding of calculated loads',
+      nearest: { label: 'Nearest', description: 'Rounds to the closest increment; a tie goes down.' },
+      down: { label: 'Always down', description: 'Never above the calculated load.' },
+      up: { label: 'Always up', description: 'Never below the calculated load.' },
+    },
+    openMaxes: 'Open 1RMs',
+    error: 'Could not save the setting. Try again.',
+  },
   notification: {
     title: 'Rest over',
     body: 'Next: {{exercise}} — set {{set}}',

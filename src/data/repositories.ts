@@ -6,6 +6,11 @@ import type { BodyMetric, BodyMetricInput, BodyMetricKind } from '@/domain/body'
 import type { ExerciseSession, Workout, WorkoutExercise } from '@/domain/workout';
 import type { LanguageSetting } from '@/i18n/locale';
 import { DEFAULT_EXPERIENCE } from '@/domain/cycle';
+import { DEFAULT_E1RM_FORMULA, type E1rmFormula } from '@/domain/e1rm';
+import { DEFAULT_EFFORT_SCALE, type EffortScale } from '@/domain/effort';
+import { DEFAULT_TRAINING_FOCUS, type TrainingFocus } from '@/domain/focus';
+import type { ReferenceMax } from '@/domain/reference-max';
+import { DEFAULT_ROUNDING_MODE, type RoundingMode } from '@/domain/rounding';
 import { DEFAULT_BAR_KG, DEFAULT_PLATES_KG } from '@/domain/plates';
 import { DEFAULT_REST_SECONDS } from '@/domain/rest-timer';
 
@@ -41,6 +46,14 @@ export type Settings = {
   platesKg: number[];
   /** ISO 8601 timestamp of the last backup export, or null when none was made. */
   lastBackupAt: string | null;
+  /** Training focus (SPEC-v4 §1, §10.6). */
+  focus: TrainingFocus;
+  /** Formula of the e1RM estimates shown to the user (SPEC-v4 §3). */
+  e1rmFormula: E1rmFormula;
+  /** Scale of the effort input in the logger; RIR is always what is stored (SPEC-v4 §3.3). */
+  effortScale: EffortScale;
+  /** How calculated loads are rounded to the exercise's increment (SPEC-v4 §6.2). */
+  roundingMode: RoundingMode;
 };
 
 export type SettingsPatch = Partial<Omit<Settings, 'profileId'>>;
@@ -56,6 +69,10 @@ export const DEFAULT_SETTINGS: Omit<Settings, 'profileId'> = {
   barKg: DEFAULT_BAR_KG,
   platesKg: [...DEFAULT_PLATES_KG],
   lastBackupAt: null,
+  focus: DEFAULT_TRAINING_FOCUS,
+  e1rmFormula: DEFAULT_E1RM_FORMULA,
+  effortScale: DEFAULT_EFFORT_SCALE,
+  roundingMode: DEFAULT_ROUNDING_MODE,
 };
 
 export interface ProfileRepository {
@@ -78,7 +95,8 @@ export interface SettingsRepository {
   /**
    * Throws `RangeError` (changing nothing) for an unknown experience, a rest outside
    * `REST_DEFAULT_LIMITS` or off its step, a bar weight outside `BAR_LIMITS` or off its step, or
-   * plates that are empty, duplicated or not standard. Plates are stored heaviest first.
+   * plates that are empty, duplicated or not standard, or an unknown focus, e1RM formula, effort scale
+   * or rounding mode. Plates are stored heaviest first.
    */
   update(profileId: number, patch: SettingsPatch): Promise<Settings>;
 }
@@ -94,7 +112,10 @@ export interface ExerciseRepository {
   /** Throws `CustomExerciseNotFoundError` for an unknown id. */
   updateCustom(profileId: number, id: string, input: CustomExerciseInput): Promise<Exercise>;
   setArchived(profileId: number, id: string, archived: boolean): Promise<Exercise>;
-  /** Throws `ExerciseInUseError` when a plan (archived or not) or a workout references it. */
+  /**
+   * Throws `ExerciseInUseError` when a plan (archived or not) or a workout references it (also as a
+   * percent basis or a program role mapping). Deleting it deletes its reference maxes.
+   */
   deleteCustom(profileId: number, id: string): Promise<void>;
   /** True when any plan (archived or not) or workout of the profile references the exercise. */
   isReferenced(profileId: number, id: string): Promise<boolean>;
@@ -179,6 +200,23 @@ export interface BodyMetricRepository {
   delete(profileId: number, id: number): Promise<void>;
 }
 
+/** What `ReferenceMaxRepository.add` takes: the record without the fields the repository owns. */
+export type ReferenceMaxInput = Pick<ReferenceMax, 'exerciseId' | 'kg' | 'effectiveAt' | 'origin'>;
+
+/** Reference 1RM records (SPEC-v4 §2): append-only history per exercise; a change adds a record. */
+export interface ReferenceMaxRepository {
+  /** All records of the profile, oldest first by effective time, then by id. */
+  list(profileId: number): Promise<ReferenceMax[]>;
+  /**
+   * Throws `RangeError` (adding nothing) for a `kg` that `validateMaxKg` rejects, an empty exercise
+   * id, an effective time that is not a date-time or an unknown origin, and `ProfileNotFoundError`
+   * for an unknown profile. The exercise id is not checked against the library.
+   */
+  add(profileId: number, input: ReferenceMaxInput): Promise<ReferenceMax>;
+  /** Throws `ReferenceMaxNotFoundError` for an unknown id (or one of another profile). */
+  delete(profileId: number, id: number): Promise<void>;
+}
+
 /** Whole-profile export and restore (SPEC-v3 §8). */
 export interface BackupRepository {
   /** Everything of the profile, in the shapes of `src/domain/backup.ts`. */
@@ -197,6 +235,7 @@ export type Repositories = {
   plans: PlanRepository;
   workouts: WorkoutRepository;
   bodyMetrics: BodyMetricRepository;
+  referenceMaxes: ReferenceMaxRepository;
   backup: BackupRepository;
 };
 
@@ -239,6 +278,14 @@ export class BodyMetricNotFoundError extends Error {
   constructor(readonly metricId: number) {
     super(`Body metric ${metricId} not found`);
     this.name = 'BodyMetricNotFoundError';
+  }
+}
+
+export class ReferenceMaxNotFoundError extends Error {
+  readonly code = 'REFERENCE_MAX_NOT_FOUND';
+  constructor(readonly referenceMaxId: number) {
+    super(`Reference max ${referenceMaxId} not found`);
+    this.name = 'ReferenceMaxNotFoundError';
   }
 }
 

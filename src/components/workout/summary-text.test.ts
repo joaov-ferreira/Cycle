@@ -5,7 +5,7 @@ import { catalogs, type AppLocale } from '@/i18n';
 import { formatDate, formatKg, formatNumber } from '@/i18n/format';
 import { translate } from '@/i18n/translate';
 
-import { summaryText } from './summary-text';
+import { signedChange, summaryText } from './summary-text';
 
 const set = (
   kind: LoggedSet['kind'],
@@ -118,5 +118,16 @@ describe('summaryText', () => {
 
   it('omits the records block without records', () => {
     expect(build('en', []).split('\n').at(-1)).toBe('Total volume: 1,715 kg');
+  });
+});
+
+describe('signedChange', () => {
+  const t = ((key: Parameters<typeof translate<typeof catalogs.en>>[2], params?: Record<string, string | number>) =>
+    translate(catalogs.en, 'en', key, params)) as Parameters<typeof signedChange>[0];
+
+  it('signs a positive, zero and negative change', () => {
+    expect(signedChange(t, 2.5, '2.5 kg')).toBe('+2.5 kg');
+    expect(signedChange(t, 0, '0 kg')).toBe('+0 kg');
+    expect(signedChange(t, -105, '105 kg')).toBe('−105 kg');
   });
 });

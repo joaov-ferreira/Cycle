@@ -27,6 +27,10 @@ export type PlanDetailContentProps = {
   onReviewWithAi?: (planId: number) => void;
   /** Opens the report of one past or current cycle. */
   onOpenCycle?: (planId: number, cycleNumber: number) => void;
+  /** Opens the periodization table of the plan. */
+  onOpenPeriodization?: (planId: number) => void;
+  /** Opens the 1RM screen of an exercise. */
+  onOpenMax?: (exerciseId: string) => void;
 };
 
 /** Header, actions, cycle card and workouts of one plan (the body of the detail screen and Plan tab). */
@@ -38,6 +42,8 @@ export function PlanDetailContent({
   onOpenPlan,
   onReviewWithAi,
   onOpenCycle,
+  onOpenPeriodization,
+  onOpenMax,
 }: PlanDetailContentProps) {
   const { t } = useI18n();
   const isActive = useAppStore((s) => selectActivePlan(s)?.id === plan.id);
@@ -90,7 +96,7 @@ export function PlanDetailContent({
 
       <CycleCard plan={plan} />
       {onOpenCycle ? <CycleHistory plan={plan} onOpenCycle={onOpenCycle} /> : null}
-      <PlanWorkouts plan={plan} />
+      <PlanWorkouts plan={plan} onOpenPeriodization={onOpenPeriodization} onOpenMax={onOpenMax} />
 
       <ConfirmDialog
         visible={confirmingDelete}

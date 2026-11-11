@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { layout, spacing } from '@/constants/theme';
+import { schemeSummary } from '@/domain/percent-scheme';
 import { PLAN_LIMITS, type PlanExercise } from '@/domain/plan';
 import { useI18n } from '@/i18n';
 
@@ -9,10 +10,13 @@ import { Stepper } from '../../shared';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { NumberInput } from '../../ui/NumberInput';
+import { SegmentedControl } from '../../ui/SegmentedControl';
 import { Text } from '../../ui/Text';
 import { TextField } from '../../ui/TextField';
 import { coupleRepMax, coupleRepMin } from './draft-ops';
 import { IconButton } from './icon-button';
+import { PercentEditor } from './percent-editor';
+import { toAutomatic, toPercent } from './percent-ops';
 import { OptionalStepper } from './optional-stepper';
 
 const LOAD_RULES = {
@@ -35,7 +39,7 @@ export type ExerciseRowProps = {
   onChange: (next: PlanExercise) => void;
   onMove: (delta: -1 | 1) => void;
   onRemove: () => void;
-  /** Reports whether the start-load field currently holds text that is not a valid number. */
+  /** Reports whether a number field of the row (start load, scheme percent, ...) holds invalid text. */
   onLoadInvalid: (invalid: boolean) => void;
   /** Starts with the targets open (an exercise that was just added). */
   startExpanded?: boolean;
@@ -80,6 +84,19 @@ export function ExerciseRow({
   onUnlink,
 }: ExerciseRowProps) {
   const { t, formatNumber } = useI18n();
+  // Several number fields can hold invalid text at once: the row reports "invalid" while any does.
+  const invalidKeys = useRef(new Set<string>());
+  const onLoadInvalidRef = useRef(onLoadInvalid);
+  useEffect(() => {
+    onLoadInvalidRef.current = onLoadInvalid;
+  });
+  const reportInvalid = useCallback((key: string, invalid: boolean) => {
+    const keys = invalidKeys.current;
+    if (keys.has(key) === invalid) return;
+    if (invalid) keys.add(key);
+    else keys.delete(key);
+    onLoadInvalidRef.current(keys.size > 0);
+  }, []);
   const hasIssue = Object.keys(errors).some((key) => key === path || key.startsWith(`${path}.`));
   const [expanded, setExpandedState] = useState(startExpanded || hasIssue);
   const setExpanded = (next: boolean) => {
@@ -96,12 +113,22 @@ export function ExerciseRow({
     if (hasIssue) setExpandedState(true);
   }
   const repsError = error('repMin') ?? error('repMax');
+  const { percent } = exercise;
+  const scheme = percent ? schemeSummary(percent) : null;
+  const repSummary = () => {
+    const min = scheme?.repMin ?? exercise.repMin;
+    const max = scheme?.repMax ?? exercise.repMax;
+    const sets = formatNumber(scheme?.sets ?? exercise.sets);
+    return min === max && percent
+      ? t('plan.target', { sets, reps: formatNumber(min) })
+      : t('planEditor.summary', { sets, min: formatNumber(min), max: formatNumber(max) });
+  };
   const summary = [
-    t('planEditor.summary', {
-      sets: formatNumber(exercise.sets),
-      min: formatNumber(exercise.repMin),
-      max: formatNumber(exercise.repMax),
-    }),
+    percent && !scheme
+      ? t('planEditor.percent.noSets')
+      : repSummary(),
+    percent ? t('planEditor.percent.rowTag') : null,
+    percent ? t('planEditor.percent.weeksCount', { count: percent.weeks.length }) : null,
     exercise.targetRir === undefined ? null : t('planEditor.rirSummary', { rir: formatNumber(exercise.targetRir) }),
     exercise.restSeconds === undefined ? null : t('planEditor.restValue', { value: formatNumber(exercise.restSeconds) }),
   ]
@@ -175,49 +202,75 @@ export function ExerciseRow({
 
       {expanded ? (
         <>
-          <View style={styles.targets}>
-            <View style={styles.target}>
-              <Text variant="label">{t('common.sets')}</Text>
-              <Stepper
-                label={label.sets}
-                value={exercise.sets}
-                min={PLAN_LIMITS.sets.min}
-                max={PLAN_LIMITS.sets.max}
-                onChange={(sets) => onChange({ ...exercise, sets })}
-              />
-            </View>
-            <View style={styles.target}>
-              <Text variant="label">{t('planEditor.repMinLabel')}</Text>
-              <Stepper
-                label={label.repMin}
-                value={exercise.repMin}
-                min={PLAN_LIMITS.reps.min}
-                max={PLAN_LIMITS.reps.max}
-                onChange={(repMin) => onChange(coupleRepMin(exercise, repMin))}
-              />
-            </View>
-            <View style={styles.target}>
-              <Text variant="label">{t('planEditor.repMaxLabel')}</Text>
-              <Stepper
-                label={label.repMax}
-                value={exercise.repMax}
-                min={PLAN_LIMITS.reps.min}
-                max={PLAN_LIMITS.reps.max}
-                onChange={(repMax) => onChange(coupleRepMax(exercise, repMax))}
-              />
-            </View>
+          <View style={styles.progression}>
+            <Text variant="label">{t('planEditor.progression.label')}</Text>
+            <SegmentedControl
+              label={t('planEditor.progression.of', { exercise: name })}
+              value={percent ? 'percent' : 'auto'}
+              options={[
+                { value: 'auto', label: t('planEditor.progression.auto') },
+                { value: 'percent', label: t('planEditor.progression.percent') },
+              ]}
+              onChange={(mode) => onChange(mode === 'percent' ? toPercent(exercise) : toAutomatic(exercise))}
+            />
           </View>
-          {error('sets') ? (
-            <Text variant="caption" tone="danger">
-              {error('sets')}
-            </Text>
-          ) : null}
-          {repsError ? (
-            <Text variant="caption" tone="danger">
-              {repsError}
-            </Text>
-          ) : null}
+          {percent ? (
+            <PercentEditor
+              exercise={{ ...exercise, percent }}
+              name={name}
+              path={path}
+              errors={errors}
+              onChange={onChange}
+              onInvalid={reportInvalid}
+            />
+          ) : (
+            <>
+              <View style={styles.targets}>
+                <View style={styles.target}>
+                  <Text variant="label">{t('common.sets')}</Text>
+                  <Stepper
+                    label={label.sets}
+                    value={exercise.sets}
+                    min={PLAN_LIMITS.sets.min}
+                    max={PLAN_LIMITS.sets.max}
+                    onChange={(sets) => onChange({ ...exercise, sets })}
+                  />
+                </View>
+                <View style={styles.target}>
+                  <Text variant="label">{t('planEditor.repMinLabel')}</Text>
+                  <Stepper
+                    label={label.repMin}
+                    value={exercise.repMin}
+                    min={PLAN_LIMITS.reps.min}
+                    max={PLAN_LIMITS.reps.max}
+                    onChange={(repMin) => onChange(coupleRepMin(exercise, repMin))}
+                  />
+                </View>
+                <View style={styles.target}>
+                  <Text variant="label">{t('planEditor.repMaxLabel')}</Text>
+                  <Stepper
+                    label={label.repMax}
+                    value={exercise.repMax}
+                    min={PLAN_LIMITS.reps.min}
+                    max={PLAN_LIMITS.reps.max}
+                    onChange={(repMax) => onChange(coupleRepMax(exercise, repMax))}
+                  />
+                </View>
+              </View>
+              {error('sets') ? (
+                <Text variant="caption" tone="danger">
+                  {error('sets')}
+                </Text>
+              ) : null}
+              {repsError ? (
+                <Text variant="caption" tone="danger">
+                  {repsError}
+                </Text>
+              ) : null}
+            </>
+          )}
           <View style={styles.options}>
+            {percent ? null : (
               <OptionalStepper
                 caption={t('planEditor.rirLabel')}
                 label={label.rir}
@@ -230,36 +283,39 @@ export function ExerciseRow({
                 }
                 error={error('targetRir')}
               />
-              <OptionalStepper
-                caption={t('planEditor.restLabel')}
-                label={label.rest}
-                value={exercise.restSeconds}
-                min={REST_STEP}
-                max={PLAN_LIMITS.restSeconds.max}
-                step={REST_STEP}
-                initial={90}
-                format={(seconds) => t('planEditor.restValue', { value: formatNumber(seconds) })}
-                onChange={(restSeconds) =>
-                  onChange(restSeconds === undefined ? without(exercise, 'restSeconds') : { ...exercise, restSeconds })
-                }
-                error={error('restSeconds')}
-              />
+            )}
+            <OptionalStepper
+              caption={t('planEditor.restLabel')}
+              label={label.rest}
+              value={exercise.restSeconds}
+              min={REST_STEP}
+              max={PLAN_LIMITS.restSeconds.max}
+              step={REST_STEP}
+              initial={90}
+              format={(seconds) => t('planEditor.restValue', { value: formatNumber(seconds) })}
+              onChange={(restSeconds) =>
+                onChange(restSeconds === undefined ? without(exercise, 'restSeconds') : { ...exercise, restSeconds })
+              }
+              error={error('restSeconds')}
+            />
+            {percent ? null : (
               <LoadField
                 label={label.load}
                 value={exercise.startLoadKg}
-                onInvalid={onLoadInvalid}
+                onInvalid={(invalid) => reportInvalid('load', invalid)}
                 onChange={(startLoadKg) =>
                   onChange(startLoadKg === undefined ? without(exercise, 'startLoadKg') : { ...exercise, startLoadKg })
                 }
                 error={error('startLoadKg')}
               />
-              <TextField
-                label={label.note}
-                value={exercise.note ?? ''}
-                onChangeText={(text) => onChange(text === '' ? without(exercise, 'note') : { ...exercise, note: text })}
-                error={error('note')}
-              />
-            </View>
+            )}
+            <TextField
+              label={label.note}
+              value={exercise.note ?? ''}
+              onChangeText={(text) => onChange(text === '' ? without(exercise, 'note') : { ...exercise, note: text })}
+              error={error('note')}
+            />
+          </View>
         </>
       ) : null}
     </Card>
@@ -306,6 +362,7 @@ function LoadField({ label, value, onChange, onInvalid, error }: LoadFieldProps)
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  progression: { gap: spacing.xs },
   title: { flex: 1, gap: spacing.xs, minHeight: layout.minTouchTarget, justifyContent: 'center' },
   linkRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   targets: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },

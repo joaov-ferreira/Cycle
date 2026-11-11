@@ -30,7 +30,10 @@ Responda com UM documento JSON dentro de um único bloco de código ```json, sem
     { "name": "nome do treino, até 40 caracteres",
       "exercises": [
         { "exercise": "barbell-bench-press", "sets": 4, "reps": "8-12", "rir": 2, "rest": 120,
-          "startLoad": 60, "note": "opcional, até 200 caracteres" }
+          "startLoad": 60, "note": "opcional, até 200 caracteres" },
+        { "exercise": "barbell-back-squat", "rest": 240,
+          "percent": { "weeks": [ [ { "sets": 3, "reps": 5, "percent": 75 } ],
+                                  [ { "sets": 3, "reps": 3, "percent": 85 }, { "sets": 1, "reps": 1, "percent": 90, "amrap": true } ] ] } }
       ] }
   ]
 }
@@ -47,6 +50,9 @@ REGRAS
 9. Todas as cargas em quilogramas. Escreva nomes e observações em português.
 10. Bi-sets: para que 2 a 4 exercícios seguidos sejam feitos sem descanso entre eles, dê a cada um o mesmo rótulo "superset", por exemplo "superset": "A". Caso contrário, omita.
 11. Rampa de esforço (opcional): acrescente "rirRamp": { "start": 3, "end": 0 } dentro de "cycle" para que a meta de RIR caia semana a semana durante as semanas de carga. Use somente se eu pedir ou se combinar com a minha experiência.
+
+12. Programas de força, powerlifting ou em porcentagem: quando eu pedir um, dê aos exercícios principais um esquema "percent" no lugar de "sets" e "reps" (omita "rir" e "startLoad" nesses exercícios). "weeks" lista as semanas em ordem, uma lista por semana; um esquema mais curto que o ciclo se repete. Cada semana é uma lista de grupos: "sets" é o número de séries idênticas, "reps" as repetições por série, "percent" a porcentagem do meu 1RM (1–120, de 0,5 em 0,5, escrita com ponto, como 77.5). Opcionais: "amrap": true para uma série com o máximo de repetições (reps é então o mínimo), "addKg" (−100 a 100) para somar ou subtrair quilos fixos, uma semana vazia [] para não fazer o exercício naquela semana. Opcionais em "percent": "of", o exercício cujo 1RM as porcentagens usam (padrão: o próprio exercício), e "startWeek", a semana do esquema na primeira semana de treino. Limites: 1–16 semanas, até 20 grupos e 40 séries por semana. Mantenha os acessórios em faixas de repetições, com "reps": "8-12".
+13. "referenceMaxes" (opcional, até 50) é uma lista de objetos com "exercise" (um id da lista) e "kg" (por exemplo 140) com os meus 1RMs atuais. Inclua somente com valores que eu informei; nunca invente um 1RM.
 
 LISTA DE EXERCÍCIOS (id — nome — músculo principal — equipamento)
 barbell-bench-press — Supino reto com barra — chest — barbell
@@ -154,6 +160,10 @@ conventional-deadlift — Levantamento terra — lowerBack — barbell
 back-extension — Hiperextensão lombar — lowerBack — machine
 good-morning — Bom dia — lowerBack — barbell
 trap-bar-deadlift — Levantamento terra com barra hexagonal — lowerBack — barbell
+seated-good-morning — Bom dia sentado — lowerBack — barbell
+deadlift-to-knees — Levantamento terra até os joelhos — lowerBack — barbell
+deadlift-from-boxes — Levantamento terra em blocos — lowerBack — barbell
+deficit-deadlift — Levantamento terra em déficit — lowerBack — barbell
 reverse-hyperextension — Hiperextensão reversa — lowerBack — machine
 barbell-hip-thrust — Elevação pélvica com barra — glutes — barbell
 dumbbell-hip-thrust — Elevação pélvica com halter — glutes — dumbbell

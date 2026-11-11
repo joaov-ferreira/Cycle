@@ -12,7 +12,13 @@ export type SettingsActions = Pick<
   | 'setPlatesKg'
   | 'setExerciseSettingsNote'
   | 'setExerciseBar'
+  | 'setFocus'
+  | 'setE1rmFormula'
+  | 'setEffortScale'
+  | 'setRoundingMode'
 >;
+
+type OptimisticField = 'focus' | 'e1rmFormula' | 'effortScale' | 'roundingMode';
 
 /** Exercise id → increment override, derived from the exercise settings. */
 export function incrementOverridesOf(settings: Record<string, ExerciseSettingsEntry>): Record<string, number> {
@@ -32,7 +38,7 @@ export async function reloadExerciseSettings({ repos, get, set }: StoreContext, 
 }
 
 export function createSettingsActions(ctx: StoreContext): SettingsActions {
-  const { repos, requireReady, updateSettings, rest } = ctx;
+  const { repos, get, set, requireReady, updateSettings, rest } = ctx;
 
   async function checked(field: 'defaultRestSeconds' | 'barKg' | 'platesKg', patch: SettingsPatch) {
     try {
@@ -43,7 +49,27 @@ export function createSettingsActions(ctx: StoreContext): SettingsActions {
     }
   }
 
+  /** Shows the value at once; on failure puts the previous value back (SPEC-v4 §10.6). */
+  async function optimistic<F extends OptimisticField>(field: F, value: NonNullable<AppState['settings']>[F]) {
+    const profile = requireReady();
+    const previous = get().settings;
+    if (previous) set({ settings: { ...previous, [field]: value } });
+    try {
+      const settings = await repos.settings.update(profile.id, { [field]: value });
+      set({ settings });
+    } catch (error) {
+      const current = get().settings;
+      if (previous && current) set({ settings: { ...current, [field]: previous[field] } });
+      if (error instanceof RangeError) throw new SettingsValidationError(field);
+      throw error;
+    }
+  }
+
   return {
+    setFocus: (focus) => optimistic('focus', focus),
+    setE1rmFormula: (formula) => optimistic('e1rmFormula', formula),
+    setEffortScale: (scale) => optimistic('effortScale', scale),
+    setRoundingMode: (mode) => optimistic('roundingMode', mode),
     setDefaultRestSeconds: (seconds) => checked('defaultRestSeconds', { defaultRestSeconds: seconds }),
     async setRestNotifications(on) {
       if (!on) rest.cancelNotification();

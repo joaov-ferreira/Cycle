@@ -14,4 +14,7 @@ export { ExerciseSelectModal, type ExerciseSelectModalProps } from './exercise-s
 export { FilterChips, type FilterChipsProps, type FilterOption } from './filter-chips';
 export { SetRow, type SetRowChange, type SetRowProps } from './set-row';
 export { SetRowHeader } from './set-row-header';
+export { Tag, type TagProps } from './tag';
 export { Stepper, type StepperProps } from './stepper';
+export { displayEffort, storedRir } from './effort';
+export { e1rmText, prescribedSetText } from './prescription-text';

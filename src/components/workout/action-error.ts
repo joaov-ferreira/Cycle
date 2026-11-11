@@ -2,6 +2,7 @@
  * Maps what a rejected store action throws to a localized message. Store errors carry codes
  * (`src/state/errors.ts`); anything unexpected becomes the generic message.
  */
+import { REFERENCE_MAX_LIMITS } from '@/domain/reference-max';
 import { WORKOUT_LIMITS } from '@/domain/workout';
 import type { TFunction } from '@/i18n';
 
@@ -18,6 +19,12 @@ export function actionErrorMessage(
       return t('workout.errors.noteTooLong', { max: noteMax });
     case 'WORKOUT_SET_ORDER':
       return t('workout.errors.dropOrder');
+    case 'REFERENCE_MAX_INVALID': {
+      const reason = (error as { reason?: unknown }).reason;
+      if (reason === 'required') return t('workout.rxMaxErrors.required');
+      if (reason === 'tooManyDecimals') return t('workout.rxMaxErrors.tooManyDecimals', { max: 2 });
+      return t('workout.rxMaxErrors.outOfRange', { max: REFERENCE_MAX_LIMITS.max });
+    }
     case 'NOTHING_LOGGED':
       return t('workout.errors.nothingLogged');
     case 'WORKOUT_IN_PROGRESS':

@@ -266,11 +266,11 @@ describe('logbook CSV (SPEC-v3 §8.2)', () => {
     expect(csv.fileName).toBe('cycle-logbook-20260303.csv');
     expect(csv.text).toBe(
       [
-        'date,workout,plan,phase,exercise_id,exercise,set,kind,weight_kg,reps,rir',
-        '2026-03-02T10:00:00.000Z,A,Sample plan,load,barbell-bench-press,Barbell Bench Press,1,working,40,12,2',
-        '2026-03-02T10:00:00.000Z,A,Sample plan,load,barbell-bench-press,Barbell Bench Press,2,working,40,10,2',
-        '2026-03-03T10:00:00.000Z,"Free, day",,load,lat-pulldown,Lat Pulldown,1,working,50,8,',
-        '2026-03-03T10:00:00.000Z,"Free, day",,load,lat-pulldown,Lat Pulldown,2,drop,40,6,',
+        'date,workout,plan,phase,exercise_id,exercise,set,kind,weight_kg,reps,rir,prescribed_weight_kg,prescribed_reps,percent',
+        '2026-03-02T10:00:00.000Z,A,Sample plan,load,barbell-bench-press,Barbell Bench Press,1,working,40,12,2,,,',
+        '2026-03-02T10:00:00.000Z,A,Sample plan,load,barbell-bench-press,Barbell Bench Press,2,working,40,10,2,,,',
+        '2026-03-03T10:00:00.000Z,"Free, day",,load,lat-pulldown,Lat Pulldown,1,working,50,8,,,,',
+        '2026-03-03T10:00:00.000Z,"Free, day",,load,lat-pulldown,Lat Pulldown,2,drop,40,6,,,,',
         '',
       ].join('\r\n'),
     );
@@ -279,7 +279,7 @@ describe('logbook CSV (SPEC-v3 §8.2)', () => {
   it('is just the header without workouts', async () => {
     const { store } = await createTestStore();
     expect(store.getState().buildLogbookCsv().text).toBe(
-      'date,workout,plan,phase,exercise_id,exercise,set,kind,weight_kg,reps,rir\r\n',
+      'date,workout,plan,phase,exercise_id,exercise,set,kind,weight_kg,reps,rir,prescribed_weight_kg,prescribed_reps,percent\r\n',
     );
   });
 });

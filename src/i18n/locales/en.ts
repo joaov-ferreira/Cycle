@@ -20,6 +20,9 @@ import { aiReview } from './en/aiReview';
 import { backup } from './en/backup';
 import { body } from './en/body';
 import { insights } from './en/insights';
+import { maxes } from './en/maxes';
+import { strength } from './en/strength';
+import { programs } from './en/programs';
 import { workout } from './en/workout';
 import { history } from './en/history';
 import { progress } from './en/progress';
@@ -46,6 +49,9 @@ export const en = {
   backup,
   body,
   insights,
+  maxes,
+  strength,
+  programs,
   workout,
   history,
   progress,

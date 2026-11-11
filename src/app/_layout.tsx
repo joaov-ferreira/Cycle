@@ -44,11 +44,18 @@ export default function RootLayout() {
             <Stack.Screen name="plans/[id]/index" />
             <Stack.Screen name="plans/[id]/edit" />
             <Stack.Screen name="plans/[id]/export" />
+            <Stack.Screen name="plans/[id]/periodization" />
             <Stack.Screen name="exercises/index" />
             <Stack.Screen name="exercises/new" />
             <Stack.Screen name="exercises/[id]" />
             <Stack.Screen name="history/index" />
             <Stack.Screen name="history/[id]" />
+            <Stack.Screen name="programs/index" />
+            <Stack.Screen name="programs/[id]/index" />
+            <Stack.Screen name="programs/[id]/start" />
+            <Stack.Screen name="maxes/index" />
+            <Stack.Screen name="maxes/[exerciseId]" />
+            <Stack.Screen name="tools/one-rep-max" />
           </Stack>
         </AppShell>
         <OnboardingNavigation next={pendingNext} onDone={() => setPendingNext(null)} />

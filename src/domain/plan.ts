@@ -5,6 +5,9 @@
 import type { CycleConfig, CycleState } from './cycle';
 import { allowsZeroLoad, type Exercise } from './exercise';
 
+import { validatePercentProgression, type PercentProgression } from './percent-scheme';
+import { validateParams, type ProgramLink, type ProgramTemplate } from './program';
+
 export { DEFAULT_CYCLE, type CycleConfig } from './cycle';
 
 /** An exercise inside a plan workout, with its target. */
@@ -31,6 +34,8 @@ export interface PlanExercise {
    * same label form a superset of 2–4 exercises.
    */
   supersetGroup?: string;
+  /** Percent-of-1RM scheme (SPEC-v4 §5.1); absent = automatic progression. */
+  percent?: PercentProgression;
 }
 
 /** One training day of a plan. */
@@ -38,8 +43,10 @@ export interface PlanWorkout {
   id: string;
   /** 1–40 characters. */
   name: string;
-  /** 1–30 exercises. */
+  /** 0–30 exercises (at least one exercise or one program block). */
   exercises: PlanExercise[];
+  /** Program blocks generated each week before `exercises` (SPEC-v4 §5.2); 0–4. */
+  programs?: ProgramLink[];
 }
 
 /** The user-editable content of a plan. */
@@ -72,6 +79,8 @@ export const PLAN_LIMITS = {
   description: { max: 500 },
   workouts: { min: 1, max: 14 },
   exercisesPerWorkout: { min: 1, max: 30 },
+  /** Program blocks per workout (SPEC-v4 §5.2). */
+  programsPerWorkout: { min: 0, max: 4 },
   sets: { min: 1, max: 20 },
   reps: { min: 1, max: 100 },
   targetRir: { min: 0, max: 5 },
@@ -107,7 +116,16 @@ export type PlanIssueCode =
   | 'zeroLoadNotAllowed'
   | 'supersetNotAdjacent'
   | 'supersetSize'
-  | 'invalidRirRamp';
+  | 'invalidRirRamp'
+  // SPEC-v4 §5.1, §5.2
+  | 'notAllowedWithPercent'
+  | 'emptyScheme'
+  | 'unknownProgram'
+  | 'unknownRole'
+  | 'noRoleMapped'
+  | 'unknownParam'
+  | 'paramOutOfRange'
+  | 'paramOffStep';
 
 /** `path` looks like `name`, `workouts[1].name`, `workouts[0].exercises[2].repMax`, `cycle.loadWeeks`. */
 export type PlanIssue = { path: string; code: PlanIssueCode };
@@ -126,13 +144,22 @@ function textIssue(value: string, max: number, trim: boolean, required: boolean)
   return text.length > max ? 'tooLong' : null;
 }
 
+export interface ValidatePlanOptions {
+  /**
+   * Program lookup (SPEC-v4 §5.2). Without it program blocks are validated structurally only
+   * (ids, integers, one mapped role, existing exercises) and `unknownProgram` is never reported.
+   */
+  findProgram?: (id: string) => ProgramTemplate | undefined;
+}
+
 /**
- * Validates plan content against every rule of SPEC §3.1 / `PLAN_LIMITS`. An empty list
- * means valid. `findExercise` returns the exercise (only its equipment is used).
+ * Validates plan content against every rule of SPEC §3.1 / `PLAN_LIMITS` and SPEC-v4 §5. An
+ * empty list means valid. `findExercise` returns the exercise (only its equipment is used).
  */
 export function validatePlanContent(
   content: PlanContent,
   findExercise: (id: string) => Pick<Exercise, 'equipment'> | undefined,
+  options: ValidatePlanOptions = {},
 ): PlanIssue[] {
   const issues: PlanIssue[] = [];
   const add = (path: string, code: PlanIssueCode | null) => {
@@ -186,8 +213,19 @@ export function validatePlanContent(
     else if (workoutIds.has(workout.id)) add(`${wPath}.id`, 'duplicateId');
     workoutIds.add(workout.id);
 
-    if (workout.exercises.length < PLAN_LIMITS.exercisesPerWorkout.min) add(`${wPath}.exercises`, 'tooFew');
+    const blocks = workout.programs ?? [];
+    if (workout.exercises.length + blocks.length < PLAN_LIMITS.exercisesPerWorkout.min) {
+      add(`${wPath}.exercises`, 'tooFew');
+    }
     if (workout.exercises.length > PLAN_LIMITS.exercisesPerWorkout.max) add(`${wPath}.exercises`, 'tooMany');
+    if (blocks.length > PLAN_LIMITS.programsPerWorkout.max) add(`${wPath}.programs`, 'tooMany');
+    blocks.forEach((block, bi) => {
+      const bPath = `${wPath}.programs[${bi}]`;
+      if (block.id === '') add(`${bPath}.id`, 'required');
+      else if (exerciseIds.has(block.id)) add(`${bPath}.id`, 'duplicateId');
+      exerciseIds.add(block.id);
+      validateProgramLink(block, bPath, findExercise, options.findProgram, add);
+    });
 
     workout.exercises.forEach((exercise, ei) => {
       const ePath = `${wPath}.exercises[${ei}]`;
@@ -199,17 +237,28 @@ export function validatePlanContent(
       if (!found) add(`${ePath}.exerciseId`, 'unknownExercise');
 
       const { reps } = PLAN_LIMITS;
-      integer(`${ePath}.sets`, exercise.sets, PLAN_LIMITS.sets.min, PLAN_LIMITS.sets.max);
-      const minOk = integer(`${ePath}.repMin`, exercise.repMin, reps.min, reps.max);
-      const maxOk = integer(`${ePath}.repMax`, exercise.repMax, reps.min, reps.max);
-      if (minOk && maxOk && exercise.repMax < exercise.repMin) add(`${ePath}.repMax`, 'invalidRepRange');
-      if (exercise.targetRir !== undefined) {
+      if (exercise.percent) {
+        // sets / repMin / repMax are only a summary of the scheme (SPEC-v4 §5.1): not validated.
+        for (const issue of validatePercentProgression(exercise.percent, {
+          exerciseExists: (id) => findExercise(id) !== undefined,
+        })) {
+          add(`${ePath}.percent.${issue.path}`, issue.code);
+        }
+        if (exercise.targetRir !== undefined) add(`${ePath}.targetRir`, 'notAllowedWithPercent');
+        if (exercise.startLoadKg !== undefined) add(`${ePath}.startLoadKg`, 'notAllowedWithPercent');
+      } else {
+        integer(`${ePath}.sets`, exercise.sets, PLAN_LIMITS.sets.min, PLAN_LIMITS.sets.max);
+        const minOk = integer(`${ePath}.repMin`, exercise.repMin, reps.min, reps.max);
+        const maxOk = integer(`${ePath}.repMax`, exercise.repMax, reps.min, reps.max);
+        if (minOk && maxOk && exercise.repMax < exercise.repMin) add(`${ePath}.repMax`, 'invalidRepRange');
+      }
+      if (exercise.targetRir !== undefined && !exercise.percent) {
         integer(`${ePath}.targetRir`, exercise.targetRir, PLAN_LIMITS.targetRir.min, PLAN_LIMITS.targetRir.max);
       }
       if (exercise.restSeconds !== undefined) {
         integer(`${ePath}.restSeconds`, exercise.restSeconds, PLAN_LIMITS.restSeconds.min, PLAN_LIMITS.restSeconds.max);
       }
-      if (exercise.startLoadKg !== undefined) {
+      if (exercise.startLoadKg !== undefined && !exercise.percent) {
         const load = exercise.startLoadKg;
         const loadPath = `${ePath}.startLoadKg`;
         const { min, max } = PLAN_LIMITS.startLoadKg;
@@ -228,6 +277,42 @@ export function validatePlanContent(
     validateSupersets(workout.exercises, wPath, add);
   });
   return issues;
+}
+
+/** One program block (SPEC-v4 §5.2). */
+function validateProgramLink(
+  link: ProgramLink,
+  path: string,
+  findExercise: (id: string) => Pick<Exercise, 'equipment'> | undefined,
+  findProgram: ((id: string) => ProgramTemplate | undefined) | undefined,
+  add: (path: string, code: PlanIssueCode | null) => void,
+): void {
+  const program = findProgram?.(link.programId);
+  if (findProgram && !program) add(`${path}.programId`, 'unknownProgram');
+  else if (link.programId === '') add(`${path}.programId`, 'required');
+
+  const bounded = (field: 'day' | 'startWeek', max: number | undefined) => {
+    const value = link[field];
+    if (!Number.isInteger(value)) add(`${path}.${field}`, 'notInteger');
+    else if (value < 1 || (max !== undefined && value > max)) add(`${path}.${field}`, 'outOfRange');
+  };
+  bounded('day', program?.daysPerWeek);
+  bounded('startWeek', program?.durationWeeks);
+
+  const mapped = Object.entries(link.roles ?? {});
+  if (mapped.length === 0) add(`${path}.roles`, 'noRoleMapped');
+  for (const [roleId, exerciseId] of mapped) {
+    if (program && !program.roles.some((role) => role.id === roleId)) {
+      add(`${path}.roles.${roleId}`, 'unknownRole');
+    }
+    if (!findExercise(exerciseId)) add(`${path}.roles.${roleId}`, 'unknownExercise');
+  }
+
+  if (program) {
+    for (const issue of validateParams(program, link.params)) {
+      add(`${path}.params.${issue.param}`, issue.code);
+    }
+  }
 }
 
 /** Superset rules of one workout (SPEC-v3 §4.1): label text, adjacency and group size. */

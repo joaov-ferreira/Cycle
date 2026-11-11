@@ -12,6 +12,7 @@ import { createSqliteBackupRepository } from './backup-repository';
 import { createSqliteBodyMetricRepository } from './body-repository';
 import { createSqliteExerciseRepository } from './exercise-repository';
 import { createSqlitePlanRepository } from './plan-repository';
+import { createSqliteReferenceMaxRepository } from './reference-max-repository';
 import { createSqliteWorkoutRepository } from './workout-repository';
 
 type ProfileRow = { id: number; name: string; created_at: string };
@@ -28,11 +29,15 @@ type SettingsRow = {
   bar_kg: number;
   plates: string;
   last_backup_at: string | null;
+  focus: Settings['focus'];
+  strength_e1rm_formula: Settings['e1rmFormula'];
+  effort_scale: Settings['effortScale'];
+  strength_rounding_mode: Settings['roundingMode'];
 };
 
 /** Columns read for a settings row. */
 export const SETTINGS_SELECT =
-  'profile_id, language, theme, onboarding_completed, experience, default_rest_seconds, rest_notifications, keep_awake, bar_kg, plates, last_backup_at';
+  'profile_id, language, theme, onboarding_completed, experience, default_rest_seconds, rest_notifications, keep_awake, bar_kg, plates, last_backup_at, focus, strength_e1rm_formula, effort_scale, strength_rounding_mode';
 
 const toProfile = (row: ProfileRow): Profile => ({
   id: row.id,
@@ -52,6 +57,10 @@ const toSettings = (row: SettingsRow): Settings => ({
   barKg: row.bar_kg,
   platesKg: JSON.parse(row.plates) as number[],
   lastBackupAt: row.last_backup_at,
+  focus: row.focus,
+  e1rmFormula: row.strength_e1rm_formula,
+  effortScale: row.effort_scale,
+  roundingMode: row.strength_rounding_mode,
 });
 
 /** Column for each patchable settings field (allowlist: never interpolate caller keys). */
@@ -66,6 +75,10 @@ const SETTINGS_COLUMNS: Record<keyof SettingsPatch, string> = {
   barKg: 'bar_kg',
   platesKg: 'plates',
   lastBackupAt: 'last_backup_at',
+  focus: 'focus',
+  e1rmFormula: 'strength_e1rm_formula',
+  effortScale: 'effort_scale',
+  roundingMode: 'strength_rounding_mode',
 };
 
 const toSqlValue = (value: SettingsPatch[keyof SettingsPatch]): SqlValue => {
@@ -166,6 +179,7 @@ export function createSqliteRepositories(
     plans: createSqlitePlanRepository(db, clock),
     workouts: createSqliteWorkoutRepository(db, clock),
     bodyMetrics: createSqliteBodyMetricRepository(db),
+    referenceMaxes: createSqliteReferenceMaxRepository(db),
     backup: createSqliteBackupRepository(db, clock, () => repositories),
   };
   return repositories;

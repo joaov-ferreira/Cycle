@@ -19,6 +19,8 @@ export interface AiReviewInput {
       sets: { weightKg: number; reps: number; rir: number | null; drop?: boolean }[] }[];
   }[];
   muscleSetsPerWeek: { muscle: MuscleGroup; sets: number }[];
+  /** Reference 1RMs and the best strength estimate of the cycle (SPEC-v4 §9.3); one line each. */
+  strength?: { exerciseId: string; referenceKg: number; bestE1rmKg: number | null }[];
   exerciseList: readonly Exercise[];                  // for the EXERCISE LIST block
 }
 
@@ -73,6 +75,7 @@ const SUMMARY_LABELS: Record<
     sessions: (done: string, planned: string, adherence: string) => string;
     notation: string;
     muscles: (list: string) => string;
+    strength: (reference: string, best: string | null) => string;
     stalled: string;
     noSessions: string;
   }
@@ -82,6 +85,8 @@ const SUMMARY_LABELS: Record<
     sessions: (done, planned, adherence) => `Sessions done: ${done} of ${planned} planned (adherence ${adherence}%)`,
     notation: 'Set notation: weight×reps@RIR in kg; d = drop set.',
     muscles: (list) => `Weekly sets per muscle group (average): ${list}`,
+    strength: (reference, best) =>
+      best === null ? `1RM ${reference} kg` : `1RM ${reference} kg · best e1RM in the cycle ${best} kg`,
     stalled: '[stalled]',
     noSessions: '(no sessions)',
   },
@@ -90,6 +95,8 @@ const SUMMARY_LABELS: Record<
     sessions: (done, planned, adherence) => `Sessões feitas: ${done} de ${planned} planejadas (aderência ${adherence}%)`,
     notation: 'Notação das séries: carga×repetições@RIR em kg; d = drop set.',
     muscles: (list) => `Séries semanais por grupo muscular (média): ${list}`,
+    strength: (reference, best) =>
+      best === null ? `1RM ${reference} kg` : `1RM ${reference} kg · melhor e1RM no ciclo ${best} kg`,
     stalled: '[estagnado]',
     noSessions: '(sem sessões)',
   },
@@ -119,6 +126,21 @@ function exerciseBlock(exercise: AiReviewInput['exercises'][number], locale: Pro
   return [heading, ...body].join('\n');
 }
 
+/** One line per exercise with a reference 1RM: `id — name: 1RM 140 kg · best e1RM in the cycle 143.5 kg`. */
+function strengthLines(input: AiReviewInput): string {
+  const labels = SUMMARY_LABELS[input.locale];
+  return (input.strength ?? [])
+    .map((entry) => {
+      const name =
+        input.exercises.find((exercise) => exercise.exerciseId === entry.exerciseId)?.name ??
+        input.exerciseList.find((exercise) => exercise.id === entry.exerciseId)?.name[input.locale] ??
+        entry.exerciseId;
+      const best = entry.bestE1rmKg === null ? null : formatReviewNumber(entry.bestE1rmKg);
+      return `${entry.exerciseId} — ${name}: ${labels.strength(formatReviewNumber(entry.referenceKg), best)}`;
+    })
+    .join('\n');
+}
+
 /** The `{{SUMMARY}}` block: header lines, one block per exercise, then the weekly sets per muscle. */
 export function buildReviewSummary(input: AiReviewInput): string {
   const labels = SUMMARY_LABELS[input.locale];
@@ -132,6 +154,7 @@ export function buildReviewSummary(input: AiReviewInput): string {
   header.push(labels.notation);
 
   const sections = [header.join('\n'), ...input.exercises.map((exercise) => exerciseBlock(exercise, input.locale))];
+  if (input.strength && input.strength.length > 0) sections.push(strengthLines(input));
   if (input.muscleSetsPerWeek.length > 0) {
     const list = input.muscleSetsPerWeek
       .map((entry) => `${entry.muscle} ${formatReviewNumber(entry.sets)}`)

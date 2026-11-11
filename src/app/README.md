@@ -9,10 +9,15 @@ router, so components never import the router themselves.
   `OnboardingNavigation`, `AppShell` (sidebar at ≥ 900 px) and a stack.
 - `(tabs)/_layout.tsx` — the bottom tabs (`navigation/app-tabs.tsx`).
 - `(tabs)/index|plan|workout|progress|more.tsx` — Home, Plan, Workout, Progress (accepts `?exerciseId=`) and
-  More (links to Exercises, History, Settings).
+  More (links to Exercises, History, Body, Programs, 1RMs, the calculator and Settings).
 - `plans/index|new|templates|import.tsx`, `plans/[id]/index|edit|export.tsx` — plan list, new plan, template
   gallery, import (`?update=<planId>` preselects "Update plan"), detail, editor and export.
   `/plans/scratch/edit` (the literal id `scratch`) creates a plan.
+- `plans/[id]/periodization.tsx` — the periodization table (v4).
+- `programs/index.tsx`, `programs/[id]/index|start.tsx` — strength program library, a program and its start
+  wizard; `maxes/index.tsx`, `maxes/[exerciseId].tsx` — reference 1RMs and one exercise's history;
+  `tools/one-rep-max.tsx` — the 1RM calculator. These routes go back to their parent when opened
+  directly (`navigation/use-go-back.ts`).
 - `plans/[id]/review.tsx` — Review with AI; `plans/[id]/cycles/[cycle].tsx` — the report of one cycle.
 - `body.tsx` — body tracking (reached from More and the sidebar).
 - `exercises/index|new.tsx`, `exercises/[id].tsx` — library, new exercise, detail.

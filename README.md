@@ -3,7 +3,8 @@
 [![CI](https://github.com/joaov-ferreira/Cycle/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/joaov-ferreira/Cycle/actions/workflows/ci.yml)
 [![Android APK](https://github.com/joaov-ferreira/Cycle/actions/workflows/android-apk.yml/badge.svg?branch=main)](https://github.com/joaov-ferreira/Cycle/actions/workflows/android-apk.yml)
 
-A weight-training logbook with load/deload cycles and automatic load progression. It runs on
+A weight-training logbook with load/deload cycles, automatic load progression and, for strength
+training, programs and loads calculated from percentages of your 1RM. It runs on
 Android, iOS and the web (Expo / React Native), works fully offline and keeps everything on the
 device. The interface is in English and Brazilian Portuguese.
 
@@ -11,17 +12,24 @@ device. The interface is in English and Brazilian Portuguese.
   <img src="docs/images/workout.png" alt="The workout logger: a superset card, a drop set and the rest timer" width="200">
   <img src="docs/images/plan.png" alt="A plan with its cycle card and the target RIR of every week" width="200">
   <img src="docs/images/cycle-report.png" alt="The report of a completed cycle" width="200">
-  <img src="docs/images/calendar.png" alt="The training calendar with the week streak" width="200">
+  <img src="docs/images/periodization.png" alt="The periodization table of a strength program" width="200">
+  <img src="docs/images/workout-percent.png" alt="The logger with a percent prescription" width="200">
 </p>
 
 ## What is CYCLE
 
-CYCLE is a general weight-training app: plan your cycles, log every set, and let the app suggest the next
-load. Version 3 adds the tools you use during the workout and a loop to improve your plan with an AI
-assistant.
+CYCLE is a weight-training app for two ways of training. If you lift for muscle, health or general
+fitness, plan your cycles, log every set and let the app suggest the next load. If you train for strength
+(powerlifting or any percentage-based program), keep a reference 1RM per exercise, start a program from
+the built-in library and let the app calculate every load. Both mix freely inside one plan. Version 3
+added the tools you use during the workout and a loop to improve your plan with an AI assistant;
+version 4 adds strength mode.
 
 **Planning**
 
+- **Strength programs:** a library of percentage-based programs (custom 5/3/1, Smolov Jr., Smolov,
+  Sheiko), reference 1RMs, percent schemes and a periodization table (see "Strength training and
+  programs").
 - **Exercise library:** more than 150 built-in exercises with English and Portuguese names, filters by
   muscle group and equipment, and your own custom exercises.
 - **Plans:** start from a built-in template, import a plan (plain text or JSON, pasted or from a file,
@@ -54,6 +62,8 @@ assistant.
 
 **After the workout**
 
+- **Strength dashboard:** a Strength tab in Progress with the reference 1RM, the latest, previous and best
+  e1RM, the improvement over a period and a chart; "Use as new 1RM" after a workout that beats it.
 - **History and progress:** past workouts (editable, repeatable), per-exercise charts (e1RM, top weight,
   volume), personal records, weekly volume and sets per muscle group, and a calendar with a week streak.
 - **Cycle report:** when a cycle ends, a report with adherence, the change of every exercise, stalled
@@ -65,7 +75,8 @@ assistant.
   export the logbook as CSV.
 
 The product is specified in [`docs/SPEC.md`](docs/SPEC.md) (v2, the base) and
-[`docs/SPEC-v3.md`](docs/SPEC-v3.md) (v3; where it says otherwise, it wins).
+[`docs/SPEC-v3.md`](docs/SPEC-v3.md) and [`docs/SPEC-v4.md`](docs/SPEC-v4.md) (v3 and v4; where they say
+otherwise, they win).
 
 ## Screenshots
 
@@ -83,6 +94,60 @@ The product is specified in [`docs/SPEC.md`](docs/SPEC.md) (v2, the base) and
 | Restoring a backup | History | Exercises |
 | ![Workout in Portuguese](docs/images/workout-pt-BR.png) | ![Desktop layout](docs/images/desktop-plan.png) | |
 | Portuguese UI (`pt-BR`) | Wide screens get a sidebar | |
+| ![Programs](docs/images/programs.png) | ![Program detail](docs/images/program-detail.png) | ![Periodization table](docs/images/periodization.png) |
+| Strength program library | A program, week by week, with its source | Periodization table |
+| ![Percent workout](docs/images/workout-percent.png) | ![Strength tab](docs/images/strength.png) | ![1RMs](docs/images/maxes.png) |
+| Logger with a percent prescription | Progress, Strength tab | Reference 1RMs |
+| ![Calculator](docs/images/calculator.png) | | |
+| 1RM calculator | | |
+
+## Strength training and programs
+
+Strength mode is for powerlifting and any percentage-based program. It is optional: a profile with the
+focus "General training" and no 1RM sees none of it (the focus is asked in the onboarding and can be
+changed in Settings → Strength).
+
+- **Reference 1RMs, per exercise.** Any library or custom exercise can have a reference 1RM. A change adds
+  a record (nothing is overwritten) with its origin (manual, from a workout estimate, onboarding, import);
+  More → **1RMs** lists them with their history, and Progress → Strength tracks them.
+- **Program library.** More → **Programs** lists custom 5/3/1, Smolov Jr., Smolov and Sheiko #29, #30, #31,
+  #32 and #37, each with its source (author, reference, link, access date, notes), version and a
+  **verification badge** (verified, partly verified, unverified). The detail screen shows the whole
+  original structure week by week. **The numbers of a program are transcriptions of its source and are
+  never altered or compressed**; a data test pins every template to a snapshot, and an unverified set
+  shows an "Unverified data" badge and gets no calculated load. Programs name *roles* ("the squat of the
+  program") that you map to any exercise.
+- **Start a program.** The wizard maps the roles to exercises, sets the parameters (for example the Smolov
+  Jr. weekly increment), asks for the missing 1RMs and creates a plan with one workout per program day,
+  a cycle as long as the program and no deload, then opens its periodization table.
+- **Program blocks and percent schemes.** In the plan editor, **Add program block** puts a day of a program
+  inside any workout (your own exercises stay below it, on automatic progression), and an exercise can
+  switch its **Progression** to **Percent of 1RM**: weeks of sets × reps @ % (optionally ± kg, AMRAP),
+  based on its own 1RM or another exercise's. A missing 1RM never blocks you: the exercise shows "Set the
+  1RM to get loads" with a one-tap dialog.
+- **Periodization table.** Plan → **Periodization table** shows every week of the cycle × every workout with
+  sets × reps @ % → exact kg → rounded kg and the weekly tonnage (one week at a time on a phone, all weeks on
+  a wide screen). It reads the same data as the logger, so they always agree.
+- **How loads are calculated.** `exact = 1RM × percent + kg`, then rounded to the increment of the performed
+  exercise (2.5 kg for a barbell by default) with the rounding mode of Settings (nearest, ties down;
+  always down; always up): 1RM 105 × 75 % = 78.75 → 77.5 kg; 1RM 140 × 85 % = 119 → 120 kg. The
+  tables show exact → rounded when they differ. In a deload week a percent exercise takes week 1 of
+  the cycle with fewer sets and lighter loads.
+- **Logging a prescription.** The logger opens with weights pre-filled and the reps pre-set: ticking a set
+  confirms the prescribed reps (AMRAP sets ask for the reps). With an effort value the row shows
+  "e1RM ≈ 96 kg", and the summary compares the session's e1RM with the previous one and the prescribed
+  tonnage with the actual one.
+- **e1RM formulas and effort.** Settings → Strength chooses the e1RM formula (Epley, the default; Brzycki;
+  RTS, from the Reactive Training Systems RPE chart) and the effort scale (RIR or RPE; half points are
+  accepted, storage is always RIR). The More → **1RM calculator** shows the estimate under the three
+  formulas and the load of every percentage.
+- **Use as new 1RM.** When a session's estimate beats the reference 1RM, the summary and the 1RMs screen
+  offer it (rounded down to 0.5 kg) after an explicit confirmation; the old value stays in the history.
+- **End of a block.** The cycle report gains "Programs and 1RMs": a suggested 1RM per exercise and
+  **Continue with the next block** for programs longer than the cycle.
+
+Percent schemes and program blocks can also be imported, exported and written by an AI chatbot (see
+below). The full specification is [`docs/SPEC-v4.md`](docs/SPEC-v4.md).
 
 ## How load progression works
 
@@ -170,6 +235,22 @@ and a note. Portuguese keywords (`ciclo:`, `sessoes:`, `descanso`) work too. Two
 `superset` is a label (up to 10 characters) shared by 2 to 4 **consecutive** exercises of a workout, and
 `cycle.rirRamp` (`start` ≥ `end`, both 0-5, or `null`) is the effort ramp. Both are optional.
 
+Version 4 adds three optional parts (files that use them need CYCLE 4.0 or later):
+
+- **`percent`** on an exercise instead of `sets`/`reps`/`rir`: `{ "weeks": [[{ "sets": 3, "reps": 5,
+  "percent": 75 }], [{ "sets": 3, "reps": 3, "percent": 85 }]], "of": "barbell-back-squat" }`. Each week is a
+  list of groups (`sets`, `reps`, `percent` of the 1RM, optional `addKg` and `amrap`); `of` names the exercise
+  whose 1RM is used (default: the exercise itself).
+- **`programs`** on a workout: blocks of built-in programs, `{ "program": "smolov-jr", "day": 1, "roles":
+  { "lift": "barbell-bench-press" }, "params": { "weeklyIncrementKg": 2.5 } }`.
+- **`referenceMaxes`** at the top: `[{ "exercise": "barbell-back-squat", "kg": 140 }]`. A value is saved only
+  for an exercise without a 1RM; the preview lists what will be set and what is kept. Export includes the
+  1RMs the percent work is based on.
+
+In the text format a **percent line** is `Barbell Back Squat 3x5 @75% / 3x3 @85% / 2x1 @95%, 1x1+ @95%`:
+groups are separated by `,`, weeks by `/`, and `+` after the reps marks AMRAP; a single week repeats every
+week, and mixing groups with and without `%` is an error.
+
 The full data specification (every property, limit, default and error code) is
 [`docs/IMPORT_FORMAT.md`](docs/IMPORT_FORMAT.md); the JSON Schema is
 [`docs/cycle-plan.schema.json`](docs/cycle-plan.schema.json). Export (Plan → Export) produces the same
@@ -185,6 +266,9 @@ Any AI assistant can write the plan file for you:
 2. **Paste it as the first message of a new chat** in ChatGPT, Claude, Gemini or any assistant, and add
    your information: goal, experience, days per week, equipment, limitations and current loads. The
    assistant asks for whatever is missing.
+   For a strength or powerlifting plan the prompt makes the assistant write `percent` schemes (weeks of sets
+   × reps @ % of the 1RM) for the main lifts, keep the accessories on rep ranges and add `referenceMaxes`
+   only with 1RMs you gave.
 3. **Copy the JSON answer** (or save it as a `.json` file). The importer accepts the answer as pasted,
    including the surrounding text and the code fence.
 4. **Import it in the app:** Plan → New → Import → paste the text or pick the file, review the preview
@@ -227,13 +311,14 @@ prompt yourself; the app never sends anything to a server.
 Settings → **Data** has three actions:
 
 - **Export backup** writes `cycle-backup-<profile>-<date>.json` with the whole profile (settings, custom
-  exercises, notes, plans and their cycle position, workouts, body measurements) and opens the share
+  exercises, notes, plans and their cycle position, workouts, reference 1RMs, body measurements) and opens the share
   sheet (a download on the web). Home and Settings remind you after 30 days without a backup.
 - **Restore backup** reads such a file, shows what it contains and, when you confirm, creates a **new
   profile** named "*name* (restored)" and switches to it. Nothing on the device is overwritten, and a
   failure leaves nothing behind.
 - **Export logbook (CSV)** writes one row per logged set (`date,workout,plan,phase,exercise_id,exercise,
-  set,kind,weight_kg,reps,rir`) for spreadsheets.
+  set,kind,weight_kg,reps,rir,prescribed_weight_kg,prescribed_reps,percent`) for spreadsheets; the last
+  three are empty for sets without a prescription.
 
 The file is documented in [`docs/BACKUP_FORMAT.md`](docs/BACKUP_FORMAT.md).
 
@@ -245,6 +330,7 @@ The file is documented in [`docs/BACKUP_FORMAT.md`](docs/BACKUP_FORMAT.md).
 - `expo-sqlite` for local persistence (native and web) behind repository interfaces,
   `expo-document-picker` to pick plan and backup files, `zustand` for app state, in-house `t()` for
   translations, `react-native-svg` for the charts, `jest-expo` + `@testing-library/react-native` for tests.
+- Strength mode (v4) adds no native module.
 - Native modules added in v3 (each behind a small adapter in `src/platform/`, a development build or the
   APK is needed, Expo Go ships some of them): `expo-notifications` (rest-end notification),
   `expo-keep-awake` (screen on during a workout), `expo-sharing` and `expo-file-system` (share backups,
@@ -255,8 +341,9 @@ Layers (SPEC §11.1); each folder has a `README.md`:
 ```
 src/
   domain/      # pure logic: exercises, plans, import/export, cycle, progression, metrics, stats,
-               # rest timer, plates, warm-ups, cycle report, backup, body, insights
-  library/     # pure data: the built-in exercises, plan templates, the AI prompt builders
+               # rest timer, plates, warm-ups, cycle report, backup, body, insights, strength: reference
+               # 1RMs, e1RM formulas, percent schemes, programs, prescriptions
+  library/     # pure data: exercises, plan templates, strength programs, the AI prompt builders
   data/        # persistence: SQLite, migrations, repositories (interfaces + memory + SQLite)
   state/       # zustand store and selectors connecting data, domain and UI
   platform/    # adapters for native modules: notifications, keep-awake, files, share
@@ -267,8 +354,8 @@ src/
 
 `domain/` and `library/` are pure TypeScript (no React, Expo, data or i18n imports) and return codes,
 never display strings. `src/library/` holds the exercise registry (`listExercises()`,
-`findExercise(id)`), the six plan templates, `buildAiPlanPrompt` and `buildAiReviewPrompt`.
-Migrations `001`-`011` are immutable. `src/test-utils/` has test-only helpers.
+`findExercise(id)`), the plan templates, the strength programs (`PROGRAMS`, `findProgram`),
+`buildAiPlanPrompt` and `buildAiReviewPrompt`. Migrations `001`-`012` are immutable. `src/test-utils/` has test-only helpers.
 
 ## Running the app
 
@@ -305,16 +392,18 @@ npm test -- src/i18n              # only the tests under a path
 Thresholds (`jest.config.js`): 80 % of lines globally, 95 % in `src/domain/` and `src/library/`.
 Pure logic has exact hand-computed expectations; one repository contract suite runs against the
 in-memory and the SQLite implementation (Node's `node:sqlite`); UI tests use accessible queries in both
-languages; `src/e2e/spec-flow.test.tsx` and `src/e2e/spec-flow-v3.test.tsx` drive the acceptance flows of
-SPEC §13 and SPEC-v3 §13 through the real routes; router tests follow every cross-screen link and an audit checks names, roles and touch targets.
+languages; `src/e2e/spec-flow.test.tsx`, `spec-flow-v3.test.tsx` and `spec-flow-v4.test.tsx` drive the
+acceptance flows of SPEC §13, SPEC-v3 §13 and SPEC-v4 §12 through the real routes; router tests follow every cross-screen link and an audit checks names, roles and touch targets.
 The project follows test-driven development, see [`AGENTS.md`](AGENTS.md).
 
 ## Data from v1 and limitations
 
 - Completed v1 sessions already on a device are copied into the v2 logbook by migration `010` (bench,
-  squat and deadlift entries); the v1 tables stay untouched.
+  squat and deadlift entries); the v1 tables stay untouched. Migration `012` copies v1 reference 1RMs to
+  the per-exercise model and sets such a profile's focus to strength.
 - Units are kilograms only; there is no cloud sync or account; timed/cardio exercises, training-day
-  reminders and volume ramps are out of scope (SPEC §15, SPEC-v3 §14).
+  reminders and volume ramps are out of scope (SPEC §15, SPEC-v3 §14); so are a three-lift total, Wilks/DOTS, training maxes and editing
+  built-in programs (SPEC-v4 §13).
 - The app has been verified with automated tests and in a desktop browser, not yet on a physical device.
   In particular the **rest-end notification**, **keep-awake** and the **share sheet / file saving** call
   native modules that only run on a device or emulator: they are covered by tests with fake adapters,
@@ -371,7 +460,7 @@ Node 22, Android platform 37, build-tools 37.0.0, NDK 27.1.12297006 and CMake 3.
 ```bash
 docker build -t cycle-android docker/android
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD":/app cycle-android
-ls dist/        # cycle-3.0.0-<short-sha>-unsigned-debugkey.apk
+ls dist/        # cycle-4.0.0-<short-sha>-unsigned-debugkey.apk
 ```
 
 The first build downloads Gradle and the Android dependencies (several GB, 15 to 30 minutes);
@@ -400,6 +489,7 @@ This requires an Expo account. The repository does not contain an `eas.json`, so
 
 - [`docs/SPEC.md`](docs/SPEC.md): functional and technical specification (v2, the base).
 - [`docs/SPEC-v3.md`](docs/SPEC-v3.md): the v3 specification (supersedes SPEC.md where it differs).
+- [`docs/SPEC-v4.md`](docs/SPEC-v4.md): the v4 specification, strength mode (supersedes the others where it differs).
 - [`docs/PLAN.md`](docs/PLAN.md): staged implementation plan and status.
 - [`docs/DECISIONS.md`](docs/DECISIONS.md): architecture and data decisions (append only).
 - [`docs/IMPORT_FORMAT.md`](docs/IMPORT_FORMAT.md) and
@@ -421,7 +511,7 @@ and applies right away, without a restart. Choose it in More → Settings → La
 Catalogs are split by namespace (`app`, `tabs`, `navigation`, `common`, `home`, `plan`,
 `planImport`, `planEditor`, `workout`, `timer`, `tools`, `cycleReport`, `aiReview`, `backup`, `body`,
 `insights`, `history`, `progress`, `exercises`, `picker`, `onboarding`, `settings`, `profile`,
-`validation`): one file per namespace and locale, composed in `src/i18n/locales/en.ts`
+`validation`, `programs`, `strength`, `maxes`): one file per namespace and locale, composed in `src/i18n/locales/en.ts`
 and `src/i18n/locales/pt-BR.ts`.
 
 1. Add the key to the namespace file in `src/i18n/locales/en/<namespace>.ts` (the source

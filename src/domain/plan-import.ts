@@ -18,7 +18,16 @@ import {
   suggestExercises,
   type ExerciseIndex,
 } from './exercise-match';
-import { DEFAULT_CYCLE, PLAN_LIMITS, type CycleConfig, type PlanContent, type PlanExercise } from './plan';
+import { DEFAULT_CYCLE, PLAN_LIMITS, type CycleConfig, type PlanContent, type PlanExercise, type PlanWorkout } from './plan';
+import {
+  validatePercentProgression,
+  withPercentSummary,
+  type PercentProgression,
+  type SchemeIssue,
+} from './percent-scheme';
+import { validateParams, type ProgramLink, type ProgramTemplate } from './program';
+import { validateMaxKg } from './reference-max';
+import type { SchemeSet, SchemeWeek } from './scheme-set';
 
 export type ImportFormat = 'json' | 'text';
 
@@ -39,12 +48,21 @@ export type ImportErrorCode =
   | 'invalidRepRange'
   | 'missingRepTarget'
   | 'duplicateKey'
+  // percent schemes, program blocks (SPEC-v4 §9)
+  | 'notAllowedWithPercent'
+  | 'emptyScheme'
+  | 'unknownProgram'
+  | 'unknownRole'
+  | 'unknownParam'
+  | 'paramOutOfRange'
+  | 'paramOffStep'
   // plain text (SPEC §4.2)
   | 'missingPlanName'
   | 'exerciseOutsideWorkout'
   | 'supersetWithoutPrevious'
   | 'invalidExerciseLine'
   | 'invalidDirective'
+  | 'mixedPercent'
   | 'emptyWorkout'
   | 'noWorkouts';
 
@@ -56,7 +74,19 @@ export type ExerciseRef =
   | { status: 'newCustom'; key: string }
   | { status: 'unresolved'; name: string; suggestions: string[] };
 
-export type DraftExercise = Omit<PlanExercise, 'exerciseId'> & { reference: string; ref: ExerciseRef };
+/** A reference to an exercise as written in the document, with its resolution state. */
+export type DraftRef = { reference: string; ref: ExerciseRef };
+
+/** A percent scheme whose basis exercise (`of`) is still a reference. */
+export type DraftPercent = Omit<PercentProgression, 'basisExerciseId'> & { of?: DraftRef };
+
+export type DraftExercise = Omit<PlanExercise, 'exerciseId' | 'percent'> &
+  DraftRef & { percent?: DraftPercent };
+
+/** A program block whose role mapping is still made of references. */
+export type DraftProgramLink = Omit<ProgramLink, 'roles'> & { roles: Record<string, DraftRef> };
+
+export type DraftReferenceMax = DraftRef & { kg: number };
 
 export type DraftCustomExercise = CustomExerciseInput & { key: string };
 
@@ -67,10 +97,20 @@ export type ImportDraft = {
   sessionsPerWeek: number;
   cycle: CycleConfig;
   customExercises: DraftCustomExercise[];
-  workouts: { id: string; name: string; exercises: DraftExercise[] }[];
+  workouts: { id: string; name: string; exercises: DraftExercise[]; programs?: DraftProgramLink[] }[];
+  /** Reference 1RMs of the document (SPEC-v4 §9.1); empty for the text format. */
+  referenceMaxes: DraftReferenceMax[];
 };
 
-export type ParseOptions = { defaultCycle?: CycleConfig; maxBytes?: number };
+export type ParseOptions = {
+  defaultCycle?: CycleConfig;
+  maxBytes?: number;
+  /**
+   * Program lookup (the domain imports no library data). Without it program blocks are checked
+   * structurally only and `unknownProgram` is never reported.
+   */
+  findProgram?: (id: string) => ProgramTemplate | undefined;
+};
 export type ParseResult = { ok: true; draft: ImportDraft } | { ok: false; errors: ImportError[] };
 
 export const DEFAULT_MAX_BYTES = 256 * 1024;
@@ -78,6 +118,11 @@ export const DEFAULT_MAX_BYTES = 256 * 1024;
 export const PENDING_PREFIX = 'pending:';
 
 const CUSTOM_EXERCISES_MAX = 50;
+const REFERENCE_MAXES_MAX = 50;
+/** Structural bounds of a program block when no program lookup is available. */
+const UNBOUNDED_DAY_MAX = 14;
+const UNBOUNDED_WEEK_MAX = 52;
+const ROLE_ID_MAX = 40;
 const CUSTOM_KEY_MAX = 60;
 const CUSTOM_KEY_PATTERN = /^[a-z0-9-]+$/;
 
@@ -419,6 +464,109 @@ function readRepTarget(reader: JsonReader, path: string, entry: Obj): [number, n
   return undefined;
 }
 
+const SCHEME_CODES: Record<SchemeIssue['code'], ImportErrorCode> = {
+  required: 'required',
+  tooFew: 'tooShort',
+  tooMany: 'tooLong',
+  outOfRange: 'outOfRange',
+  notInteger: 'notInteger',
+  invalidStep: 'invalidValue',
+  tooManyDecimals: 'invalidValue',
+  unknownExercise: 'invalidValue',
+  emptyScheme: 'emptyScheme',
+};
+
+/** `weeks[2].sets[0].repeat` (scheme) → `percent.weeks[2][0].sets` (document). */
+function schemePathToJson(path: string, base: string): string {
+  const group = /^weeks\[(\d+)\]\.sets\[(\d+)\]\.(\w+)$/.exec(path);
+  if (group) return `${base}.weeks[${group[1]}][${group[2]}].${group[3] === 'repeat' ? 'sets' : group[3]}`;
+  const week = /^weeks\[(\d+)\]\.sets$/.exec(path);
+  if (week) return `${base}.weeks[${week[1]}]`;
+  return `${base}.${path}`;
+}
+
+/** `{ sets, reps, percent?, addKg?, amrap? }` → `SchemeSet`; `undefined` after reporting a type error. */
+function readSchemeGroup(reader: JsonReader, path: string, raw: unknown): SchemeSet | undefined {
+  if (!isObject(raw)) {
+    reader.error(path, 'invalidType');
+    return undefined;
+  }
+  const before = reader.errors.length;
+  const number = (prop: string, required: boolean): number | undefined => {
+    const value = raw[prop];
+    if (absent(value)) {
+      if (required) reader.error(`${path}.${prop}`, 'required');
+      return undefined;
+    }
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      reader.error(`${path}.${prop}`, 'invalidType');
+      return undefined;
+    }
+    return value;
+  };
+  const reps = number('reps', true);
+  const percent = number('percent', false);
+  const addKg = number('addKg', false);
+  const repeat = number('sets', false);
+  let amrap: boolean | undefined;
+  if (!absent(raw.amrap)) {
+    if (typeof raw.amrap === 'boolean') amrap = raw.amrap;
+    else reader.error(`${path}.amrap`, 'invalidType');
+  }
+  if (reader.errors.length > before || reps === undefined) return undefined;
+  const set: SchemeSet = { reps };
+  if (percent !== undefined) set.percent = percent;
+  if (addKg !== undefined) set.addKg = addKg;
+  if (repeat !== undefined) set.repeat = repeat;
+  if (amrap) set.amrap = true;
+  return set;
+}
+
+/** `percent` of an exercise (IMPORT_FORMAT §2.6). */
+function readPercent(
+  reader: JsonReader,
+  path: string,
+  raw: unknown,
+  index: ExerciseIndex,
+  keys: ReadonlySet<string>,
+): DraftPercent | undefined {
+  if (!isObject(raw)) {
+    reader.error(path, 'invalidType');
+    return undefined;
+  }
+  const before = reader.errors.length;
+  const rawWeeks = reader.array(`${path}.weeks`, raw.weeks, 1, 16);
+  const weeks: SchemeWeek[] = [];
+  (rawWeeks ?? []).forEach((rawWeek, w) => {
+    const wPath = `${path}.weeks[${w}]`;
+    if (!Array.isArray(rawWeek)) {
+      reader.error(wPath, 'invalidType');
+      return;
+    }
+    const sets: SchemeSet[] = [];
+    rawWeek.forEach((rawGroup, g) => {
+      const set = readSchemeGroup(reader, `${wPath}[${g}]`, rawGroup);
+      if (set) sets.push(set);
+    });
+    weeks.push({ sets });
+  });
+  let startWeek: number | undefined;
+  if (!absent(raw.startWeek)) {
+    if (typeof raw.startWeek !== 'number' || !Number.isFinite(raw.startWeek)) {
+      reader.error(`${path}.startWeek`, 'invalidType');
+    } else startWeek = raw.startWeek;
+  }
+  const of = reader.optionalNonBlankText(`${path}.of`, raw.of, Number.MAX_SAFE_INTEGER);
+  if (reader.errors.length > before || rawWeeks === undefined) return undefined;
+
+  const progression: PercentProgression = { weeks, ...(startWeek !== undefined ? { startWeek } : {}) };
+  for (const issue of validatePercentProgression(progression, { exerciseExists: () => true })) {
+    reader.error(schemePathToJson(issue.path, path), SCHEME_CODES[issue.code]);
+  }
+  if (reader.errors.length > before) return undefined;
+  return { ...progression, ...(of !== undefined ? { of: { reference: of, ref: resolveReference(of, index, keys) } } : {}) };
+}
+
 function readExercise(
   reader: JsonReader,
   path: string,
@@ -433,9 +581,20 @@ function readExercise(
   }
   const before = reader.errors.length;
   const reference = reader.requiredText(`${path}.exercise`, entry.exercise, Number.MAX_SAFE_INTEGER);
-  const sets = reader.requiredInteger(`${path}.sets`, entry.sets, PLAN_LIMITS.sets.min, PLAN_LIMITS.sets.max);
-  const reps = readRepTarget(reader, path, entry);
-  const targetRir = reader.integer(`${path}.rir`, entry.rir, PLAN_LIMITS.targetRir.min, PLAN_LIMITS.targetRir.max);
+  const withPercent = !absent(entry.percent);
+  const percent = withPercent ? readPercent(reader, `${path}.percent`, entry.percent, index, keys) : undefined;
+  if (withPercent) {
+    // `sets` / `reps` are ignored with a scheme; effort and starting load do not apply to it.
+    if (!absent(entry.rir)) reader.error(`${path}.rir`, 'notAllowedWithPercent');
+    if (!absent(entry.startLoad)) reader.error(`${path}.startLoad`, 'notAllowedWithPercent');
+  }
+  const sets = withPercent
+    ? 1
+    : reader.requiredInteger(`${path}.sets`, entry.sets, PLAN_LIMITS.sets.min, PLAN_LIMITS.sets.max);
+  const reps = withPercent ? ([1, 1] as [number, number]) : readRepTarget(reader, path, entry);
+  const targetRir = withPercent
+    ? undefined
+    : reader.integer(`${path}.rir`, entry.rir, PLAN_LIMITS.targetRir.min, PLAN_LIMITS.targetRir.max);
   const restSeconds = reader.integer(
     `${path}.rest`,
     entry.rest,
@@ -444,7 +603,7 @@ function readExercise(
   );
 
   let startLoadKg: number | undefined;
-  if (!absent(entry.startLoad)) {
+  if (!withPercent && !absent(entry.startLoad)) {
     const raw = entry.startLoad;
     const loadPath = `${path}.startLoad`;
     const limits = PLAN_LIMITS.startLoadKg;
@@ -461,6 +620,7 @@ function readExercise(
   );
 
   if (reader.errors.length > before || reference === undefined || sets === undefined || !reps) return undefined;
+  if (withPercent && !percent) return undefined;
   const draft: DraftExercise = {
     id,
     reference,
@@ -469,6 +629,15 @@ function readExercise(
     repMin: reps[0],
     repMax: reps[1],
   };
+  if (percent) {
+    const { sets: summarySets, repMin, repMax } = withPercentSummary({
+      sets: 1,
+      repMin: 1,
+      repMax: 1,
+      percent: { weeks: percent.weeks },
+    });
+    Object.assign(draft, { sets: summarySets, repMin, repMax, percent });
+  }
   if (targetRir !== undefined) draft.targetRir = targetRir;
   if (restSeconds !== undefined) draft.restSeconds = restSeconds;
   if (startLoadKg !== undefined) draft.startLoadKg = startLoadKg;
@@ -477,10 +646,112 @@ function readExercise(
   return draft;
 }
 
+/** `programs[]` of a workout (IMPORT_FORMAT §2.5). */
+function readProgramLink(
+  reader: JsonReader,
+  path: string,
+  entry: unknown,
+  index: ExerciseIndex,
+  keys: ReadonlySet<string>,
+  id: string,
+  findProgram: ParseOptions['findProgram'],
+): DraftProgramLink | undefined {
+  if (!isObject(entry)) {
+    reader.error(path, 'invalidType');
+    return undefined;
+  }
+  const before = reader.errors.length;
+  const programId = reader.requiredText(`${path}.program`, entry.program, Number.MAX_SAFE_INTEGER);
+  const program = programId === undefined ? undefined : findProgram?.(programId);
+  if (programId !== undefined && findProgram && !program) reader.error(`${path}.program`, 'unknownProgram');
+
+  const day = reader.requiredInteger(`${path}.day`, entry.day, 1, program?.daysPerWeek ?? UNBOUNDED_DAY_MAX);
+  const startWeek =
+    reader.integer(`${path}.startWeek`, entry.startWeek, 1, program?.durationWeeks ?? UNBOUNDED_WEEK_MAX) ?? 1;
+
+  const roles: Record<string, DraftRef> = {};
+  if (absent(entry.roles)) reader.error(`${path}.roles`, 'required');
+  else if (!isObject(entry.roles)) reader.error(`${path}.roles`, 'invalidType');
+  else {
+    const entries = Object.entries(entry.roles);
+    if (entries.length === 0) reader.error(`${path}.roles`, 'tooShort');
+    for (const [roleId, value] of entries) {
+      const rolePath = `${path}.roles.${roleId}`;
+      if (roleId.length === 0 || roleId.length > ROLE_ID_MAX) reader.error(rolePath, 'invalidValue');
+      else if (program && !program.roles.some((role) => role.id === roleId)) reader.error(rolePath, 'unknownRole');
+      const reference = reader.requiredText(rolePath, value, Number.MAX_SAFE_INTEGER);
+      if (reference !== undefined) roles[roleId] = { reference, ref: resolveReference(reference, index, keys) };
+    }
+  }
+
+  let accessories = false;
+  if (!absent(entry.accessories)) {
+    if (typeof entry.accessories === 'boolean') accessories = entry.accessories;
+    else reader.error(`${path}.accessories`, 'invalidType');
+  }
+
+  let params: Record<string, number> | undefined;
+  if (!absent(entry.params)) {
+    if (!isObject(entry.params)) reader.error(`${path}.params`, 'invalidType');
+    else {
+      const values: Record<string, number> = {};
+      for (const [paramId, value] of Object.entries(entry.params)) {
+        if (typeof value !== 'number' || !Number.isFinite(value)) reader.error(`${path}.params.${paramId}`, 'invalidType');
+        else values[paramId] = value;
+      }
+      if (program) {
+        for (const issue of validateParams(program, values)) reader.error(`${path}.params.${issue.param}`, issue.code);
+      }
+      if (Object.keys(values).length > 0) params = values;
+    }
+  }
+
+  if (reader.errors.length > before || programId === undefined || day === undefined) return undefined;
+  return { id, programId, day, startWeek, roles, accessories, ...(params ? { params } : {}) };
+}
+
+function readReferenceMaxes(
+  reader: JsonReader,
+  value: unknown,
+  index: ExerciseIndex,
+  keys: ReadonlySet<string>,
+): DraftReferenceMax[] {
+  const out: DraftReferenceMax[] = [];
+  if (absent(value)) return out;
+  if (!Array.isArray(value)) {
+    reader.error('referenceMaxes', 'invalidType');
+    return out;
+  }
+  if (value.length > REFERENCE_MAXES_MAX) reader.error('referenceMaxes', 'tooLong');
+  value.forEach((entry, i) => {
+    const path = `referenceMaxes[${i}]`;
+    if (!isObject(entry)) {
+      reader.error(path, 'invalidType');
+      return;
+    }
+    const before = reader.errors.length;
+    const reference = reader.requiredText(`${path}.exercise`, entry.exercise, Number.MAX_SAFE_INTEGER);
+    let kg: number | undefined;
+    if (absent(entry.kg)) reader.error(`${path}.kg`, 'required');
+    else if (typeof entry.kg !== 'number' || !Number.isFinite(entry.kg)) reader.error(`${path}.kg`, 'invalidType');
+    else {
+      const problem = validateMaxKg(entry.kg);
+      if (problem === 'outOfRange') reader.error(`${path}.kg`, 'outOfRange');
+      else if (problem) reader.error(`${path}.kg`, 'invalidValue');
+      else kg = entry.kg;
+    }
+    if (reader.errors.length === before && reference !== undefined && kg !== undefined) {
+      out.push({ reference, ref: resolveReference(reference, index, keys), kg });
+    }
+  });
+  return out;
+}
+
 function parseJsonImport(
   text: string,
   exercises: readonly Exercise[],
   defaultCycle: CycleConfig,
+  findProgram: ParseOptions['findProgram'],
 ): ParseResult {
   let root: unknown;
   try {
@@ -518,10 +789,32 @@ function parseJsonImport(
       return;
     }
     const workoutName = reader.requiredText(`${wPath}.name`, rawWorkout.name, PLAN_LIMITS.workoutName.max);
+    const links: DraftProgramLink[] = [];
+    let blockCount = 0;
+    if (!absent(rawWorkout.programs)) {
+      if (!Array.isArray(rawWorkout.programs)) reader.error(`${wPath}.programs`, 'invalidType');
+      else {
+        blockCount = rawWorkout.programs.length;
+        if (blockCount > PLAN_LIMITS.programsPerWorkout.max) reader.error(`${wPath}.programs`, 'tooLong');
+        rawWorkout.programs.forEach((rawLink, bi) => {
+          const link = readProgramLink(
+            reader,
+            `${wPath}.programs[${bi}]`,
+            rawLink,
+            index,
+            keys,
+            `w${wi + 1}p${bi + 1}`,
+            findProgram,
+          );
+          if (link) links.push(link);
+        });
+      }
+    }
+    // a workout made of program blocks may have no exercises of its own
     const rawExercises = reader.array(
       `${wPath}.exercises`,
-      rawWorkout.exercises,
-      PLAN_LIMITS.exercisesPerWorkout.min,
+      blockCount > 0 && absent(rawWorkout.exercises) ? [] : rawWorkout.exercises,
+      blockCount > 0 ? 0 : PLAN_LIMITS.exercisesPerWorkout.min,
       PLAN_LIMITS.exercisesPerWorkout.max,
     );
     const drafts: DraftExercise[] = [];
@@ -529,8 +822,14 @@ function parseJsonImport(
       const draft = readExercise(reader, `${wPath}.exercises[${ei}]`, rawExercise, index, keys, `w${wi + 1}e${ei + 1}`);
       if (draft) drafts.push(draft);
     });
-    workouts.push({ id: `w${wi + 1}`, name: workoutName ?? '', exercises: drafts });
+    workouts.push({
+      id: `w${wi + 1}`,
+      name: workoutName ?? '',
+      exercises: drafts,
+      ...(links.length > 0 ? { programs: links } : {}),
+    });
   });
+  const referenceMaxes = readReferenceMaxes(reader, root.referenceMaxes, index, keys);
 
   if (reader.errors.length > 0 || name === undefined) return { ok: false, errors: reader.errors };
   return {
@@ -543,6 +842,7 @@ function parseJsonImport(
       cycle,
       customExercises: customs,
       workouts,
+      referenceMaxes,
     },
   };
 }
@@ -558,6 +858,10 @@ const BULLET = /^(?:[-*•]|\d+\.)\s+/;
 /** A leading `+` joins the previous exercise in a superset (SPEC-v3 §4.1). */
 const SUPERSET_MARK = /^\+\s*/;
 const SETS_FIELD = /^(\d+)\s*[x×]\s*(\d+)(?:\s*[-–]\s*(\d+))?$/i;
+/** `@75%`, `@77,5 %`: the mark of a percent group (SPEC-v4 §9.2). */
+const PERCENT_MARK = /@\s*\d[\d.,]*\s*%/;
+/** One group of a percent week: `3x5`, `1x1+`, `3x5 @75%`, `3x5 @77,5%`. */
+const PERCENT_GROUP = /(\d+)\s*[x×]\s*(\d+)(\+)?(?:\s*@\s*(\d+(?:[.,]\d+)?)\s*%)?/y;
 const MODIFIER_FIELD = /^(rir|rest|descanso)(?!\p{L})\s*:?\s*(.*)$/iu;
 
 function looksLikeExerciseLine(line: string): boolean {
@@ -594,22 +898,95 @@ function parseTextImport(
     if (current && current.lines === 0) fail('emptyWorkout', current.line);
   };
 
+  /** `3x5 @75% / 3x3 @85%, 1x1+ @95%` → a percent progression; reports errors on `line`. */
+  const parsePercentScheme = (text: string, line: number): PercentProgression | undefined => {
+    const before = errors.length;
+    const weeks: SchemeWeek[] = [];
+    let withPercent = 0;
+    let without = 0;
+    for (const weekText of text.split('/')) {
+      const sets: SchemeSet[] = [];
+      const source = weekText.trim();
+      let position = 0;
+      let valid = source.length > 0;
+      while (valid && position < source.length) {
+        PERCENT_GROUP.lastIndex = position;
+        const match = PERCENT_GROUP.exec(source);
+        if (!match) {
+          valid = false;
+          break;
+        }
+        const count = Number(match[1]);
+        const set: SchemeSet = { reps: Number(match[2]) };
+        if (count !== 1) set.repeat = count;
+        if (match[3]) set.amrap = true;
+        if (match[4] !== undefined) {
+          set.percent = Number(match[4].replace(',', '.'));
+          withPercent += 1;
+        } else without += 1;
+        sets.push(set);
+        position = PERCENT_GROUP.lastIndex;
+        const separator = /^\s*,\s*/.exec(source.slice(position));
+        if (separator) {
+          position += separator[0].length;
+          if (position >= source.length) valid = false; // a trailing comma
+        } else if (source.slice(position).trim() !== '') valid = false;
+        else position = source.length;
+      }
+      if (!valid) {
+        fail('invalidExerciseLine', line);
+        return undefined;
+      }
+      weeks.push({ sets });
+    }
+    if (withPercent > 0 && without > 0) fail('mixedPercent', line);
+    const progression: PercentProgression = { weeks };
+    for (const issue of validatePercentProgression(progression, { exerciseExists: () => true })) {
+      fail(SCHEME_CODES[issue.code], line);
+    }
+    return errors.length > before ? undefined : progression;
+  };
+
   const parseExerciseLine = (raw: string, line: number): DraftExercise | undefined => {
-    const [rawName, setsField, ...rest] = raw.split(/[|;]/).map((field) => field.trim());
-    const sets = setsField ? SETS_FIELD.exec(setsField) : null;
-    if (!rawName || !sets) {
+    const fields = raw.split(/[|;]/).map((field) => field.trim());
+    let rawName = fields[0];
+    let setsField: string | undefined = fields[1];
+    let rest = fields.slice(2);
+    let percentText: string | undefined;
+    if (setsField && PERCENT_MARK.test(setsField)) {
+      percentText = setsField;
+    } else if (rawName && PERCENT_MARK.test(rawName)) {
+      // `Back Squat 3x5 @75% / 3x3 @85%`: the scheme follows the name in the same field
+      const joined = /^(.+?)\s+(\d+\s*[x×]\s*\d+.*)$/.exec(rawName);
+      if (joined) {
+        rawName = joined[1];
+        percentText = joined[2];
+        rest = setsField === undefined ? rest : [setsField, ...rest];
+        setsField = undefined;
+      }
+    }
+    const sets = percentText === undefined && setsField ? SETS_FIELD.exec(setsField) : null;
+    if (!rawName || (percentText === undefined && !sets)) {
       fail('invalidExerciseLine', line);
       return undefined;
     }
     const before = errors.length;
-    const count = Number(sets[1]);
-    const repMin = Number(sets[2]);
-    const repMax = sets[3] === undefined ? repMin : Number(sets[3]);
-    const { reps } = PLAN_LIMITS;
-    inRange(count, PLAN_LIMITS.sets.min, PLAN_LIMITS.sets.max, line);
-    const minOk = inRange(repMin, reps.min, reps.max, line);
-    const maxOk = inRange(repMax, reps.min, reps.max, line);
-    if (minOk && maxOk && repMax < repMin) fail('invalidRepRange', line);
+    let count = 1;
+    let repMin = 1;
+    let repMax = 1;
+    let percent: PercentProgression | undefined;
+    if (percentText !== undefined) {
+      percent = parsePercentScheme(percentText, line);
+    } else if (sets) {
+      count = Number(sets[1]);
+      repMin = Number(sets[2]);
+      repMax = sets[3] === undefined ? repMin : Number(sets[3]);
+      const { reps } = PLAN_LIMITS;
+      inRange(count, PLAN_LIMITS.sets.min, PLAN_LIMITS.sets.max, line);
+      const minOk = inRange(repMin, reps.min, reps.max, line);
+      const maxOk = inRange(repMax, reps.min, reps.max, line);
+      if (minOk && maxOk && repMax < repMin) fail('invalidRepRange', line);
+    }
 
     let targetRir: number | undefined;
     let restSeconds: number | undefined;
@@ -627,7 +1004,8 @@ function parseTextImport(
       }
       const value = Number(modifier[2]);
       if (modifier[1].toLowerCase() === 'rir') {
-        if (inRange(value, PLAN_LIMITS.targetRir.min, PLAN_LIMITS.targetRir.max, line)) targetRir = value;
+        if (percentText !== undefined) fail('notAllowedWithPercent', line);
+        else if (inRange(value, PLAN_LIMITS.targetRir.min, PLAN_LIMITS.targetRir.max, line)) targetRir = value;
       } else if (inRange(value, PLAN_LIMITS.restSeconds.min, PLAN_LIMITS.restSeconds.max, line)) {
         restSeconds = value;
       }
@@ -644,6 +1022,10 @@ function parseTextImport(
       repMin,
       repMax,
     };
+    if (percent) {
+      const summary = withPercentSummary({ sets: 1, repMin: 1, repMax: 1, percent });
+      Object.assign(draft, { sets: summary.sets, repMin: summary.repMin, repMax: summary.repMax, percent });
+    }
     if (targetRir !== undefined) draft.targetRir = targetRir;
     if (restSeconds !== undefined) draft.restSeconds = restSeconds;
     if (note) draft.note = note;
@@ -780,6 +1162,7 @@ function parseTextImport(
       cycle,
       customExercises: [],
       workouts,
+      referenceMaxes: [],
     },
   };
 }
@@ -798,7 +1181,7 @@ export function parsePlanImport(
   if (utf8Length(text) > maxBytes) return { ok: false, errors: [{ code: 'fileTooLarge' }] };
   const defaultCycle = options.defaultCycle ?? DEFAULT_CYCLE;
   return detectFormat(text) === 'json'
-    ? parseJsonImport(text, exercises, defaultCycle)
+    ? parseJsonImport(text, exercises, defaultCycle, options.findProgram)
     : parseTextImport(text, exercises, defaultCycle);
 }
 
@@ -813,17 +1196,29 @@ export type UnresolvedReference = {
   count: number;
 };
 
+/** Every exercise reference of a draft: exercises, scheme bases, role mappings, reference 1RMs. */
+function draftRefs(draft: ImportDraft): ExerciseRef[] {
+  const refs: ExerciseRef[] = [];
+  for (const workout of draft.workouts) {
+    for (const link of workout.programs ?? []) refs.push(...Object.values(link.roles).map((role) => role.ref));
+    for (const exercise of workout.exercises) {
+      refs.push(exercise.ref);
+      if (exercise.percent?.of) refs.push(exercise.percent.of.ref);
+    }
+  }
+  for (const max of draft.referenceMaxes) refs.push(max.ref);
+  return refs;
+}
+
 /** Distinct unresolved names (by normalized name), in first-appearance order. */
 export function unresolvedReferences(draft: ImportDraft): UnresolvedReference[] {
   const found = new Map<string, UnresolvedReference>();
-  for (const workout of draft.workouts) {
-    for (const exercise of workout.exercises) {
-      if (exercise.ref.status !== 'unresolved') continue;
-      const normalized = normalizeName(exercise.ref.name);
-      const existing = found.get(normalized);
-      if (existing) existing.count += 1;
-      else found.set(normalized, { name: exercise.ref.name, normalized, suggestions: exercise.ref.suggestions, count: 1 });
-    }
+  for (const ref of draftRefs(draft)) {
+    if (ref.status !== 'unresolved') continue;
+    const normalized = normalizeName(ref.name);
+    const existing = found.get(normalized);
+    if (existing) existing.count += 1;
+    else found.set(normalized, { name: ref.name, normalized, suggestions: ref.suggestions, count: 1 });
   }
   return [...found.values()];
 }
@@ -832,9 +1227,21 @@ export type Resolution =
   | { kind: 'existing'; exerciseId: string }
   | { kind: 'create'; exercise: CustomExerciseInput };
 
-export type PendingImport = { customExercises: DraftCustomExercise[]; content: PlanContent };
+/** A reference 1RM of the import; `exerciseId` may be `pending:<key>` until the exercise exists. */
+export type PendingReferenceMax = { exerciseId: string; kg: number };
 
-function toPlanExercise(draft: DraftExercise, exerciseId: string): PlanExercise {
+export type PendingImport = {
+  customExercises: DraftCustomExercise[];
+  content: PlanContent;
+  /**
+   * Reference 1RMs of the document (SPEC-v4 §9.1), one per exercise (the last one wins). Always set
+   * by `resolveDraft`; the store saves them only for exercises without a 1RM.
+   */
+  referenceMaxes?: PendingReferenceMax[];
+};
+
+function toPlanExercise(draft: DraftExercise, exerciseId: string, basisExerciseId?: string): PlanExercise {
+  const { percent: draftPercent } = draft;
   const exercise: PlanExercise = {
     id: draft.id,
     exerciseId,
@@ -842,6 +1249,10 @@ function toPlanExercise(draft: DraftExercise, exerciseId: string): PlanExercise 
     repMin: draft.repMin,
     repMax: draft.repMax,
   };
+  if (draftPercent) {
+    const { of: _of, ...scheme } = draftPercent;
+    exercise.percent = { ...scheme, ...(basisExerciseId !== undefined ? { basisExerciseId } : {}) };
+  }
   if (draft.targetRir !== undefined) exercise.targetRir = draft.targetRir;
   if (draft.restSeconds !== undefined) exercise.restSeconds = draft.restSeconds;
   if (draft.startLoadKg !== undefined) exercise.startLoadKg = draft.startLoadKg;
@@ -865,35 +1276,54 @@ export function resolveDraft(
   const created: DraftCustomExercise[] = [];
   const unresolved: string[] = [];
 
-  const workouts = draft.workouts.map((workout) => ({
-    id: workout.id,
-    name: workout.name,
-    exercises: workout.exercises.map((exercise) => {
-      const { ref } = exercise;
-      if (ref.status === 'resolved') return toPlanExercise(exercise, ref.exerciseId);
-      if (ref.status === 'newCustom') {
-        referencedKeys.add(ref.key);
-        return toPlanExercise(exercise, PENDING_PREFIX + ref.key);
-      }
-      const normalized = normalizeName(ref.name);
-      const resolution = Object.prototype.hasOwnProperty.call(resolutions, normalized)
-        ? resolutions[normalized]
-        : undefined;
-      if (!resolution) {
-        if (!unresolved.includes(normalized)) unresolved.push(normalized);
-        return toPlanExercise(exercise, '');
-      }
-      if (resolution.kind === 'existing') return toPlanExercise(exercise, resolution.exerciseId);
-      let key = keyByName.get(normalized);
-      if (key === undefined) {
-        key = uniqueKey(usedKeys, toKey(normalized));
-        usedKeys.add(key);
-        keyByName.set(normalized, key);
-        created.push({ key, ...resolution.exercise });
-      }
-      return toPlanExercise(exercise, PENDING_PREFIX + key);
-    }),
-  }));
+  /** The exercise id of a reference (`''` while unresolved); registers custom keys in use. */
+  const idOf = ({ ref }: DraftRef): string => {
+    if (ref.status === 'resolved') return ref.exerciseId;
+    if (ref.status === 'newCustom') {
+      referencedKeys.add(ref.key);
+      return PENDING_PREFIX + ref.key;
+    }
+    const normalized = normalizeName(ref.name);
+    const resolution = Object.prototype.hasOwnProperty.call(resolutions, normalized)
+      ? resolutions[normalized]
+      : undefined;
+    if (!resolution) {
+      if (!unresolved.includes(normalized)) unresolved.push(normalized);
+      return '';
+    }
+    if (resolution.kind === 'existing') return resolution.exerciseId;
+    let key = keyByName.get(normalized);
+    if (key === undefined) {
+      key = uniqueKey(usedKeys, toKey(normalized));
+      usedKeys.add(key);
+      keyByName.set(normalized, key);
+      created.push({ key, ...resolution.exercise });
+    }
+    return PENDING_PREFIX + key;
+  };
+
+  const workouts: PlanWorkout[] = draft.workouts.map((workout) => {
+    const programs = (workout.programs ?? []).map((link): ProgramLink => {
+      const roles: Record<string, string> = {};
+      for (const [roleId, role] of Object.entries(link.roles)) roles[roleId] = idOf(role);
+      return { ...link, roles };
+    });
+    const exercises = workout.exercises.map((exercise) =>
+      toPlanExercise(
+        exercise,
+        idOf(exercise),
+        exercise.percent?.of ? idOf(exercise.percent.of) : undefined,
+      ),
+    );
+    return { id: workout.id, name: workout.name, exercises, ...(programs.length > 0 ? { programs } : {}) };
+  });
+
+  const maxes = new Map<string, number>();
+  for (const max of draft.referenceMaxes) {
+    const exerciseId = idOf(max);
+    maxes.delete(exerciseId);
+    maxes.set(exerciseId, max.kg);
+  }
 
   if (unresolved.length > 0) return { ok: false, unresolved };
   return {
@@ -907,11 +1337,24 @@ export function resolveDraft(
         sessionsPerWeek: draft.sessionsPerWeek,
         cycle: { ...draft.cycle, ...(draft.cycle.rirRamp ? { rirRamp: { ...draft.cycle.rirRamp } } : {}) },
       },
+      referenceMaxes: [...maxes].map(([exerciseId, kg]) => ({ exerciseId, kg })),
     },
   };
 }
 
-/** Replaces every `pending:<key>` with the real exercise id; throws when a key is missing. */
+function finalId(id: string, idsByKey: Record<string, string>): string {
+  if (!id.startsWith(PENDING_PREFIX)) return id;
+  const key = id.slice(PENDING_PREFIX.length);
+  if (!Object.prototype.hasOwnProperty.call(idsByKey, key)) {
+    throw new Error(`finalizePendingImport: no exercise id for key "${key}"`);
+  }
+  return idsByKey[key];
+}
+
+/**
+ * Replaces every `pending:<key>` with the real exercise id (exercises, scheme bases and program
+ * role mappings); throws when a key is missing.
+ */
 export function finalizePendingImport(pending: PendingImport, idsByKey: Record<string, string>): PlanContent {
   const { content } = pending;
   return {
@@ -919,13 +1362,28 @@ export function finalizePendingImport(pending: PendingImport, idsByKey: Record<s
     workouts: content.workouts.map((workout) => ({
       ...workout,
       exercises: workout.exercises.map((exercise) => {
-        if (!exercise.exerciseId.startsWith(PENDING_PREFIX)) return { ...exercise };
-        const key = exercise.exerciseId.slice(PENDING_PREFIX.length);
-        if (!Object.prototype.hasOwnProperty.call(idsByKey, key)) {
-          throw new Error(`finalizePendingImport: no exercise id for key "${key}"`);
+        const next: PlanExercise = { ...exercise, exerciseId: finalId(exercise.exerciseId, idsByKey) };
+        if (exercise.percent?.basisExerciseId !== undefined) {
+          next.percent = { ...exercise.percent, basisExerciseId: finalId(exercise.percent.basisExerciseId, idsByKey) };
         }
-        return { ...exercise, exerciseId: idsByKey[key] };
+        return next;
       }),
+      ...(workout.programs
+        ? {
+            programs: workout.programs.map((link) => ({
+              ...link,
+              roles: Object.fromEntries(Object.entries(link.roles).map(([role, id]) => [role, finalId(id, idsByKey)])),
+            })),
+          }
+        : {}),
     })),
   };
+}
+
+/** The reference 1RMs of a pending import with their real exercise ids. */
+export function finalizeReferenceMaxes(
+  pending: PendingImport,
+  idsByKey: Record<string, string>,
+): PendingReferenceMax[] {
+  return (pending.referenceMaxes ?? []).map((max) => ({ ...max, exerciseId: finalId(max.exerciseId, idsByKey) }));
 }

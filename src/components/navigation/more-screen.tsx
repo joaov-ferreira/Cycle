@@ -9,6 +9,14 @@ const LINKS: readonly { id: string; title: MessageKey; description: MessageKey; 
   { id: 'exercises', title: 'exercises.title', description: 'navigation.moreDescriptions.exercises', href: '/exercises' },
   { id: 'history', title: 'history.title', description: 'navigation.moreDescriptions.history', href: '/history' },
   { id: 'body', title: 'body.title', description: 'navigation.moreDescriptions.body', href: '/body' },
+  { id: 'programs', title: 'navigation.programs', description: 'navigation.moreDescriptions.programs', href: '/programs' },
+  { id: 'maxes', title: 'maxes.title', description: 'navigation.moreDescriptions.maxes', href: '/maxes' },
+  {
+    id: 'calculator',
+    title: 'maxes.calculator.title',
+    description: 'navigation.moreDescriptions.calculator',
+    href: '/tools/one-rep-max',
+  },
   { id: 'settings', title: 'settings.title', description: 'navigation.moreDescriptions.settings', href: '/settings' },
 ];
 

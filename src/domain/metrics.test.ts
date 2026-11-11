@@ -91,6 +91,33 @@ describe('e1rm (Epley with RIR, SPEC §6.1)', () => {
   });
 });
 
+describe('e1rm with a formula (SPEC-v4 §3.1)', () => {
+  it('defaults to epley', () => {
+    expect(e1rm(80, 5, 1, 'epley')).toBe(96);
+    expect(e1rm(80, 5, 1)).toBe(e1rm(80, 5, 1, 'epley'));
+  });
+
+  it('brzycki: 80 × 5 @ RIR 1 = 80 × 36 / 31 = 92.903', () => {
+    expect(e1rm(80, 5, 1, 'brzycki')).toBe(92.903);
+  });
+
+  it('rts: 80 × 5 @ RIR 1 = 80 / 0.837 = 95.579', () => {
+    expect(e1rm(80, 5, 1, 'rts')).toBe(95.579);
+  });
+
+  it('rts falls back to epley outside the chart: 60 × 15 @ RIR 0 = 90', () => {
+    expect(e1rm(60, 15, 0, 'rts')).toBe(90);
+  });
+
+  it('brzycki has no value from n = 37: 50 × 37 @ RIR 0 is null', () => {
+    expect(e1rm(50, 37, 0, 'brzycki')).toBeNull();
+  });
+
+  it('accepts a half-point RIR: 80 × 5 @ RIR 0.5 = 80 × (1 + 5.5/30) = 94.667', () => {
+    expect(e1rm(80, 5, 0.5)).toBe(94.667);
+  });
+});
+
 describe('setVolume and volume (SPEC §6.1)', () => {
   it('setVolume is weight × reps', () => {
     expect(setVolume(80, 5)).toBe(400);

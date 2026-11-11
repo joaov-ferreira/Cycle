@@ -6,11 +6,13 @@ import { supersetLayout } from '@/domain/plan';
 import { restSecondsFor } from '@/domain/rest-timer';
 import { newRecords } from '@/domain/stats';
 import { warmupSets } from '@/domain/warmup';
-import { buildWorkoutExercises, targetRepsPlaceholder } from '@/domain/workout-builder';
+import { isValidRirValue } from '@/domain/effort';
+import { buildEffectiveExercises, targetRepsPlaceholder } from '@/domain/workout-builder';
 import {
   canCompleteWorkout,
   finalizeExercises,
   hasSetErrors,
+  repsToConfirm,
   validateNote,
   validateSet,
   validateSetOrder,
@@ -41,9 +43,10 @@ import {
   selectBarKg,
   selectExerciseById,
   selectIncrement,
+  selectEffectiveWorkout,
   selectExerciseSessions,
-  selectSuggestions,
   selectWorkoutSuggestions,
+  formulaOf,
 } from '../selectors';
 import type { AppState, StoreContext } from '../types';
 
@@ -73,7 +76,7 @@ export type WorkoutActions = Pick<
 
 const emptySet = (): LoggedSet => ({ kind: 'working', weightKg: null, reps: null, rir: null, done: false });
 
-function draftOf(workout: Workout): WorkoutDraft {
+export function draftOf(workout: Workout): WorkoutDraft {
   return {
     planId: workout.planId,
     planWorkoutId: workout.planWorkoutId,
@@ -90,25 +93,28 @@ function draftOf(workout: Workout): WorkoutDraft {
 const validInt = (v: number | null, min: number, max: number) =>
   v === null || (Number.isInteger(v) && v >= min && v <= max);
 
+/** RIR is stored in half points (SPEC-v4 §3.3). */
+const validRir = (v: number | null) => v === null || isValidRirValue(v);
+
 /**
  * What can be stored of a draft: the repository rejects out-of-range values, but a half-typed
  * value (reps "0", weight 1e6) must not break logging. Such values stay in memory only.
  */
-function storable(workout: Workout): Workout {
-  const { weightKg, reps, rir } = WORKOUT_LIMITS;
+export function storable(workout: Workout): Workout {
+  const { weightKg, reps } = WORKOUT_LIMITS;
   const exercises = workout.exercises.map((exercise) => ({
     ...exercise,
     sets: exercise.sets.map((s) => {
       const ok =
         (s.weightKg === null || (s.weightKg >= weightKg.min && s.weightKg <= weightKg.max)) &&
         validInt(s.reps, reps.min, reps.max) &&
-        validInt(s.rir, rir.min, rir.max);
+        validRir(s.rir);
       if (ok) return s;
       return {
         ...s,
         weightKg: s.weightKg !== null && s.weightKg >= weightKg.min && s.weightKg <= weightKg.max ? s.weightKg : null,
         reps: validInt(s.reps, reps.min, reps.max) ? s.reps : null,
-        rir: validInt(s.rir, rir.min, rir.max) ? s.rir : null,
+        rir: validRir(s.rir) ? s.rir : null,
         done: false,
       };
     }),
@@ -217,7 +223,9 @@ export function createWorkoutActions(ctx: StoreContext): WorkoutActions {
             ? (plan.workouts[plan.cycleState.nextWorkoutIndex] ?? plan.workouts[0])
             : plan.workouts.find((w) => w.id === planWorkoutId);
         if (!planWorkout) throw new PlanWorkoutNotFoundError(planWorkoutId ?? '');
-        const suggestions = selectSuggestions(get(), plan.id, planWorkout.id);
+        const index = plan.workouts.indexOf(planWorkout);
+        const view = selectEffectiveWorkout(get(), plan.id, index);
+        if (!view) throw new PlanWorkoutNotFoundError(planWorkout.id);
         return {
           planId: plan.id,
           planWorkoutId: planWorkout.id,
@@ -225,7 +233,9 @@ export function createWorkoutActions(ctx: StoreContext): WorkoutActions {
           phase: plan.cycleState.phase,
           cycleNumber: plan.cycleState.cycleNumber,
           cycleWeek: plan.cycleState.week,
-          exercises: buildWorkoutExercises(planWorkout, suggestions, {
+          exercises: buildEffectiveExercises(view.workout.exercises, {
+            suggestions: view.suggestions,
+            prescriptions: view.prescriptions,
             targetRir: weekTargetRir(plan.cycle, plan.cycleState),
           }),
         };
@@ -270,7 +280,9 @@ export function createWorkoutActions(ctx: StoreContext): WorkoutActions {
             if (current.done) return { ...current, done: false };
             const exercise = workout.exercises[exerciseIndex];
             let candidate = current;
-            if (candidate.reps === null && exercise.planExerciseId !== null) {
+            const confirmed = candidate.reps === null ? repsToConfirm(exercise, setIndex) : null;
+            if (confirmed !== null) candidate = { ...candidate, reps: confirmed };
+            else if (candidate.reps === null && exercise.planExerciseId !== null) {
               const suggestion = selectWorkoutSuggestions(get())[exercise.planExerciseId];
               const placeholder = suggestion ? targetRepsPlaceholder(suggestion, setIndex) : null;
               if (placeholder !== null) candidate = { ...candidate, reps: placeholder };
@@ -447,7 +459,7 @@ export function createWorkoutActions(ctx: StoreContext): WorkoutActions {
           notes: workout.notes,
           completedAt: now().toISOString(),
         });
-        const records = newRecords(completed, (id) => selectExerciseSessions(get(), id));
+        const records = newRecords(completed, (id) => selectExerciseSessions(get(), id), formulaOf(get()));
         const summary = workoutSummary(completed);
 
         let plans = get().plans;

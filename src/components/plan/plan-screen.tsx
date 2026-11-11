@@ -17,6 +17,10 @@ export type PlanScreenProps = {
   onReviewWithAi?: (planId: number) => void;
   /** Opens the report of one cycle of the plan. */
   onOpenCycle?: (planId: number, cycleNumber: number) => void;
+  /** Opens the periodization table of the plan. */
+  onOpenPeriodization?: (planId: number) => void;
+  /** Opens the 1RM screen of an exercise. */
+  onOpenMax?: (exerciseId: string) => void;
 };
 
 /** The Plan tab: the active plan in full, or an empty state that explains what a plan is. */
@@ -27,6 +31,8 @@ export function PlanScreen({
   onExportPlan,
   onReviewWithAi,
   onOpenCycle,
+  onOpenPeriodization,
+  onOpenMax,
 }: PlanScreenProps) {
   const { t } = useI18n();
   const plan = useAppStore(selectActivePlan);
@@ -41,6 +47,8 @@ export function PlanScreen({
             onExportPlan={onExportPlan}
             onReviewWithAi={onReviewWithAi}
             onOpenCycle={onOpenCycle}
+            onOpenPeriodization={onOpenPeriodization}
+            onOpenMax={onOpenMax}
           />
           <View style={styles.actions}>
             <Button variant="secondary" label={t('plan.allPlans')} onPress={onOpenPlans} />

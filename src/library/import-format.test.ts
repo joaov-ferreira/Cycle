@@ -5,8 +5,11 @@
 import fs from 'fs';
 import path from 'path';
 import { CUSTOM_EXERCISE_NAME, EQUIPMENT, MUSCLE_GROUPS } from '../domain/exercise';
-import { PLAN_LIMITS } from '../domain/plan';
-import { parsePlanImport, unresolvedReferences } from '../domain/plan-import';
+import { PLAN_LIMITS, validatePlanContent } from '../domain/plan';
+import { SCHEME_LIMITS } from '../domain/percent-scheme';
+import { REFERENCE_MAX_LIMITS } from '../domain/reference-max';
+import { findProgram } from './programs';
+import { finalizePendingImport, parsePlanImport, resolveDraft, unresolvedReferences } from '../domain/plan-import';
 import { AI_PLAN_PROMPT_TEMPLATE, buildAiPlanPrompt } from './ai-prompt';
 import { findExercise, listExercises } from './index';
 
@@ -19,7 +22,14 @@ type Schema = {
   $defs: Record<string, SchemaNode>;
 };
 type SchemaNode = {
+  $ref?: string;
   const?: unknown;
+  exclusiveMinimum?: number;
+  multipleOf?: number;
+  minProperties?: number;
+  required?: string[];
+  anyOf?: SchemaNode[];
+  items?: SchemaNode;
   enum?: string[];
   minimum?: number;
   maximum?: number;
@@ -121,7 +131,8 @@ describe('docs/cycle-plan.schema.json', () => {
     const workout = SCHEMA.$defs.workout?.properties ?? {};
     const exercise = SCHEMA.$defs.planExercise?.properties ?? {};
     expect(bounds(workout.name ?? {})).toEqual(PLAN_LIMITS.workoutName);
-    expect(bounds(workout.exercises ?? {})).toEqual(PLAN_LIMITS.exercisesPerWorkout);
+    // exercises may be empty when programs is not (see the anyOf test below)
+    expect(bounds(workout.exercises ?? {})).toEqual({ min: 0, max: PLAN_LIMITS.exercisesPerWorkout.max });
     expect(bounds(exercise.sets ?? {})).toEqual(PLAN_LIMITS.sets);
     expect(bounds(exercise.repMin ?? {})).toEqual(PLAN_LIMITS.reps);
     expect(bounds(exercise.repMax ?? {})).toEqual(PLAN_LIMITS.reps);
@@ -144,6 +155,105 @@ describe('docs/cycle-plan.schema.json', () => {
     const ramp = SCHEMA.$defs.cycle?.properties?.rirRamp?.properties ?? {};
     expect(bounds(ramp.start ?? {})).toEqual(PLAN_LIMITS.rirRamp);
     expect(bounds(ramp.end ?? {})).toEqual(PLAN_LIMITS.rirRamp);
+  });
+});
+
+describe('docs/cycle-plan.schema.json — percent schemes, program blocks, reference 1RMs (SPEC-v4 §9.1)', () => {
+  const defs = SCHEMA.$defs;
+  const scheme = defs.percentScheme?.properties ?? {};
+  const group = defs.percentGroup?.properties ?? {};
+  const block = defs.programBlock?.properties ?? {};
+
+  it('workouts hold 0–4 program blocks and need exercises or programs', () => {
+    const workout = defs.workout;
+    expect(bounds(workout?.properties?.programs ?? {})).toEqual(PLAN_LIMITS.programsPerWorkout);
+    expect(workout?.required).toEqual(['name']);
+    expect(workout?.anyOf).toEqual([
+      { required: ['exercises'], properties: { exercises: { minItems: PLAN_LIMITS.exercisesPerWorkout.min } } },
+      { required: ['programs'], properties: { programs: { minItems: 1 } } },
+    ]);
+  });
+
+  it('sets and reps are required only without percent; rir and startLoad are rejected with it', () => {
+    const exercise = defs.planExercise as SchemaNode & { if?: unknown; then?: unknown; else?: unknown };
+    expect(exercise.required).toEqual(['exercise']);
+    expect(exercise.if).toEqual({ required: ['percent'] });
+    expect(exercise.then).toEqual({ not: { anyOf: [{ required: ['rir'] }, { required: ['startLoad'] }] } });
+    expect(exercise.else).toEqual({
+      required: ['sets'],
+      anyOf: [{ required: ['reps'] }, { required: ['repMin', 'repMax'] }],
+    });
+    expect(exercise.properties?.percent?.$ref).toBe('#/$defs/percentScheme');
+  });
+
+  it('percent scheme limits equal SCHEME_LIMITS', () => {
+    expect(bounds(scheme.weeks ?? {})).toEqual(SCHEME_LIMITS.weeks);
+    expect(bounds(scheme.weeks?.items ?? {})).toEqual({ max: SCHEME_LIMITS.groupsPerWeek.max });
+    expect(bounds(scheme.startWeek ?? {})).toEqual({ min: 1, max: SCHEME_LIMITS.weeks.max });
+    expect(bounds(group.sets ?? {})).toEqual(SCHEME_LIMITS.repeat);
+    expect(bounds(group.reps ?? {})).toEqual(SCHEME_LIMITS.reps);
+    expect(bounds(group.percent ?? {})).toEqual({ min: SCHEME_LIMITS.percent.min, max: SCHEME_LIMITS.percent.max });
+    expect(group.percent?.multipleOf).toBe(SCHEME_LIMITS.percent.step);
+    expect(bounds(group.addKg ?? {})).toEqual({ min: SCHEME_LIMITS.addKg.min, max: SCHEME_LIMITS.addKg.max });
+    expect(defs.percentGroup?.required).toEqual(['reps']);
+    expect(defs.percentScheme?.required).toEqual(['weeks']);
+  });
+
+  it('program blocks require program, day and roles', () => {
+    expect(defs.programBlock?.required).toEqual(['program', 'day', 'roles']);
+    expect(block.roles?.minProperties).toBe(1);
+    expect(bounds(block.day ?? {}).min).toBe(1);
+    expect(bounds(block.startWeek ?? {}).min).toBe(1);
+  });
+
+  it('referenceMaxes holds at most 50 entries with a kg in (0, 1000]', () => {
+    expect(bounds(SCHEMA.properties.referenceMaxes ?? {})).toEqual({ max: 50 });
+    const max = defs.referenceMax?.properties ?? {};
+    expect(defs.referenceMax?.required).toEqual(['exercise', 'kg']);
+    expect(max.kg?.exclusiveMinimum).toBe(REFERENCE_MAX_LIMITS.min);
+    expect(max.kg?.maximum).toBe(REFERENCE_MAX_LIMITS.max);
+  });
+});
+
+describe('docs/IMPORT_FORMAT.md §7.1 strength example', () => {
+  const example = fencedAfter('### 7.1 Strength example', '```', 'json');
+
+  it('imports with the program lookup, resolves everything and is a valid plan', () => {
+    const result = parsePlanImport(example, listExercises(), { findProgram });
+    if (!result.ok) throw new Error(JSON.stringify(result.errors));
+    expect(unresolvedReferences(result.draft)).toEqual([]);
+    const resolved = resolveDraft(result.draft, {});
+    if (!resolved.ok) throw new Error('unresolved');
+    expect(resolved.pending.referenceMaxes).toEqual([
+      { exerciseId: 'barbell-back-squat', kg: 140 },
+      { exerciseId: 'barbell-bench-press', kg: 100 },
+    ]);
+    const content = finalizePendingImport(resolved.pending, {});
+    expect(validatePlanContent(content, findExercise, { findProgram })).toEqual([]);
+    expect(content.workouts[1].programs?.[0]).toMatchObject({ programId: 'smolov-jr', day: 2, startWeek: 1 });
+    expect(content.workouts[0].exercises[0].percent?.weeks).toHaveLength(3);
+  });
+});
+
+describe('the sample of the AI prompt', () => {
+  it.each(['en', 'pt-BR'] as const)('%s: the OUTPUT sample imports and carries a percent scheme', (locale) => {
+    const template = AI_PLAN_PROMPT_TEMPLATE[locale];
+    const start = template.indexOf('\n{\n  "format"') + 1;
+    const end = template.indexOf('\n}\n', start) + 2;
+    const result = parsePlanImport(template.slice(start, end), listExercises(), { findProgram });
+    if (!result.ok) throw new Error(JSON.stringify(result.errors));
+    const percent = result.draft.workouts[0].exercises.find((exercise) => exercise.percent);
+    expect(percent?.percent?.weeks).toHaveLength(2);
+    expect(percent?.percent?.weeks[1].sets[1]).toEqual({ reps: 1, percent: 90, repeat: 1, amrap: true });
+  });
+
+  it.each(['en', 'pt-BR'] as const)('%s: documents percent and referenceMaxes without citing program ids', (locale) => {
+    const template = AI_PLAN_PROMPT_TEMPLATE[locale];
+    expect(template).toContain('"percent"');
+    expect(template).toContain('"referenceMaxes"');
+    expect(template).toContain('"amrap"');
+    expect(template).toContain('"addKg"');
+    for (const id of ['smolov', 'sheiko', 'cycle-531-custom']) expect(template).not.toContain(id);
   });
 });
 

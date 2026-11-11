@@ -168,6 +168,7 @@ describe('SPEC §13 acceptance flow', () => {
     // 1. First run: onboarding, Intermediate, "Import a plan".
     const { store, router } = await launch();
     expect(await screen.findByRole('header', { name: 'Welcome to CYCLE' })).toBeOnTheScreen();
+    await press('button', 'Continue'); // focus step: General training
     await press('button', 'Intermediate');
     expect(screen.getByRole('button', { name: 'Intermediate', selected: true })).toBeOnTheScreen();
     await press('button', 'Import a plan');

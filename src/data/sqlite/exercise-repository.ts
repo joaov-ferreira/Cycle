@@ -68,8 +68,9 @@ export function createSqliteExerciseRepository(
   async function isReferenced(profileId: number, id: string): Promise<boolean> {
     const inWorkout = await db.getFirstAsync(
       `SELECT 1 FROM workout_exercises we JOIN workouts w ON w.id = we.workout_id
-       WHERE w.profile_id = ? AND we.exercise_id = ? LIMIT 1`,
-      [profileId, id],
+       WHERE w.profile_id = ?
+         AND (we.exercise_id = ? OR instr(COALESCE(we.prescription, ''), ?) > 0) LIMIT 1`,
+      [profileId, id, `"basisExerciseId":${JSON.stringify(id)}`],
     );
     if (inWorkout) return true;
     const plans = await db.getAllAsync<{ content: string }>(
@@ -165,6 +166,10 @@ export function createSqliteExerciseRepository(
         if (await isReferenced(profileId, id)) throw new ExerciseInUseError(id);
         await db.runAsync('DELETE FROM custom_exercises WHERE id = ?', [row.id]);
         await db.runAsync('DELETE FROM exercise_settings WHERE profile_id = ? AND exercise_id = ?', [
+          profileId,
+          id,
+        ]);
+        await db.runAsync('DELETE FROM reference_maxes WHERE profile_id = ? AND exercise_id = ?', [
           profileId,
           id,
         ]);

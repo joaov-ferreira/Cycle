@@ -33,6 +33,10 @@ describe('app store', () => {
       barKg: 20,
       platesKg: [25, 20, 15, 10, 5, 2.5, 1.25],
       lastBackupAt: null,
+      focus: 'general',
+      e1rmFormula: 'epley',
+      effortScale: 'rir',
+      roundingMode: 'nearest',
     });
     expect(await repos.profiles.list()).toHaveLength(1);
   });

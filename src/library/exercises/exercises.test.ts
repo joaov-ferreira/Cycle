@@ -85,6 +85,11 @@ const CONTRACT: readonly {
   { id: 'lateral-raise', primaryMuscle: 'shoulders', equipment: 'dumbbell', mechanics: 'isolation', en: 'Dumbbell Lateral Raise', ptBR: 'Elevação lateral' },
   { id: 'standing-calf-raise', primaryMuscle: 'calves', equipment: 'machine', mechanics: 'isolation', en: 'Standing Calf Raise', ptBR: 'Panturrilha em pé' },
   { id: 'dumbbell-fly', primaryMuscle: 'chest', equipment: 'dumbbell', mechanics: 'isolation', en: 'Dumbbell Fly', ptBR: 'Crucifixo com halteres' },
+  // SPEC-v4 §4.2: variations and accessories of the restored programs.
+  { id: 'seated-good-morning', primaryMuscle: 'lowerBack', equipment: 'barbell', mechanics: 'compound', en: 'Seated Good Morning', ptBR: 'Bom dia sentado' },
+  { id: 'deadlift-to-knees', primaryMuscle: 'lowerBack', equipment: 'barbell', mechanics: 'compound', en: 'Deadlift to Knees', ptBR: 'Levantamento terra até os joelhos' },
+  { id: 'deadlift-from-boxes', primaryMuscle: 'lowerBack', equipment: 'barbell', mechanics: 'compound', en: 'Deadlift from Boxes', ptBR: 'Levantamento terra em blocos' },
+  { id: 'deficit-deadlift', primaryMuscle: 'lowerBack', equipment: 'barbell', mechanics: 'compound', en: 'Deficit Deadlift', ptBR: 'Levantamento terra em déficit' },
 ];
 
 describe('built-in exercise library (SPEC §2.2)', () => {

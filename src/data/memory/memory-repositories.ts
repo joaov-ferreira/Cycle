@@ -14,6 +14,7 @@ import { createMemoryBodyMetricRepository } from './body-repository';
 import { createMemoryExerciseRepository } from './exercise-repository';
 import { createMemoryState, requireProfile } from './memory-state';
 import { createMemoryPlanRepository } from './plan-repository';
+import { createMemoryReferenceMaxRepository } from './reference-max-repository';
 import { createMemoryWorkoutRepository } from './workout-repository';
 
 /** In-memory `Repositories`, used by tests (and anywhere persistence is not needed). */
@@ -73,6 +74,7 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
     plans: createMemoryPlanRepository(state),
     workouts: createMemoryWorkoutRepository(state),
     bodyMetrics: createMemoryBodyMetricRepository(state),
+    referenceMaxes: createMemoryReferenceMaxRepository(state),
     backup: createMemoryBackupRepository(state, () => repositories),
   };
   return repositories;

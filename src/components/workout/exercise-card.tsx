@@ -3,24 +3,28 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { layout, spacing } from '@/constants/theme';
 import { countedSets } from '@/domain/metrics';
+import type { EffectiveExercise } from '@/domain/program-plan';
 import type { Suggestion } from '@/domain/progression';
-import type { SetErrors, WorkoutExercise } from '@/domain/workout';
+import { prescribedSetAt, type SetErrors, type WorkoutExercise } from '@/domain/workout';
 import { useI18n } from '@/i18n';
 import {
   selectBarKg,
+  selectEffortScale,
   selectExerciseNote,
   selectFindExercise,
   selectLastSession,
+  selectSetEstimate,
   useAppStore,
   WorkoutSetOrderError,
 } from '@/state';
 
-import { SetRow, SetRowHeader, useExerciseName } from '../shared';
+import { SetRow, SetRowHeader, useExerciseName, type SetRowProps } from '../shared';
 import { useTheme } from '../theme-provider';
 import { Button, Card, Text } from '../ui';
 import { targetLine } from './exercise-target';
 import { NoteField } from './note-field';
 import { platesText } from './plates-text';
+import { PrescriptionHeader } from './prescription-header';
 import { suggestionText } from './suggestion-text';
 import { useAction } from './use-action';
 
@@ -32,6 +36,8 @@ export type ExerciseCardProps = {
   index: number;
   exercise: WorkoutExercise;
   suggestion: Suggestion | undefined;
+  /** What the plan generates for this exercise this week (program label and notes). */
+  effective?: EffectiveExercise;
   deloadLoadFactor: number | undefined;
   /** The plan's RIR ramp sets the target RIR: the target line says "this week". */
   rirThisWeek?: boolean;
@@ -52,6 +58,7 @@ function sameProps(previous: ExerciseCardProps, next: ExerciseCardProps): boolea
   return (
     previous.index === next.index &&
     previous.exercise === next.exercise &&
+    previous.effective === next.effective &&
     previous.deloadLoadFactor === next.deloadLoadFactor &&
     previous.rirThisWeek === next.rirThisWeek &&
     previous.grouped === next.grouped &&
@@ -69,6 +76,7 @@ export const ExerciseCard = memo(function ExerciseCard({
   index,
   exercise,
   suggestion,
+  effective,
   deloadLoadFactor,
   rirThisWeek = false,
   grouped = false,
@@ -86,6 +94,7 @@ export const ExerciseCard = memo(function ExerciseCard({
   const savedNote = useAppStore((s) => selectExerciseNote(s, exercise.exerciseId));
   const barKg = useAppStore((s) => selectBarKg(s, exercise.exerciseId));
   const platesKg = useAppStore((s) => s.settings?.platesKg);
+  const effortScale = useAppStore(selectEffortScale);
   const updateSet = useAppStore((s) => s.updateSet);
   const toggleSetDone = useAppStore((s) => s.toggleSetDone);
   const setSetKind = useAppStore((s) => s.setSetKind);
@@ -237,9 +246,11 @@ export const ExerciseCard = memo(function ExerciseCard({
         </View>
       ) : null}
 
+      <PrescriptionHeader exercise={exercise} effective={effective} index={index} />
+
       {target ? (
         <Text variant="caption" tone="secondary" tabular>
-          {targetLine(t, target, suggestion?.sets ?? target.sets, rirThisWeek)}
+          {targetLine(t, target, suggestion?.sets ?? target.sets, rirThisWeek, effortScale)}
         </Text>
       ) : null}
       {suggestion && target ? (
@@ -274,18 +285,27 @@ export const ExerciseCard = memo(function ExerciseCard({
         />
       ) : null}
 
-      <SetRowHeader />
+      <SetRowHeader effortScale={effortScale} />
       {exercise.sets.map((set, setIndex) => {
         const position = numbers[setIndex] - 1;
         const isDrop = set.kind === 'drop';
         const last = isDrop ? undefined : lastSets[position];
+        const prescribed = prescribedSetAt(exercise, setIndex);
+        const extra = exercise.prescription != null && set.kind === 'working' && prescribed === null;
         return (
           <View key={setIndex} style={styles.setBlock}>
-            <SetRow
+            <ExerciseSetRow
+              exerciseIndex={index}
+              setIndex={setIndex}
               testID={`set-row-${index}-${setIndex}`}
               index={position}
               set={set}
-              placeholderReps={isDrop ? null : (suggestion?.targetReps[position] ?? null)}
+              effortScale={effortScale}
+              prescribed={prescribed}
+              extra={extra}
+              placeholderReps={
+                prescribed ? prescribed.reps : isDrop ? null : (suggestion?.targetReps[position] ?? null)
+              }
               lastTime={last ? { weightKg: last.weightKg, reps: last.reps } : null}
               errors={errors[setIndex]}
               onChange={(change) => {
@@ -377,6 +397,16 @@ export const ExerciseCard = memo(function ExerciseCard({
     </Wrapper>
   );
 }, sameProps);
+
+/** A set row that also reads its strength estimate (`e1RM ≈ 96 kg`) from the store. */
+function ExerciseSetRow({
+  exerciseIndex,
+  setIndex,
+  ...props
+}: SetRowProps & { exerciseIndex: number; setIndex: number }) {
+  const estimateKg = useAppStore((s) => selectSetEstimate(s, exerciseIndex, setIndex)?.kg ?? null);
+  return <SetRow {...props} estimateKg={estimateKg} />;
+}
 
 const styles = StyleSheet.create({
   grouped: { gap: spacing.md, paddingTop: spacing.md },

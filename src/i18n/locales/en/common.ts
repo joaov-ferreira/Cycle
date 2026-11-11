@@ -19,6 +19,7 @@ export const common = {
   sets: 'Sets',
   set: 'Set',
   rir: 'RIR',
+  rpe: 'RPE',
   decrease: 'Decrease {{label}}',
   increase: 'Increase {{label}}',
   workingSet: 'Working set',
@@ -28,6 +29,7 @@ export const common = {
   setWeight: 'Set {{number}} weight',
   setReps: 'Set {{number}} reps',
   setRir: 'Set {{number}} RIR',
+  setRpe: 'Set {{number}} RPE',
   setDone: 'Set {{number}} done',
   setType: 'Set {{number}} type',
   removeSet: 'Remove set {{number}}',
@@ -35,6 +37,19 @@ export const common = {
   /** Visible "last time" value, e.g. `40 kg × 12`. */
   lastTimeValue: '{{weight}} kg × {{reps}}',
   lastTimeAccessible: 'Last time {{weight}} kg × {{reps}}',
+  /** Reps placeholder of an AMRAP set, e.g. `5+`. */
+  repsAmrap: '{{reps}}+',
+  amrap: 'AMRAP',
+  unverified: 'Unverified data',
+  extraSet: 'Extra',
+  /** Strength estimate shown under a done set. */
+  e1rmLine: 'e1RM ≈ {{kg}}',
+  /** Prescribed set: `75% → 75 kg`, `70% +2.5 kg → 72.5 kg`, `72.5% → 74.31 → 75 kg`. */
+  rxPercent: '{{percent}}%',
+  rxAddPlus: '+{{kg}}',
+  rxAddMinus: '−{{kg}}',
+  rxLoad: '{{lead}} → {{load}}',
+  rxRounded: '{{exact}} → {{load}}',
   setErrors: {
     weightKg: {
       required: 'Enter the weight',
@@ -49,7 +64,7 @@ export const common = {
     },
     rir: {
       outOfRange: 'Use from 0 to {{max}}',
-      notInteger: 'Use a whole number',
+      notInteger: 'Use steps of 0.5',
     },
   },
   exerciseErrors: {

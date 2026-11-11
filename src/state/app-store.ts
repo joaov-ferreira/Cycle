@@ -17,6 +17,7 @@ import { createBackupActions } from './slices/backup';
 import { createBodyActions } from './slices/body';
 import { createExerciseActions } from './slices/exercises';
 import { createPlanActions } from './slices/plans';
+import { createReferenceMaxActions } from './slices/reference-maxes';
 import { createRest } from './slices/rest';
 import { incrementOverridesOf, createSettingsActions } from './slices/settings';
 import { createWorkoutActions } from './slices/workouts';
@@ -96,6 +97,7 @@ export function createAppStore(repos: Repositories, options: AppStoreOptions = {
         currentWorkout,
         workouts,
         bodyMetrics,
+        referenceMaxes,
       ] = await Promise.all([
         repos.profiles.list(),
         repos.settings.get(profile.id),
@@ -106,6 +108,7 @@ export function createAppStore(repos: Repositories, options: AppStoreOptions = {
         repos.workouts.getInProgress(profile.id),
         repos.workouts.listCompleted(profile.id),
         repos.bodyMetrics.list(profile.id),
+        repos.referenceMaxes.list(profile.id),
       ]);
       rest.control.clear(); // the previous profile's timer (and its notification)
       set({
@@ -121,6 +124,7 @@ export function createAppStore(repos: Repositories, options: AppStoreOptions = {
         currentWorkout,
         workouts,
         bodyMetrics,
+        referenceMaxes,
         deloadAdviceDismissed: false,
         lastFinish: null,
         restTimer: null,
@@ -145,6 +149,7 @@ export function createAppStore(repos: Repositories, options: AppStoreOptions = {
       restTimer: null,
       completedCycle: null,
       bodyMetrics: [],
+      referenceMaxes: [],
       async init(defaultProfileName) {
         set({ status: 'loading' });
         try {
@@ -156,7 +161,6 @@ export function createAppStore(repos: Repositories, options: AppStoreOptions = {
       setLanguage: (language) => updateSettings({ language }),
       setTheme: (theme) => updateSettings({ theme }),
       setExperience: (experience) => updateSettings({ experience }),
-      completeOnboarding: () => updateSettings({ onboardingCompleted: true }),
       async createProfile(name) {
         requireReady();
         await tail;
@@ -181,6 +185,7 @@ export function createAppStore(repos: Repositories, options: AppStoreOptions = {
         await loadProfile(profile);
       },
       ...createSettingsActions(ctx),
+      ...createReferenceMaxActions(ctx),
       ...rest.actions,
       ...createBodyActions(ctx),
       ...createBackupActions(ctx),
