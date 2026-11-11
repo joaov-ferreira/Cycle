@@ -13,14 +13,16 @@ export type NoteFieldProps = {
   value: string;
   /** Saves the text; a rejection (e.g. too long) is shown under the field. */
   onSave: (text: string) => Promise<unknown>;
+  /** Limit quoted when the store rejects the text as too long (default: the session note's). */
+  maxChars?: number;
   testID?: string;
 };
 
 /** Multi-line note that saves as the user types and shows the store's rejection, if any. */
-export function NoteField({ label, value, onSave, testID }: NoteFieldProps) {
+export function NoteField({ label, value, onSave, maxChars, testID }: NoteFieldProps) {
   const { colors } = useTheme();
   const [text, setText] = useState(value);
-  const { error, run } = useAction();
+  const { error, run } = useAction({ noteMax: maxChars });
 
   return (
     <View style={styles.container}>

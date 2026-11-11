@@ -6,32 +6,52 @@ import { layout, spacing } from '@/constants/theme';
 import type { Exercise } from '@/domain/exercise';
 import type { Suggestion } from '@/domain/progression';
 import { canCompleteWorkout, type Workout } from '@/domain/workout';
-import { useI18n } from '@/i18n';
+import { useI18n, type MessageKey } from '@/i18n';
 import {
   selectActivePlan,
   selectAllExercises,
   selectFindExercise,
+  selectSimilarExercises,
+  selectWorkoutLayout,
   selectWorkoutSuggestions,
   useAppStore,
 } from '@/state';
 
 import { ConfirmDialog, ExerciseSelectModal, useExerciseName } from '../shared';
 import { useTheme } from '../theme-provider';
-import { Button, Text } from '../ui';
+import { Button, Card, Text } from '../ui';
 import { Badge } from './badge';
 import { ExerciseCard } from './exercise-card';
 import { NoteField } from './note-field';
+import { RestTimerBar } from './rest-timer-bar';
 import { useAction } from './use-action';
+
+const NO_EXERCISES: Exercise[] = [];
+
+export type WorkoutLoggerProps = {
+  workout: Workout;
+  now: () => number;
+  vibrate: (pattern: number[]) => void;
+  openUrl: (url: string) => void;
+};
+
+/** Heading of a superset by its number of exercises (SPEC-v3 §4.1). */
+const SUPERSET_TITLE: Record<number, MessageKey> = {
+  2: 'workout.superset',
+  3: 'workout.supersetThree',
+  4: 'workout.supersetFour',
+};
 
 type Picker = { mode: 'add' } | { mode: 'replace'; index: number };
 
 /** The workout in progress (SPEC §7.3): header, one card per exercise, notes, finish and discard. */
-export function WorkoutLogger({ workout }: { workout: Workout }) {
+export function WorkoutLogger({ workout, now, vibrate, openUrl }: WorkoutLoggerProps) {
   const { colors } = useTheme();
   const { t, formatTime } = useI18n();
   const exerciseLabel = useExerciseName();
   const suggestions: Record<string, Suggestion> = useAppStore(selectWorkoutSuggestions);
   const plan = useAppStore(selectActivePlan);
+  const layoutBlocks = useAppStore(selectWorkoutLayout);
   const allExercises = useAppStore(selectAllExercises);
   const findExercise = useAppStore(selectFindExercise);
   const addExercise = useAppStore((s) => s.addExercise);
@@ -44,6 +64,8 @@ export function WorkoutLogger({ workout }: { workout: Workout }) {
   const { error, run } = useAction();
 
   const [picker, setPicker] = useState<Picker | null>(null);
+  const replaceId = picker?.mode === 'replace' ? workout.exercises[picker.index]?.exerciseId : undefined;
+  const similar = useAppStore((s) => (replaceId ? selectSimilarExercises(s, replaceId) : NO_EXERCISES));
   const [removeIndex, setRemoveIndex] = useState<number | null>(null);
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -54,6 +76,7 @@ export function WorkoutLogger({ workout }: { workout: Workout }) {
   const requestReplace = useCallback((index: number) => setPicker({ mode: 'replace', index }), []);
   const requestRemove = useCallback((index: number) => setRemoveIndex(index), []);
 
+  const rirThisWeek = plan?.id === workout.planId && !!plan?.cycle.rirRamp;
   const deloadLoadFactor = plan?.id === workout.planId ? plan.cycle.deloadLoadFactor : undefined;
   const canFinish = canCompleteWorkout(workout.exercises);
   const notDone = workout.exercises.reduce((total, e) => total + e.sets.filter((s) => !s.done).length, 0);
@@ -97,7 +120,11 @@ export function WorkoutLogger({ workout }: { workout: Workout }) {
 
   const footer = (
     <View style={styles.footer}>
-      <Button variant="secondary" label={t('workout.addExercise')} onPress={() => setPicker({ mode: 'add' })} />
+      <Button
+        variant="secondary"
+        label={t('workout.addExercise')}
+        onPress={() => setPicker({ mode: 'add' })}
+      />
       <NoteField label={t('workout.workoutNotes')} value={workout.notes} onSave={setWorkoutNotes} />
       {canFinish ? null : (
         <Text variant="caption" tone="secondary">
@@ -115,31 +142,59 @@ export function WorkoutLogger({ workout }: { workout: Workout }) {
   );
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.root, { backgroundColor: colors.background }]} testID="screen-workout">
+    <SafeAreaView
+      edges={['top', 'left', 'right']}
+      style={[styles.root, { backgroundColor: colors.background }]}
+      testID="screen-workout">
       <FlatList
-        data={workout.exercises}
-        keyExtractor={(item, index) => `${index}-${item.exerciseId}`}
+        data={layoutBlocks}
+        keyExtractor={(block) => `block-${block.indices[0]}`}
         keyboardShouldPersistTaps="handled"
+        style={styles.list}
         contentContainerStyle={styles.content}
         ListHeaderComponent={header}
         ListFooterComponent={footer}
-        renderItem={({ item, index }) => (
-          <ExerciseCard
-            index={index}
-            exercise={item}
-            suggestion={item.planExerciseId ? suggestions[item.planExerciseId] : undefined}
-            deloadLoadFactor={deloadLoadFactor}
-            onRequestReplace={requestReplace}
-            onRequestRemove={requestRemove}
-          />
-        )}
+        renderItem={({ item: block }) => {
+          const cards = block.indices.map((index, position) => {
+            const item = workout.exercises[index];
+            return (
+              <ExerciseCard
+                key={`${index}-${item.exerciseId}`}
+                index={index}
+                exercise={item}
+                suggestion={item.planExerciseId ? suggestions[item.planExerciseId] : undefined}
+                deloadLoadFactor={deloadLoadFactor}
+                rirThisWeek={rirThisWeek}
+                grouped={block.label !== null}
+                divider={position > 0}
+                openUrl={openUrl}
+                onRequestReplace={requestReplace}
+                onRequestRemove={requestRemove}
+              />
+            );
+          });
+          if (block.label === null) return cards[0];
+          return (
+            <Card testID={`superset-${block.indices[0]}`}>
+              <Text variant="heading">
+                {t(SUPERSET_TITLE[block.indices.length] ?? 'workout.supersetFour')}
+              </Text>
+              <Text variant="caption" tone="secondary">
+                {t('workout.supersetHint')}
+              </Text>
+              {cards}
+            </Card>
+          );
+        }}
       />
+      <RestTimerBar now={now} vibrate={vibrate} />
 
       <ExerciseSelectModal
         visible={picker !== null}
         title={t(picker?.mode === 'replace' ? 'workout.replaceExercise' : 'workout.addExercise')}
         exercises={selectable}
         excludeIds={picker?.mode === 'replace' ? inWorkoutIds : undefined}
+        suggested={picker?.mode === 'replace' ? similar : undefined}
         onSelect={onSelect}
         onClose={() => setPicker(null)}
         onCreateExercise={createCustomExercise}
@@ -191,6 +246,7 @@ export function WorkoutLogger({ workout }: { workout: Workout }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  list: { flex: 1 },
   content: {
     width: '100%',
     maxWidth: layout.maxContentWidth,
