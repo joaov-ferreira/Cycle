@@ -1,12 +1,8 @@
 import * as Localization from 'expo-localization';
 import { router as expoRouter } from 'expo-router';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
-import { Text } from 'react-native';
 import type { ReactNode } from 'react';
 
-import MaxDetailRoute from '@/app/maxes/[exerciseId]';
-import MaxesRoute from '@/app/maxes/index';
-import OneRepMaxRoute from '@/app/tools/one-rep-max';
 import { SQUAT, createTestStore, seedReferenceMax } from '@/test-utils/seed';
 import { appRoutes } from '@/test-utils/app-routes';
 
@@ -35,15 +31,6 @@ function setDeviceLocale(tag: string) {
   (Localization.useLocales as jest.Mock).mockReturnValue(locales);
 }
 
-/** The app routes plus the strength routes of this stage and a stand-in for `/programs` (another stage). */
-const routes = {
-  ...appRoutes,
-  'maxes/index': MaxesRoute,
-  'maxes/[exerciseId]': MaxDetailRoute,
-  'tools/one-rep-max': OneRepMaxRoute,
-  'programs/index': () => <Text>programs route</Text>,
-};
-
 async function open(url: string, { width = 390, seed = false }: { width?: number; seed?: boolean } = {}) {
   setWindowWidth(width);
   const { store, repos } = await createTestStore();
@@ -53,7 +40,7 @@ async function open(url: string, { width = 390, seed = false }: { width?: number
       {children}
     </AppProviders>
   );
-  const router = await renderRouter(routes, { initialUrl: url, wrapper });
+  const router = await renderRouter(appRoutes, { initialUrl: url, wrapper });
   return { router, store };
 }
 
@@ -82,7 +69,7 @@ describe('More: strength entries', () => {
   it('opens Programs, 1RMs and the calculator, and Back returns to More', async () => {
     const { router } = await open('/more');
     await press('Programs');
-    expect(await screen.findByText('programs route')).toBeOnTheScreen();
+    expect(await header('Strength programs')).toBeOnTheScreen();
     expect(router.getPathname()).toBe('/programs');
     await act(async () => expoRouter.back());
     await header('More');
@@ -155,7 +142,7 @@ describe('1RM routes', () => {
     expect(router.getPathname()).toBe('/tools/one-rep-max');
     expect(screen.getByTestId('sidebar-item-calculator')).toBeSelected();
     await fireEvent.press(screen.getByTestId('sidebar-item-programs'));
-    expect(await screen.findByText('programs route')).toBeOnTheScreen();
+    expect(await header('Strength programs')).toBeOnTheScreen();
     expect(screen.getByTestId('sidebar-item-programs')).toBeSelected();
   });
 });
