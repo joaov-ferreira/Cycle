@@ -29,7 +29,7 @@ function decimalsOf(step: number): number {
 /** Bounded ± control with buttons of at least 44 pt. Disabled at the bounds. */
 export function Stepper({ value, onChange, min, max, step = 1, label, format, testID }: StepperProps) {
   const { colors } = useTheme();
-  const { t, formatNumber, locale } = useI18n();
+  const { t, formatNumber } = useI18n();
   const decimals = decimalsOf(step);
 
   const move = (direction: 1 | -1) => {
