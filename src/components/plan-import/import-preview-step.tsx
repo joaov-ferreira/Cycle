@@ -6,16 +6,22 @@ import type { CustomExerciseInput, Exercise } from '@/domain/exercise';
 import { normalizeName } from '@/domain/exercise-match';
 import { PLAN_LIMITS, supersetLayout, type Plan } from '@/domain/plan';
 import {
+  PENDING_PREFIX,
   resolveDraft,
   unresolvedReferences,
   type DraftExercise,
+  type DraftProgramLink,
+  type ExerciseRef,
   type ImportDraft,
   type Resolution,
 } from '@/domain/plan-import';
 import { useI18n, type MessageKey } from '@/i18n';
+import { findProgram } from '@/library/programs';
 import { useAppStore } from '@/state/app-store-context';
 import { CustomExerciseValidationError, PlanValidationError } from '@/state/errors';
+import { selectImportMaxesPreview } from '@/state/selectors-v4';
 
+import { useSetLabel } from '../programs/set-label';
 import { ExerciseSelectModal, exerciseName } from '../shared';
 import { useTheme } from '../theme-provider';
 import { Button, Card, Text } from '../ui';
@@ -57,7 +63,8 @@ export function ImportPreviewStep({
   updatePlanId,
   onEditText,
 }: ImportPreviewStepProps) {
-  const { t, locale, formatDate, formatNumber } = useI18n();
+  const { t, locale, formatDate, formatNumber, formatKg } = useI18n();
+  const setLabel = useSetLabel();
   const { colors } = useTheme();
   const targetLabel = useTargetLabel();
   const importPlan = useAppStore((s) => s.importPlan);
@@ -87,6 +94,24 @@ export function ImportPreviewStep({
   const selectable = useMemo(() => exercises.filter((exercise) => !exercise.archived), [exercises]);
   const remaining = unresolved.filter((item) => !resolutions[item.normalized]).length;
 
+  const resolved = useMemo(() => resolveDraft(draft, resolutions), [draft, resolutions]);
+  const pendingImport = resolved.ok ? resolved.pending : null;
+  // The store's preview only knows existing exercises: those still to be created have no 1RM and
+  // are listed as "will be set" below.
+  const existingMaxes = useMemo(
+    () =>
+      pendingImport
+        ? {
+            ...pendingImport,
+            referenceMaxes: (pendingImport.referenceMaxes ?? []).filter(
+              (max) => !max.exerciseId.startsWith(PENDING_PREFIX),
+            ),
+          }
+        : null,
+    [pendingImport],
+  );
+  const maxesPreview = useAppStore((s) => (existingMaxes ? selectImportMaxesPreview(s, existingMaxes) : null));
+
   const choose = (normalized: string, resolution: Resolution) => {
     setResolutions((current) => ({ ...current, [normalized]: resolution }));
     setSaveErrors([]);
@@ -107,9 +132,8 @@ export function ImportPreviewStep({
     return { name: exercise ? exerciseName(exercise, locale) : resolution.exerciseId, creates: false };
   };
 
-  /** Name shown for an exercise line of the draft. */
-  const lineName = (exercise: DraftExercise): { name: string; creates: boolean } => {
-    const { ref } = exercise;
+  /** Name shown for an exercise reference of the draft (line, scheme basis, role target). */
+  const refName = (ref: ExerciseRef): { name: string; creates: boolean } => {
     if (ref.status === 'resolved') {
       const found = byId.get(ref.exerciseId);
       return { name: found ? exerciseName(found, locale) : ref.exerciseId, creates: false };
@@ -119,6 +143,7 @@ export function ImportPreviewStep({
     }
     return chosenFor(normalizeName(ref.name)) ?? { name: ref.name, creates: false };
   };
+  const lineName = (exercise: DraftExercise) => refName(exercise.ref);
 
   const othersFor = (normalized: string | null): Exercise[] => {
     const pending: Exercise[] = [];
@@ -159,7 +184,7 @@ export function ImportPreviewStep({
 
   const save = async () => {
     if (busy || remaining > 0) return;
-    const result = resolveDraft(draft, resolutions);
+    const result = resolved;
     if (!result.ok) return;
     setBusy(true);
     setSaveErrors([]);
@@ -182,24 +207,98 @@ export function ImportPreviewStep({
         ? t('planImport.preview.supersetOf3')
         : t('planImport.preview.supersetOf4');
 
-  const renderLine = (exercise: DraftExercise) => {
-    const shown = lineName(exercise);
+  /** The weeks of a percent scheme as `Week 1: 3 × 5 @ 75 %`, with the basis exercise when it differs. */
+  const renderScheme = (exercise: DraftExercise) => {
+    const { percent } = exercise;
+    if (!percent) return null;
     return (
-      <View key={exercise.id} style={styles.row}>
-        <View style={styles.rowName}>
-          <Text>{shown.name}</Text>
-          {shown.creates ? (
-            <Text variant="caption" tone="accent">
-              {t('planImport.preview.willBeCreated')}
-            </Text>
-          ) : null}
-        </View>
-        <Text tone="secondary" tabular>
-          {targetLabel(exercise.sets, exercise.repMin, exercise.repMax)}
-        </Text>
+      <View style={styles.scheme} testID="import-scheme">
+        {percent.of ? (
+          <Text variant="caption" tone="secondary">
+            {t('planImport.preview.schemeBasis', { exercise: refName(percent.of.ref).name })}
+          </Text>
+        ) : null}
+        {percent.weeks.map((week, index) => (
+          <Text key={index} variant="caption" tabular>
+            {week.sets.length === 0
+              ? t('planImport.preview.schemeRest', { week: formatNumber(index + 1) })
+              : t('planImport.preview.schemeWeek', {
+                  week: formatNumber(index + 1),
+                  groups: week.sets
+                    .map((set) =>
+                      setLabel({
+                        sets: set.repeat ?? 1,
+                        reps: set.reps,
+                        ...(set.percent !== undefined ? { percent: set.percent } : {}),
+                        ...(set.amrap ? { amrap: true } : {}),
+                        ...(set.addKg !== undefined ? { add: { kind: 'kg' as const, kg: set.addKg } } : {}),
+                      }),
+                    )
+                    .join(', '),
+                })}
+          </Text>
+        ))}
       </View>
     );
   };
+
+  const renderLine = (exercise: DraftExercise) => {
+    const shown = lineName(exercise);
+    return (
+      <View key={exercise.id} style={styles.line}>
+        <View style={styles.row}>
+          <View style={styles.rowName}>
+            <Text>{shown.name}</Text>
+            {shown.creates ? (
+              <Text variant="caption" tone="accent">
+                {t('planImport.preview.willBeCreated')}
+              </Text>
+            ) : null}
+          </View>
+          <Text tone="secondary" tabular>
+            {targetLabel(exercise.sets, exercise.repMin, exercise.repMax)}
+          </Text>
+        </View>
+        {renderScheme(exercise)}
+      </View>
+    );
+  };
+
+  /** `Smolov Jr. · day 1 → Back Squat`, with the program week it starts at and the accessories. */
+  const renderBlock = (link: DraftProgramLink) => {
+    const targets = [...new Set(Object.values(link.roles).map((role) => refName(role.ref).name))];
+    return (
+      <View key={link.id} style={styles.line} testID="import-program-block">
+        <Text variant="label" tone="accent">
+          {t('planImport.preview.blockLine', {
+            program: findProgram(link.programId)?.name ?? link.programId,
+            day: formatNumber(link.day),
+            exercise: targets.join(', '),
+          })}
+        </Text>
+        <Text variant="caption" tone="secondary">
+          {t('planImport.preview.blockWeek', { week: formatNumber(link.startWeek) })}
+        </Text>
+        {link.accessories ? (
+          <Text variant="caption" tone="secondary">
+            {t('planImport.preview.blockAccessories')}
+          </Text>
+        ) : null}
+      </View>
+    );
+  };
+
+  /** Name of the exercise of a reference 1RM; those still to be created are named by their draft. */
+  const maxName = (exerciseId: string): string => {
+    if (exerciseId.startsWith(PENDING_PREFIX)) {
+      const key = exerciseId.slice(PENDING_PREFIX.length);
+      return pendingImport?.customExercises.find((custom) => custom.key === key)?.name ?? key;
+    }
+    const exercise = byId.get(exerciseId);
+    return exercise ? exerciseName(exercise, locale) : exerciseId;
+  };
+  const keptMaxes = new Map((maxesPreview?.kept ?? []).map((max) => [max.exerciseId, max]));
+  const settingMaxes = (pendingImport?.referenceMaxes ?? []).filter((max) => !keptMaxes.has(max.exerciseId));
 
   const creatingItem = creating ? unresolved.find((item) => item.normalized === creating) : undefined;
   const existingCreate = creating && resolutions[creating]?.kind === 'create' ? resolutions[creating] : undefined;
@@ -251,9 +350,12 @@ export function ImportPreviewStep({
       {draft.workouts.map((workout) => (
         <Card key={workout.id}>
           <Text variant="heading">{workout.name}</Text>
-          <Text variant="caption" tone="secondary">
-            {t('planImport.preview.workoutExercises', { count: workout.exercises.length })}
-          </Text>
+          {(workout.programs ?? []).map(renderBlock)}
+          {workout.exercises.length > 0 ? (
+            <Text variant="caption" tone="secondary">
+              {t('planImport.preview.workoutExercises', { count: workout.exercises.length })}
+            </Text>
+          ) : null}
           {supersetLayout(workout.exercises).map((block) => {
             const lines = block.indices.map((index) => renderLine(workout.exercises[index]));
             if (block.label === null) return lines;
@@ -272,6 +374,36 @@ export function ImportPreviewStep({
           })}
         </Card>
       ))}
+
+      {keptMaxes.size > 0 || settingMaxes.length > 0 ? (
+        <Card testID="import-maxes">
+          <Text variant="heading">{t('planImport.preview.maxesTitle')}</Text>
+          {settingMaxes.length > 0 ? (
+            <>
+              <Text variant="label">{t('planImport.preview.maxesWillSet')}</Text>
+              {settingMaxes.map((max) => (
+                <Text key={max.exerciseId} tabular>
+                  {t('planImport.preview.maxWillSet', { exercise: maxName(max.exerciseId), kg: formatKg(max.kg) })}
+                </Text>
+              ))}
+            </>
+          ) : null}
+          {keptMaxes.size > 0 ? (
+            <>
+              <Text variant="label">{t('planImport.preview.maxesKept')}</Text>
+              {[...keptMaxes.values()].map((max) => (
+                <Text key={max.exerciseId} tabular>
+                  {t('planImport.preview.maxKept', {
+                    exercise: maxName(max.exerciseId),
+                    kg: formatKg(max.kg),
+                    current: formatKg(max.currentKg),
+                  })}
+                </Text>
+              ))}
+            </>
+          ) : null}
+        </Card>
+      ) : null}
 
       {target ? (
         <View style={styles.section} accessibilityRole="radiogroup" accessibilityLabel={t('planImport.preview.saveTargetLabel')}>
@@ -362,6 +494,8 @@ export function ImportPreviewStep({
 const styles = StyleSheet.create({
   section: { gap: spacing.sm },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md },
+  line: { gap: spacing.xs },
+  scheme: { gap: 2, paddingLeft: spacing.md },
   rowName: { flex: 1 },
   superset: { gap: spacing.xs, borderLeftWidth: 3, paddingLeft: spacing.md },
   toggle: {

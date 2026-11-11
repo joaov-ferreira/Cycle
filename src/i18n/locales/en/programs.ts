@@ -1,2 +1,102 @@
-/** English `programs` namespace (SPEC-v4). */
-export const programs = {};
+/** English `programs` namespace (SPEC-v4 §10.2): the program library, its detail and the start wizard. */
+export const programs = {
+  // ---- List ----
+  list: {
+    title: 'Strength programs',
+    intro: 'Percentage-based programs with a documented source. Open one to see its whole structure, then start it as a plan.',
+    open: 'Open {{name}}',
+    weeks: { one: '{{count}} week', other: '{{count}} weeks' },
+    days: { one: '{{count}} day per week', other: '{{count}} days per week' },
+    summary: '{{weeks}} · {{days}}',
+  },
+  families: {
+    '531-custom': '5/3/1 (custom)',
+    'smolov-jr': 'Smolov Jr.',
+    smolov: 'Smolov',
+    sheiko: 'Sheiko',
+  },
+
+  // ---- Verification badge ----
+  verification: {
+    label: 'Verification: {{status}}',
+    verified: 'Verified',
+    partial: 'Partly verified',
+    unverified: 'Unverified',
+    verifiedHint: 'Every set, rep and percentage matches the cited source.',
+    partialHint: 'Part of the data comes from secondary sources or had to be interpreted. See the source notes.',
+    unverifiedHint: 'The data could not be confirmed against a source. Treat it with caution.',
+  },
+
+  // ---- Detail ----
+  detail: {
+    notFoundTitle: 'Program not found',
+    notFoundMessage: 'This program does not exist.',
+    start: 'Start this program',
+    version: 'Version: {{version}}',
+    sourceTitle: 'Source',
+    author: 'Author: {{author}}',
+    reference: 'Reference: {{reference}}',
+    link: 'Open the source',
+    accessed: 'Consulted on {{date}}',
+    notes: 'Notes: {{notes}}',
+    rolesTitle: 'Exercises of the program',
+    roleDefault: 'Default exercise: {{name}}',
+    roleNoDefault: 'You choose the exercise',
+    roleFixed: 'Written for this exercise',
+    paramsTitle: 'Parameters',
+    paramRange: 'From {{min}} to {{max}}, default {{default}}',
+    weeksTitle: 'The program, week by week',
+    weeksNote: 'Loads are calculated from your 1RM when you start the program.',
+    week: 'Week {{week}}',
+    weekPhase: 'Week {{week}} · {{phase}}',
+    day: 'Day {{day}}',
+    dayLabel: 'Day {{day}} · {{label}}',
+    unverified: 'Unverified data',
+  },
+
+  // ---- Set and item formatting (shared with the import preview) ----
+  set: {
+    base: '{{sets}} × {{reps}}',
+    amrapReps: '{{reps}}+',
+    amrap: '{{label}} AMRAP',
+    percent: '{{label}} @ {{percent}} %',
+    addKg: '{{label}} + {{kg}}',
+    subKg: '{{label}} − {{kg}}',
+    addParam: '{{label}} + {{param}}',
+    addParamTimes: '{{label}} + {{times}} × {{param}}',
+  },
+  accessory: '{{name}}: {{sets}} × {{reps}}',
+
+  // ---- Start wizard ----
+  start: {
+    title: 'Start {{name}}',
+    nameLabel: 'Plan name',
+    rolesTitle: 'Exercises',
+    rolesIntro: 'Choose the exercise for each part of the program.',
+    roleUnset: 'Choose an exercise',
+    roleButton: '{{role}}: {{exercise}}',
+    pickerTitle: 'Exercise for {{role}}',
+    fidelity: 'This program was written for {{original}}. With {{exercise}} it is still a useful plan, but it is no longer the original.',
+    paramsTitle: 'Parameters',
+    percentUnit: '%',
+    accessoriesLabel: 'Include accessory exercises',
+    accessoriesHint: 'The program lists accessory work after the main lifts.',
+    maxesTitle: 'Your 1RMs',
+    maxesIntro: 'The loads are calculated from these. You can leave one empty and set it later.',
+    maxLabel: '1RM {{exercise}}',
+    maxCurrent: 'Saved 1RM: {{kg}}',
+    create: 'Create plan',
+    errors: {
+      nameRequired: 'Give the plan a name.',
+      nameTooLong: 'The plan name is too long.',
+      rolesMissing: 'Choose an exercise for every part of the program.',
+      fixValues: 'Fix the highlighted values first.',
+      paramInvalid: '{{label}}: this value is not allowed.',
+      paramOutOfRange: '{{label}}: outside the allowed range.',
+      paramOffStep: '{{label}}: not a multiple of the allowed step.',
+      maxInvalid: 'One of the 1RMs is not valid.',
+      unknownProgram: 'This program no longer exists.',
+      createFailed: 'The plan could not be created. Try again.',
+    },
+  },
+};

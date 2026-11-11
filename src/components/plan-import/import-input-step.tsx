@@ -34,6 +34,7 @@ export function ImportInputStep({
   return (
     <>
       <Text tone="secondary">{t('planImport.input.hint')}</Text>
+      <Text tone="secondary">{t('planImport.input.percentHint')}</Text>
       <View style={styles.field}>
         <Text variant="label">{t('planImport.input.pasteLabel')}</Text>
         <TextInput

@@ -13,6 +13,8 @@ export const planImport: typeof enPlanImport = {
     importBody: 'Cole um texto ou JSON, escolha um arquivo ou peça a um chatbot de IA para escrever para você.',
     scratchTitle: 'Começar do zero',
     scratchBody: 'Monte seus treinos e exercícios no editor da periodização.',
+    strengthTitle: 'Iniciar um programa de força',
+    strengthBody: 'Escolha um programa documentado (Smolov, Sheiko, 5/3/1…), defina seus exercícios e 1RMs e receba o ciclo inteiro planejado.',
   },
 
   templates: {
@@ -25,6 +27,7 @@ export const planImport: typeof enPlanImport = {
     backToList: 'Todos os modelos',
     use: 'Usar este modelo',
     useError: 'Não foi possível criar a periodização. Tente novamente.',
+    block: '{{program}} → {{exercise}}',
   },
 
   target: '{{sets}} × {{reps}}',
@@ -34,6 +37,7 @@ export const planImport: typeof enPlanImport = {
     title: 'Importar periodização',
     pasteLabel: 'Texto da periodização',
     hint: 'Cole uma periodização em texto simples ou JSON. Respostas de chatbots de IA podem ser coladas como estão. Comece uma linha com + para juntar o exercício anterior em um bi-set e adicione uma linha como rir: 3-0 para aumentar o esforço a cada semana.',
+    percentHint: 'Para cargas em porcentagem de um 1RM, escreva o esquema na linha do exercício, por exemplo: Agachamento livre 3x5 @75% / 3x3 @85%. Uma “/” começa a semana seguinte, uma “,” adiciona um grupo à semana e um “+” depois das repetições (1x1+) marca uma série AMRAP.',
     exampleTitle: 'Exemplo em texto simples',
     example:
       '# Minha periodização\nciclo: 6+1\nsessoes: 2\n\n## Superior\nSupino reto com barra | 4x6-10 | rir 2 | descanso 150\nPuxada alta | 3x8-12\n\n## Inferior\nAgachamento livre | 4x6-10',
@@ -129,6 +133,17 @@ export const planImport: typeof enPlanImport = {
     supersetOf3: 'Tri-set',
     supersetOf4: 'Série gigante',
     rirRamp: 'Rampa de esforço: RIR {{start}} → {{end}}',
+    schemeWeek: 'Semana {{week}}: {{groups}}',
+    schemeRest: 'Semana {{week}}: sem este exercício',
+    schemeBasis: 'Porcentagens do 1RM de {{exercise}}',
+    blockLine: '{{program}} · dia {{day}} → {{exercise}}',
+    blockWeek: 'Começa na semana {{week}} do programa',
+    blockAccessories: 'Com acessórios',
+    maxesTitle: '1RMs',
+    maxesWillSet: 'Serão definidos',
+    maxesKept: 'Mantidos: o exercício já tem um 1RM',
+    maxWillSet: '{{exercise}}: {{kg}}',
+    maxKept: '{{exercise}}: {{kg}} no arquivo, atual {{current}}',
     saveError: 'Não foi possível salvar a periodização.',
     planIssues: 'A periodização não é válida',
     issue: '{{path}}: {{message}}',
