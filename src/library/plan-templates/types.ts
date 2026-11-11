@@ -18,9 +18,25 @@ export interface PlanTemplateExercise {
   restSeconds?: number;
 }
 
+/** A program block of a template workout; becomes a `ProgramLink` when instantiated (SPEC-v4 §5.2). */
+export interface PlanTemplateBlock {
+  /** Built-in program id. */
+  programId: string;
+  /** 1…days per week of the program. */
+  day: number;
+  /** Program week of the first cycle week; default 1. */
+  startWeek?: number;
+  /** Role id → built-in exercise id. */
+  roles: Record<string, string>;
+  accessories: boolean;
+  params?: Record<string, number>;
+}
+
 /** A workout of a template; becomes a `PlanWorkout` when instantiated. */
 export interface PlanTemplateWorkout {
   name: LocalizedText;
+  /** Program blocks generated before `exercises`. */
+  programs?: PlanTemplateBlock[];
   exercises: PlanTemplateExercise[];
 }
 
@@ -30,5 +46,7 @@ export interface PlanTemplate {
   name: LocalizedText;
   description: LocalizedText;
   sessionsPerWeek: number;
+  /** Fixed cycle length (a program needs its own weeks); overrides the cycle the caller passes. */
+  cycle?: { loadWeeks: number; deloadWeeks: number };
   workouts: PlanTemplateWorkout[];
 }
