@@ -80,23 +80,20 @@ export function ExerciseRow({
   onUnlink,
 }: ExerciseRowProps) {
   const { t, formatNumber } = useI18n();
-  const [expanded, setExpandedState] = useState(startExpanded);
+  const hasIssue = Object.keys(errors).some((key) => key === path || key.startsWith(`${path}.`));
+  const [expanded, setExpandedState] = useState(startExpanded || hasIssue);
   const setExpanded = (next: boolean) => {
     setExpandedState(next);
     onExpandedChange?.(next);
   };
 
   const error = (field: string) => errors[`${path}.${field}`] ?? null;
-  const hasIssue = Object.keys(errors).some((key) => key === path || key.startsWith(`${path}.`));
   // An issue that appears opens the row (and keeps it open once it is fixed): adjusting state
   // while rendering, as React recommends for state derived from props.
   const [sawIssue, setSawIssue] = useState(hasIssue);
   if (hasIssue !== sawIssue) {
     setSawIssue(hasIssue);
-    if (hasIssue) {
-      setExpandedState(true);
-      onExpandedChange?.(true);
-    }
+    if (hasIssue) setExpandedState(true);
   }
   const repsError = error('repMin') ?? error('repMax');
   const summary = [

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { spacing } from '@/constants/theme';
@@ -69,7 +69,7 @@ export function WorkoutCard({
   const exercisesError = errors[`${path}.exercises`];
   // Rows move between the workout card and a superset group when linked or unlinked, which
   // remounts them: the open/closed state is remembered here, by plan exercise id.
-  const expandedById = useRef(new Map<string, boolean>());
+  const [expandedById, setExpandedById] = useState<Record<string, boolean>>({});
 
   return (
     <Card style={styles.card}>
@@ -106,8 +106,8 @@ export function WorkoutCard({
                 onMove={(delta) => onMoveExercise(exerciseIndex, delta)}
                 onRemove={() => onRemoveExercise(exerciseIndex)}
                 onLoadInvalid={(invalid) => onLoadInvalid(exercise.id, invalid)}
-                startExpanded={expandedById.current.get(exercise.id) ?? newExerciseIds.has(exercise.id)}
-                onExpandedChange={(open) => expandedById.current.set(exercise.id, open)}
+                startExpanded={expandedById[exercise.id] ?? newExerciseIds.has(exercise.id)}
+                onExpandedChange={(open) => setExpandedById((previous) => ({ ...previous, [exercise.id]: open }))}
                 link={
                   offersLink(workout.exercises, exerciseIndex)
                     ? {
