@@ -3,14 +3,14 @@ import { useT } from '@/i18n';
 import { Button, Screen, Text } from '../ui';
 import { OptionCard } from './option-card';
 
-export type NewPlanKind = 'templates' | 'import' | 'scratch';
+export type NewPlanKind = 'templates' | 'programs' | 'import' | 'scratch';
 
 export type PlanNewScreenProps = {
   onChoose: (kind: NewPlanKind) => void;
   onBack?: () => void;
 };
 
-/** Plan → New: choose how to create a plan (template, import or from scratch). */
+/** Plan → New: choose how to create a plan (template, strength program, import or from scratch). */
 export function PlanNewScreen({ onChoose, onBack }: PlanNewScreenProps) {
   const t = useT();
   return (
@@ -21,6 +21,11 @@ export function PlanNewScreen({ onChoose, onBack }: PlanNewScreenProps) {
         title={t('planImport.new.templateTitle')}
         body={t('planImport.new.templateBody')}
         onPress={() => onChoose('templates')}
+      />
+      <OptionCard
+        title={t('planImport.new.strengthTitle')}
+        body={t('planImport.new.strengthBody')}
+        onPress={() => onChoose('programs')}
       />
       <OptionCard
         title={t('planImport.new.importTitle')}

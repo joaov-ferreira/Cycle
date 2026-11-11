@@ -1,6 +1,6 @@
 import { fireEvent, screen } from '@testing-library/react-native';
 
-import { createTestStore, seedPlan } from '@/test-utils/seed';
+import { BENCH, SQUAT, createTestStore, seedPlan, seedReferenceMax, v4PlanContent } from '@/test-utils/seed';
 import { renderInApp } from '@/test-utils/render-app';
 
 import { PlanExportScreen } from './plan-export-screen';
@@ -31,6 +31,21 @@ describe('PlanExportScreen', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Share' }));
     expect(share).toHaveBeenCalledWith(text);
+  });
+
+  it('carries the 1RMs of the exercises the plan is based on', async () => {
+    const { store, repos } = await createTestStore();
+    const plan = await seedPlan(store, v4PlanContent());
+    await seedReferenceMax(store, BENCH, 100);
+    await seedReferenceMax(store, SQUAT, 140);
+    await seedReferenceMax(store, 'overhead-press', 60);
+    await renderInApp(<PlanExportScreen planId={plan.id} onBack={jest.fn()} share={jest.fn()} />, { store, repos });
+    const document = JSON.parse((await screen.findByLabelText('Plan JSON')).props.children as string);
+    expect(document.referenceMaxes).toEqual([
+      { exercise: BENCH, kg: 100 },
+      { exercise: SQUAT, kg: 140 },
+    ]);
+    expect(document.workouts[0].programs[0].program).toBe('cycle-531-custom');
   });
 
   it('is available in Portuguese and goes back', async () => {

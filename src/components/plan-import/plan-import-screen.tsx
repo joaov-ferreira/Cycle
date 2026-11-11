@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 
-import { suggestCycle } from '@/domain/cycle';
 import type { Plan } from '@/domain/plan';
-import { DEFAULT_MAX_BYTES, parsePlanImport, type ImportDraft, type ImportError } from '@/domain/plan-import';
+import { DEFAULT_MAX_BYTES, type ImportDraft, type ImportError } from '@/domain/plan-import';
 import { useI18n } from '@/i18n';
 import { buildAiPlanPrompt } from '@/library/ai-prompt';
 import { useAppStore } from '@/state/app-store-context';
 import { selectAllExercises } from '@/state/selectors';
+import { selectParsedPlanImport } from '@/state/selectors-v4';
 
 import { Button, Screen } from '../ui';
 import { AiPromptView } from './ai-prompt-view';
@@ -39,7 +39,7 @@ export function PlanImportScreen({
 }: PlanImportScreenProps) {
   const { t, locale } = useI18n();
   const exercises = useAppStore(selectAllExercises);
-  const experience = useAppStore((s) => s.settings?.experience) ?? 'intermediate';
+  const state = useAppStore((s) => s);
   const [step, setStep] = useState<Step>('input');
   const [text, setText] = useState('');
   const [errors, setErrors] = useState<ImportError[]>([]);
@@ -77,7 +77,7 @@ export function PlanImportScreen({
       setNotice(t('planImport.input.emptyText'));
       return;
     }
-    const result = parsePlanImport(text, exercises, { defaultCycle: suggestCycle(experience) });
+    const result = selectParsedPlanImport(state, text);
     if (!result.ok) {
       setErrors(result.errors);
       return;
