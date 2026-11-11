@@ -16,6 +16,7 @@ import {
   useT,
 } from '@/i18n';
 import { createAppStore, selectColorScheme, selectLanguageSetting, type AppStore } from '@/state/app-store';
+import type { RestNotifier } from '@/state/types';
 import { AppStoreProvider, useAppStore } from '@/state/app-store-context';
 
 import { ThemeProvider, useTheme } from './theme-provider';
@@ -28,6 +29,10 @@ export type AppProvidersProps = {
   openRepositories: () => Promise<Repositories>;
   /** Clock for every timestamp the store creates (tests). Must be a stable reference. */
   now?: () => Date;
+  /** Rest-end notifications for the store (ignored when `store` is given). Stable reference. */
+  notifier?: RestNotifier;
+  /** App version written into backups (ignored when `store` is given). */
+  appVersion?: string;
   /** A pre-built store (tests); booted with `init` when it is not ready yet. Stable reference. */
   store?: AppStore;
   /** Called once boot finishes (successfully or not), e.g. to hide the splash screen. */
@@ -93,7 +98,15 @@ function BootScreen({ failed }: { failed: boolean }) {
  * Root providers: opens persistence, boots the app store (default profile on first boot),
  * then provides store, locale (setting or device) and theme (dark by default).
  */
-export function AppProviders({ openRepositories, now, store: providedStore, onReady, children }: AppProvidersProps) {
+export function AppProviders({
+  openRepositories,
+  now,
+  notifier,
+  appVersion,
+  store: providedStore,
+  onReady,
+  children,
+}: AppProvidersProps) {
   const deviceTag = useDeviceLocaleTag();
   const [boot, setBoot] = useState<Boot>({ kind: 'loading' });
 
@@ -102,7 +115,7 @@ export function AppProviders({ openRepositories, now, store: providedStore, onRe
     (async () => {
       let next: Boot;
       try {
-        const store = providedStore ?? createAppStore(await openRepositories(), { now });
+        const store = providedStore ?? createAppStore(await openRepositories(), { now, notifier, appVersion });
         const locale = resolveLocale(getDeviceLocaleTag());
         if (store.getState().status !== 'ready') {
           await store.getState().init(translate(catalogs[locale], locale, 'profile.defaultName'));
@@ -119,7 +132,7 @@ export function AppProviders({ openRepositories, now, store: providedStore, onRe
     return () => {
       cancelled = true;
     };
-  }, [openRepositories, now, providedStore, onReady]);
+  }, [openRepositories, now, notifier, appVersion, providedStore, onReady]);
 
   if (boot.kind !== 'ready') {
     return (

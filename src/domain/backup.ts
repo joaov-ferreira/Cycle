@@ -233,6 +233,7 @@ function readPlanExercise(item: unknown, path: string): PlanExercise {
   if (!isAbsent(o.restSeconds)) result.restSeconds = num(o, 'restSeconds', path);
   if (!isAbsent(o.startLoadKg)) result.startLoadKg = num(o, 'startLoadKg', path);
   if (!isAbsent(o.note)) result.note = str(o, 'note', path);
+  if (!isAbsent(o.supersetGroup)) result.supersetGroup = str(o, 'supersetGroup', path);
   return result;
 }
 
@@ -249,17 +250,25 @@ function readPlanContent(value: unknown, path: string): PlanContent {
   const o = obj(value, path);
   const cyclePath = join(path, 'cycle');
   const c = obj(o.cycle, cyclePath);
+  const cycle: PlanContent['cycle'] = {
+    loadWeeks: num(c, 'loadWeeks', cyclePath),
+    deloadWeeks: num(c, 'deloadWeeks', cyclePath),
+    deloadVolumeFactor: num(c, 'deloadVolumeFactor', cyclePath),
+    deloadLoadFactor: num(c, 'deloadLoadFactor', cyclePath),
+  };
+  if (c.rirRamp === null) {
+    cycle.rirRamp = null;
+  } else if (c.rirRamp !== undefined) {
+    const rampPath = join(cyclePath, 'rirRamp');
+    const ramp = obj(c.rirRamp, rampPath);
+    cycle.rirRamp = { start: num(ramp, 'start', rampPath), end: num(ramp, 'end', rampPath) };
+  }
   return {
     name: str(o, 'name', path),
     description: str(o, 'description', path),
     workouts: mapArray(o.workouts, join(path, 'workouts'), readPlanWorkout),
     sessionsPerWeek: num(o, 'sessionsPerWeek', path),
-    cycle: {
-      loadWeeks: num(c, 'loadWeeks', cyclePath),
-      deloadWeeks: num(c, 'deloadWeeks', cyclePath),
-      deloadVolumeFactor: num(c, 'deloadVolumeFactor', cyclePath),
-      deloadLoadFactor: num(c, 'deloadLoadFactor', cyclePath),
-    },
+    cycle,
   };
 }
 
@@ -302,13 +311,17 @@ function readTarget(value: unknown, path: string): WorkoutExercise['target'] {
 
 function readWorkoutExercise(item: unknown, path: string): WorkoutExercise {
   const o = obj(item, path);
-  return {
+  const result: WorkoutExercise = {
     exerciseId: nonEmpty(o, 'exerciseId', path),
     planExerciseId: nullable(o, 'planExerciseId', path, str),
     target: readTarget(o.target, join(path, 'target')),
     note: o.note === undefined ? '' : str(o, 'note', path),
     sets: mapArray(o.sets, join(path, 'sets'), readLoggedSet),
   };
+  // Stored by v3; absent in workouts saved by v2. `null` (no superset) is kept as `null`.
+  if (o.supersetGroup === null) result.supersetGroup = null;
+  else if (o.supersetGroup !== undefined) result.supersetGroup = str(o, 'supersetGroup', path);
+  return result;
 }
 
 function readWorkout(item: unknown, path: string): BackupWorkout {
@@ -440,6 +453,9 @@ export function backupSummary(backup: BackupDocument): {
   };
 }
 
+/** What a backup file contains, for the restore confirmation. */
+export type BackupSummary = ReturnType<typeof backupSummary>;
+
 export function backupFileName(profileName: string, date: Date): string {
   const slug = profileName
     .normalize('NFD')
@@ -470,7 +486,7 @@ export function remapBackup(
       id: plan(p.id) ?? p.id,
       content: {
         ...p.content,
-        cycle: { ...p.content.cycle },
+        cycle: { ...p.content.cycle, ...(p.content.cycle.rirRamp ? { rirRamp: { ...p.content.cycle.rirRamp } } : {}) },
         workouts: p.content.workouts.map((w) => ({
           ...w,
           exercises: w.exercises.map((e) => ({ ...e, exerciseId: ex(e.exerciseId) })),
