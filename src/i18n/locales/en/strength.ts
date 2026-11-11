@@ -1,6 +1,5 @@
 /** English `strength` namespace (SPEC-v4): the Progress Strength tab and wording shared by Home, report and history. */
 export const strength = {
-  title: 'Strength',
   empty: {
     title: 'No 1RMs yet',
     message: 'Set a 1RM for your main lifts to follow your strength here.',

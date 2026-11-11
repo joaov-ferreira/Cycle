@@ -2,7 +2,6 @@ import type { strength as enStrength } from '../en/strength';
 
 /** Brazilian Portuguese `strength` namespace, typed against the English source. */
 export const strength: typeof enStrength = {
-  title: 'Força',
   empty: {
     title: 'Nenhum 1RM ainda',
     message: 'Defina o 1RM dos seus principais exercícios para acompanhar sua força aqui.',
