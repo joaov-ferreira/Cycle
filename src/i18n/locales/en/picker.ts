@@ -1,6 +1,5 @@
 /** English `picker` namespace (source catalog). */
 export const picker = {
-  title: 'Choose an exercise',
   searchLabel: 'Search exercises',
   muscleFilter: 'Muscle group',
   equipmentFilter: 'Equipment',

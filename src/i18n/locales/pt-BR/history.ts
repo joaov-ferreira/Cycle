@@ -12,7 +12,6 @@ export const history: typeof enHistory = {
   },
   volume: 'Volume: {{volume}}',
   openWorkout: '{{name}}, {{date}}',
-  filterPlan: 'Filtrar por periodização',
   filterExercise: 'Filtrar por exercício',
   exerciseFilterChip: '{{name}} ✕',
   clearFilters: 'Limpar filtros',

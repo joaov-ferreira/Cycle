@@ -1,6 +1,5 @@
 /** English `planImport` namespace (source catalog). */
 export const planImport = {
-  title: 'Import plan',
   back: 'Back',
 
   // ---- New plan ----
@@ -75,7 +74,6 @@ export const planImport = {
     invalidDirective: 'This setting could not be read.',
     emptyWorkout: 'This workout has no exercises.',
     noWorkouts: 'The plan has no workouts.',
-    generic: 'Something is wrong with this plan.',
   },
 
   // ---- Create with AI ----
@@ -95,7 +93,6 @@ export const planImport = {
   // ---- Import: preview step ----
   preview: {
     title: 'Review the plan',
-    description: 'Description',
     cycle: '{{load}} + {{deload}}',
     loadWeeks: { one: '{{count}} load week', other: '{{count}} load weeks' },
     deloadWeeks: { one: '{{count}} deload week', other: '{{count}} deload weeks' },

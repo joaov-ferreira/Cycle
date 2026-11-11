@@ -10,7 +10,6 @@ export const history = {
   },
   volume: 'Volume: {{volume}}',
   openWorkout: '{{name}}, {{date}}',
-  filterPlan: 'Filter by plan',
   filterExercise: 'Filter by exercise',
   exerciseFilterChip: '{{name}} ✕',
   clearFilters: 'Clear filters',

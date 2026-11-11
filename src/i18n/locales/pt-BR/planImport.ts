@@ -2,7 +2,6 @@ import type { planImport as enPlanImport } from '../en/planImport';
 
 /** Brazilian Portuguese `planImport` namespace, typed against the English source. */
 export const planImport: typeof enPlanImport = {
-  title: 'Importar periodização',
   back: 'Voltar',
 
   new: {
@@ -72,7 +71,6 @@ export const planImport: typeof enPlanImport = {
     invalidDirective: 'Não foi possível ler esta configuração.',
     emptyWorkout: 'Este treino não tem exercícios.',
     noWorkouts: 'A periodização não tem treinos.',
-    generic: 'Há algo errado com esta periodização.',
   },
 
   ai: {
@@ -90,7 +88,6 @@ export const planImport: typeof enPlanImport = {
 
   preview: {
     title: 'Revise a periodização',
-    description: 'Descrição',
     cycle: '{{load}} + {{deload}}',
     loadWeeks: { one: '{{count}} semana de carga', other: '{{count}} semanas de carga' },
     deloadWeeks: { one: '{{count}} semana de deload', other: '{{count}} semanas de deload' },

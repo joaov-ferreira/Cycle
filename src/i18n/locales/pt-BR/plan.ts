@@ -4,10 +4,7 @@ import type { plan as enPlan } from '../en/plan';
 export const plan: typeof enPlan = {
   title: 'Periodização',
   listTitle: 'Periodizações',
-  newTitle: 'Nova periodização',
-  templatesTitle: 'Modelos de periodização',
   detailTitle: 'Periodização',
-  editTitle: 'Editar periodização',
   active: 'Ativa',
   archived: 'Arquivada',
   next: 'Próximo',
