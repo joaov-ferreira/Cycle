@@ -94,12 +94,18 @@ export function exportPlan(
     version: 1,
     name: content.name,
     sessionsPerWeek: content.sessionsPerWeek,
-    cycle: { ...content.cycle },
+    cycle: exportCycle(content.cycle),
     workouts,
   };
   if (content.description !== '') document.description = content.description;
   if (customExercises.length > 0) document.customExercises = customExercises;
   return orderKeys(document);
+}
+
+/** The cycle block; `rirRamp` is written only when a ramp is set (SPEC-v3 §5). */
+function exportCycle(cycle: CycleConfig): CycleConfig {
+  const { rirRamp, ...rest } = cycle;
+  return rirRamp ? { ...rest, rirRamp: { start: rirRamp.start, end: rirRamp.end } } : rest;
 }
 
 /** Puts the document properties in the order of IMPORT_FORMAT.md §2.1 (readable output). */

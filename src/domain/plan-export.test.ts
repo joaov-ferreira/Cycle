@@ -184,6 +184,36 @@ describe('round trip (export → import → resolve → finalize)', () => {
   });
 });
 
+describe('RIR ramp in export (SPEC-v3 §5)', () => {
+  const withRamp = (rirRamp: { start: number; end: number } | null | undefined): PlanContent => ({
+    ...CONTENT,
+    cycle: { ...CONTENT.cycle, rirRamp },
+  });
+
+  it('writes cycle.rirRamp only when a ramp is set', () => {
+    expect(exportPlan(withRamp({ start: 3, end: 0 }), find).cycle).toEqual({
+      loadWeeks: 5,
+      deloadWeeks: 2,
+      deloadVolumeFactor: 0.65,
+      deloadLoadFactor: 0.85,
+      rirRamp: { start: 3, end: 0 },
+    });
+    expect(exportPlan(withRamp(null), find).cycle).not.toHaveProperty('rirRamp');
+    expect(exportPlan(withRamp(undefined), find).cycle).not.toHaveProperty('rirRamp');
+    expect(serializePlan(exportPlan(withRamp(null), find))).not.toContain('rirRamp');
+  });
+
+  it('survives export -> import -> resolve', () => {
+    const known = EXERCISES.filter((exercise) => !exercise.custom);
+    const parsed = parsePlanImport(serializePlan(exportPlan(withRamp({ start: 4, end: 1 }), find)), known);
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.errors));
+    expect(parsed.draft.cycle.rirRamp).toEqual({ start: 4, end: 1 });
+    const resolved = resolveDraft(parsed.draft, {});
+    if (!resolved.ok) throw new Error('unexpected unresolved');
+    expect(resolved.pending.content.cycle).toEqual(withRamp({ start: 4, end: 1 }).cycle);
+  });
+});
+
 describe('supersets in export (SPEC-v3 §4.1)', () => {
   const grouped: PlanContent = {
     ...CONTENT,

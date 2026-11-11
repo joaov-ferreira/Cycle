@@ -271,7 +271,27 @@ function readCycle(reader: JsonReader, value: unknown, defaults: CycleConfig): C
   };
   factor('deloadVolumeFactor');
   factor('deloadLoadFactor');
+  readRirRamp(reader, value.rirRamp, cycle);
   return cycle;
+}
+
+/** `cycle.rirRamp` (SPEC-v3 §5): absent keeps the default, `null` removes the ramp. */
+function readRirRamp(reader: JsonReader, raw: unknown, cycle: CycleConfig): void {
+  if (raw === undefined) return;
+  if (raw === null) {
+    delete cycle.rirRamp;
+    return;
+  }
+  if (!isObject(raw)) {
+    reader.error('cycle.rirRamp', 'invalidType');
+    return;
+  }
+  const { min, max } = PLAN_LIMITS.rirRamp;
+  const start = reader.requiredInteger('cycle.rirRamp.start', raw.start, min, max);
+  const end = reader.requiredInteger('cycle.rirRamp.end', raw.end, min, max);
+  if (start === undefined || end === undefined) return;
+  if (start < end) reader.error('cycle.rirRamp', 'invalidValue');
+  else cycle.rirRamp = { start, end };
 }
 
 function readCustomExercises(
@@ -532,7 +552,8 @@ function parseJsonImport(
 // ---------------------------------------------------------------------------------------
 
 const CYCLE_DIRECTIVE = /^(?:cycle|ciclo)\s*:\s*(.*)$/i;
-const SESSIONS_DIRECTIVE = /^(?:sessions|sessoes|sessões)\s*:\s*(.*)$/i;
+const RIR_DIRECTIVE = /^rir\s*:\s*(.*)$/i;
+const SESSIONS_DIRECTIVE =/^(?:sessions|sessoes|sessões)\s*:\s*(.*)$/i;
 const BULLET = /^(?:[-*•]|\d+\.)\s+/;
 /** A leading `+` joins the previous exercise in a superset (SPEC-v3 §4.1). */
 const SUPERSET_MARK = /^\+\s*/;
@@ -685,6 +706,23 @@ function parseTextImport(
         if (loadOk && deloadOk) {
           cycle.loadWeeks = load;
           cycle.deloadWeeks = deload;
+        }
+      }
+      return;
+    }
+    const rirDirective = RIR_DIRECTIVE.exec(trimmed);
+    if (rirDirective) {
+      const match = /^(\d+)(?:\s*[-–]\s*(\d+))?$/.exec(rirDirective[1].trim());
+      if (!match) fail('invalidDirective', line);
+      else {
+        const start = Number(match[1]);
+        const end = match[2] === undefined ? start : Number(match[2]);
+        const { min, max } = PLAN_LIMITS.rirRamp;
+        const startOk = inRange(start, min, max, line);
+        const endOk = inRange(end, min, max, line);
+        if (startOk && endOk) {
+          if (start < end) fail('invalidDirective', line);
+          else cycle.rirRamp = { start, end };
         }
       }
       return;
@@ -867,7 +905,7 @@ export function resolveDraft(
         description: draft.description,
         workouts,
         sessionsPerWeek: draft.sessionsPerWeek,
-        cycle: { ...draft.cycle },
+        cycle: { ...draft.cycle, ...(draft.cycle.rirRamp ? { rirRamp: { ...draft.cycle.rirRamp } } : {}) },
       },
     },
   };
