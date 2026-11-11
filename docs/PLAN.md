@@ -41,12 +41,14 @@
 | 4b | 4 | State store and selectors | sonnet | ✅ |
 | 4c | 4 | Shared UI: exercise picker, set row, stepper | haiku | ✅ |
 | 4d | 4 | AI prompt builder, generated prompt docs, schema consistency tests | haiku | ✅ |
-| 5a | 5 | Exercises screens | sonnet | ⬜ |
-| 5b | 5 | Plan screens: list, detail, editor, cycle card | sonnet | ⬜ |
-| 5c | 5 | New-plan flow: templates gallery, import, export | sonnet | ⬜ |
-| 5d | 5 | Workout logger and summary | sonnet | ⬜ |
-| 5e | 5 | History and Progress screens | sonnet | ⬜ |
-| 5f | 5 | Home, onboarding, settings | haiku | ⬜ |
+| 5a | 5 | Exercises screens | sonnet | ✅ |
+| 5b | 5 | Plan screens: list, detail, editor, cycle card | sonnet | ✅ |
+| 5c | 5 | New-plan flow: templates gallery, import, export | sonnet | ✅ |
+| 5d | 5 | Workout logger and summary | sonnet | ✅ |
+| 5e | 5 | History and Progress screens | sonnet | ✅ |
+| 5f | 5 | Home, onboarding, settings | haiku | ✅ |
+| 5g | 5 | Plan editor (split from 5b) | sonnet | ✅ |
+| 5h | 5 | Progress screen (split from 5e) | haiku | ✅ |
 | 6 | 6 | Integration: E2E acceptance flow, audits, README, screenshots | sonnet | ⬜ |
 | 7 | — | Final review, PR, CI, merge, APK release check | orchestrator | ⬜ |
 
