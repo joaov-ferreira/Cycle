@@ -77,6 +77,21 @@ describe('completed cycle (SPEC-v3 §6)', () => {
     expect(selectCycleReport(store.getState(), plan.id, 1)).toBe(report);
   });
 
+  it('counts the records of the report with the profile\'s e1RM formula', async () => {
+    const clock = createClock();
+    const { store } = await createTestStore({ clock });
+    const plan = await seedPlan(store);
+    // Bench: 98 × 1, then 90 × 3 (Epley 99.0 beats 98.0; RTS 90 / 0.922 = 97.6 does not; a lower weight).
+    clock.advance(DAY_MS);
+    await seedCompletedWorkout(store, { planWorkoutId: 'w-a', logs: { [BENCH]: { weightKg: 98, reps: [1], rir: 0 } } });
+    clock.advance(DAY_MS);
+    await seedCompletedWorkout(store, { planWorkoutId: 'w-a', logs: { [BENCH]: { weightKg: 90, reps: [3], rir: 0 } } });
+    const records = () => selectCycleReport(store.getState(), plan.id, 1)!.exercises[0].records;
+    expect(records()).toBe(1);
+    await store.getState().setE1rmFormula('rts');
+    expect(records()).toBe(0);
+  });
+
   it('selectCycleNumbers lists the cycles with workouts, newest first; unknown plans have no report', async () => {
     const clock = createClock();
     const { store } = await createTestStore({ clock });

@@ -35,6 +35,7 @@ import { memoSelector } from './memo';
 import {
   selectAllExercises,
   selectCurrentMaxes,
+  selectE1rmFormula,
   selectExerciseById,
   selectExercisesWithMax,
   selectExerciseSessions,
@@ -82,7 +83,7 @@ export const selectCycleNumbers = memoSelector(
 
 /** The report of one cycle of a plan; `null` for an unknown plan. */
 export const selectCycleReport = memoSelector(
-  (s: AppState) => [s.plans, s.workouts, s.customExercises],
+  (s: AppState) => [s.plans, s.workouts, s.customExercises, selectE1rmFormula(s)],
   (s, planId: number, cycleNumber: number): CycleReport | null => {
     const plan = s.plans.find((p) => p.id === planId);
     if (!plan) return null;
@@ -106,7 +107,13 @@ export const selectCycleReport = memoSelector(
           ],
         }
       : plan;
-    return cycleReport({ plan: reportPlan, cycleNumber, workouts: s.workouts, findExercise: selectFindExercise(s) });
+    return cycleReport({
+      plan: reportPlan,
+      cycleNumber,
+      workouts: s.workouts,
+      findExercise: selectFindExercise(s),
+      formula: selectE1rmFormula(s),
+    });
   },
   (planId, cycleNumber) => `${planId}|${cycleNumber}`,
 );

@@ -59,7 +59,7 @@ describe('WorkoutScreen start view: strength', () => {
     ).toBeOnTheScreen();
   });
 
-  it('names the origin of a percent scheme under the exercise, in both languages', async () => {
+  it('names the origin of a percent scheme under the exercise', async () => {
     await renderWorkout({
       planContent: schemePlan([{ reps: 5, percent: 72.5, repeat: 3 }]),
       prepare: async ({ store }) => void (await seedReferenceMax(store, SQUAT, 140)),
