@@ -98,6 +98,7 @@ function fixtureData(): BackupData {
         archived: true,
       },
     ],
+    referenceMaxes: [],
     exerciseSettings: [
       { exerciseId: 'bench-press', incrementKg: 1.25, barKg: 20 },
       { exerciseId: 'custom-3', note: 'elbows in' },
@@ -480,5 +481,38 @@ describe('docs/BACKUP_FORMAT.md example', () => {
     expect(backup.workouts[0].exercises[0].sets.map((s) => s.kind)).toEqual(['working', 'drop']);
     expect(backup.exerciseSettings).toEqual([{ exerciseId: 'barbell-bench-press', note: 'Seat on position 4', barKg: 15 }]);
     expect(backup.bodyMetrics).toEqual([{ date: '2026-11-16', kind: 'weight', value: 80 }]);
+  });
+
+  it('keeps the v4 parts of the example: settings, reference maxes, percent, programs, prescription', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs') as typeof import('fs');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require('path') as typeof import('path');
+    const doc = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'BACKUP_FORMAT.md'), 'utf8');
+    const start = doc.indexOf('## 7. Example');
+    const open = doc.indexOf('```json\n', start) + '```json\n'.length;
+    const result = parseBackup(doc.slice(open, doc.indexOf('\n```', open)));
+    if (!result.ok) throw new Error(`the example must parse: ${JSON.stringify(result.errors)}`);
+    const { backup } = result;
+
+    expect(backup.settings).toMatchObject({ focus: 'strength', e1rmFormula: 'epley', effortScale: 'rir', roundingMode: 'nearest' });
+    expect(backup.referenceMaxes.map((m) => [m.exerciseId, m.kg, m.origin])).toEqual([
+      ['barbell-bench-press', 100, 'onboarding'],
+      ['barbell-bench-press', 102.5, 'manual'],
+    ]);
+    const second = backup.plans[0].content.workouts[1];
+    expect(second.exercises[0].percent).toMatchObject({ startWeek: 1, basisExerciseId: 'barbell-back-squat' });
+    expect(second.exercises[0].percent?.weeks[1].sets).toEqual([]);
+    expect(second.programs?.[0]).toMatchObject({ programId: 'smolov-jr', roles: { lift: 'barbell-bench-press' }, params: { increment: 2.5 } });
+    const squat = backup.workouts[0].exercises[1];
+    expect(squat.planExerciseId).toBe('pg1:0');
+    expect(squat.prescription?.source).toEqual({
+      kind: 'program',
+      programId: 'smolov-jr',
+      programWeek: 1,
+      day: 1,
+      label: { en: 'Heavy day', 'pt-BR': 'Dia pesado' },
+    });
+    expect(squat.sets[0].rir).toBe(1.5);
   });
 });

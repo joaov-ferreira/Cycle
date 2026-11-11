@@ -1,6 +1,7 @@
 import type { BodyMetric } from '@/domain/body';
 import type { CustomExerciseInput } from '@/domain/exercise';
 import type { Plan } from '@/domain/plan';
+import type { ReferenceMax } from '@/domain/reference-max';
 import type { Workout } from '@/domain/workout';
 
 import {
@@ -30,7 +31,15 @@ export type MemoryState = {
   plans: Map<number, Plan>;
   workouts: Map<number, Workout>;
   bodyMetrics: Map<number, BodyMetric>;
-  nextId: { profile: number; custom: number; plan: number; workout: number; bodyMetric: number };
+  referenceMaxes: Map<number, ReferenceMax>;
+  nextId: {
+    profile: number;
+    custom: number;
+    plan: number;
+    workout: number;
+    bodyMetric: number;
+    referenceMax: number;
+  };
 };
 
 export function createMemoryState(clock: Clock): MemoryState {
@@ -44,7 +53,8 @@ export function createMemoryState(clock: Clock): MemoryState {
     plans: new Map(),
     workouts: new Map(),
     bodyMetrics: new Map(),
-    nextId: { profile: 1, custom: 1, plan: 1, workout: 1, bodyMetric: 1 },
+    referenceMaxes: new Map(),
+    nextId: { profile: 1, custom: 1, plan: 1, workout: 1, bodyMetric: 1, referenceMax: 1 },
   };
 }
 
@@ -69,6 +79,7 @@ export function snapshotState(state: MemoryState): MemorySnapshot {
     plans: new Map(state.plans),
     workouts: new Map(state.workouts),
     bodyMetrics: new Map(state.bodyMetrics),
+    referenceMaxes: new Map(state.referenceMaxes),
     nextId: { ...state.nextId },
   };
 }
@@ -82,5 +93,6 @@ export function restoreSnapshot(state: MemoryState, snapshot: MemorySnapshot): v
   state.plans = snapshot.plans;
   state.workouts = snapshot.workouts;
   state.bodyMetrics = snapshot.bodyMetrics;
+  state.referenceMaxes = snapshot.referenceMaxes;
   state.nextId = snapshot.nextId;
 }

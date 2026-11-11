@@ -1,7 +1,11 @@
-/** Logbook CSV export (SPEC-v3 §8.2). Pure: RFC 4180, `.` decimals, CRLF line ends. */
+/**
+ * Logbook CSV export (SPEC-v3 §8.2, SPEC-v4 §11.2). Pure: RFC 4180, `.` decimals, CRLF line ends.
+ * The last three columns hold the prescription of the set (empty without one): a working set is
+ * paired with the prescribed set of the same order among the working sets of its exercise.
+ */
 import type { Workout } from './workout';
 
-const HEADER = 'date,workout,plan,phase,exercise_id,exercise,set,kind,weight_kg,reps,rir';
+const HEADER = 'date,workout,plan,phase,exercise_id,exercise,set,kind,weight_kg,reps,rir,prescribed_weight_kg,prescribed_reps,percent';
 
 function field(value: string): string {
   return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
@@ -25,7 +29,10 @@ export function logbookCsv(
     const plan = w.planId === null ? '' : (lookup.planName(w.planId) ?? '');
     for (const e of w.exercises) {
       const name = lookup.exerciseName(e.exerciseId);
+      let working = 0;
       e.sets.forEach((s, i) => {
+        // Undone working sets count too: the logger creates one set per prescribed set.
+        const prescribed = s.kind === 'working' ? e.prescription?.sets[working++] : undefined;
         if (!s.done) return;
         const cells = [
           w.completedAt,
@@ -39,6 +46,9 @@ export function logbookCsv(
           formatNumber(s.weightKg),
           formatNumber(s.reps),
           formatNumber(s.rir),
+          formatNumber(prescribed?.kg ?? null),
+          formatNumber(prescribed?.reps ?? null),
+          formatNumber(prescribed?.percent ?? null),
         ];
         lines.push(cells.map(field).join(','));
       });

@@ -1,6 +1,6 @@
 import type { ExerciseSession, Workout, WorkoutExercise } from '@/domain/workout';
 
-import { assertValidExercises, cloneJson } from '../logbook-shared';
+import { assertValidExercises, cloneJson, storedWorkoutExercise } from '../logbook-shared';
 import {
   PlanNotFoundError,
   WorkoutNotFoundError,
@@ -46,9 +46,9 @@ export function createMemoryWorkoutRepository(state: MemoryState): WorkoutReposi
     }
   }
 
-  /** Copies the entries, with a missing superset group stored as null. */
+  /** Copies the entries as stored: a missing superset group is null, a null prescription is absent. */
   const withGroups = (exercises: WorkoutExercise[]): WorkoutExercise[] =>
-    cloneJson(exercises).map((e) => ({ ...e, supersetGroup: e.supersetGroup ?? null }));
+    cloneJson(exercises).map(storedWorkoutExercise);
 
   const exercisesOf = (exercises: WorkoutExercise[]) => {
     assertValidExercises(exercises);

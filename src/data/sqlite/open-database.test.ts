@@ -19,7 +19,7 @@ describe('openAppDatabase', () => {
     expect(APP_DATABASE_NAME).toBe('cycle.db');
     expect(opened).toBe(db);
     expect(await db.getFirstAsync('PRAGMA foreign_keys', [])).toEqual({ foreign_keys: 1 });
-    expect(await db.getFirstAsync('PRAGMA user_version', [])).toEqual({ user_version: 11 });
+    expect(await db.getFirstAsync('PRAGMA user_version', [])).toEqual({ user_version: 12 });
   });
 });
 
@@ -42,6 +42,10 @@ describe('openSqliteRepositories', () => {
       barKg: 20,
       platesKg: [25, 20, 15, 10, 5, 2.5, 1.25],
       lastBackupAt: null,
+      focus: 'general',
+      e1rmFormula: 'epley',
+      effortScale: 'rir',
+      roundingMode: 'nearest',
     });
   });
 });

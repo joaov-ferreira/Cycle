@@ -1,4 +1,5 @@
 import type { Phase } from '@/domain/cycle';
+import type { Prescription } from '@/domain/prescription';
 import type {
   ExerciseSession,
   LoggedSet,
@@ -39,6 +40,7 @@ type ExerciseRow = {
   target: string | null;
   note: string;
   superset_group: string | null;
+  prescription: string | null;
 };
 
 type SetRow = {
@@ -66,8 +68,9 @@ export async function insertWorkoutExercises(
 ): Promise<void> {
   for (const [position, e] of exercises.entries()) {
     const inserted = await db.runAsync(
-      `INSERT INTO workout_exercises (workout_id, position, exercise_id, plan_exercise_id, target, note, superset_group)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO workout_exercises
+         (workout_id, position, exercise_id, plan_exercise_id, target, note, superset_group, prescription)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         workoutId,
         position,
@@ -76,6 +79,7 @@ export async function insertWorkoutExercises(
         e.target === null ? null : JSON.stringify(e.target),
         e.note,
         e.supersetGroup ?? null,
+        e.prescription ? JSON.stringify(e.prescription) : null,
       ],
     );
     for (const [setPosition, s] of e.sets.entries()) {
@@ -122,7 +126,7 @@ export function createSqliteWorkoutRepository(db: SqlDatabase, clock: () => Date
       const where = `we.workout_id IN (${placeholders(ids.length)}) ${filter}`;
       const params = [...ids, ...extra];
       const entryRows = await db.getAllAsync<ExerciseRow>(
-        `SELECT we.id, we.workout_id, we.exercise_id, we.plan_exercise_id, we.target, we.note, we.superset_group
+        `SELECT we.id, we.workout_id, we.exercise_id, we.plan_exercise_id, we.target, we.note, we.superset_group, we.prescription
          FROM workout_exercises we WHERE ${where} ORDER BY we.workout_id, we.position`,
         params,
       );
@@ -146,6 +150,7 @@ export function createSqliteWorkoutRepository(db: SqlDatabase, clock: () => Date
           note: e.note,
           supersetGroup: e.superset_group,
           sets: setsByEntry.get(e.id) ?? [],
+          ...(e.prescription === null ? {} : { prescription: JSON.parse(e.prescription) as Prescription }),
         });
         entriesByWorkout.set(e.workout_id, list);
       }

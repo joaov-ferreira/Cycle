@@ -6,6 +6,7 @@ import { describeBackupContract } from './contract/backup-contract';
 import { describeBodyContract } from './contract/body-contract';
 import { describeExerciseContract } from './contract/exercise-contract';
 import { describePlanContract } from './contract/plan-contract';
+import { describeReferenceMaxContract } from './contract/reference-max-contract';
 import { describeWorkoutContract } from './contract/workout-contract';
 import { ProfileNotFoundError, type Clock, type Repositories } from './repositories';
 
@@ -91,6 +92,10 @@ export function describeRepositoriesContract(name: string, factory: Repositories
           barKg: 20,
           platesKg: [25, 20, 15, 10, 5, 2.5, 1.25],
           lastBackupAt: null,
+          focus: 'general',
+          e1rmFormula: 'epley',
+          effortScale: 'rir',
+          roundingMode: 'nearest',
         });
       });
 
@@ -109,6 +114,10 @@ export function describeRepositoriesContract(name: string, factory: Repositories
           barKg: 20,
           platesKg: [25, 20, 15, 10, 5, 2.5, 1.25],
           lastBackupAt: null,
+          focus: 'general',
+          e1rmFormula: 'epley',
+          effortScale: 'rir',
+          roundingMode: 'nearest',
         });
         await repos.settings.update(p.id, { theme: 'light' });
         expect(await repos.settings.get(p.id)).toEqual({
@@ -123,6 +132,10 @@ export function describeRepositoriesContract(name: string, factory: Repositories
           barKg: 20,
           platesKg: [25, 20, 15, 10, 5, 2.5, 1.25],
           lastBackupAt: null,
+          focus: 'general',
+          e1rmFormula: 'epley',
+          effortScale: 'rir',
+          roundingMode: 'nearest',
         });
       });
 
@@ -230,6 +243,56 @@ export function describeRepositoriesContract(name: string, factory: Repositories
         expect((await repos.settings.get(other.id)).platesKg).toEqual([25, 20, 15, 10, 5, 2.5, 1.25]);
       });
 
+      it('stores the v4 strength settings per profile', async () => {
+        const repos = await factory(fixedClock);
+        const a = await repos.profiles.create({ name: 'Ana' });
+        const b = await repos.profiles.create({ name: 'Bruno' });
+        const updated = await repos.settings.update(a.id, {
+          focus: 'strength',
+          e1rmFormula: 'rts',
+          effortScale: 'rpe',
+          roundingMode: 'up',
+        });
+        expect(updated).toMatchObject({
+          focus: 'strength',
+          e1rmFormula: 'rts',
+          effortScale: 'rpe',
+          roundingMode: 'up',
+        });
+        expect(await repos.settings.get(a.id)).toEqual(updated);
+        expect(await repos.settings.get(b.id)).toMatchObject({
+          focus: 'general',
+          e1rmFormula: 'epley',
+          effortScale: 'rir',
+          roundingMode: 'nearest',
+        });
+        await repos.settings.update(a.id, { e1rmFormula: 'brzycki', roundingMode: 'down' });
+        expect(await repos.settings.get(a.id)).toMatchObject({
+          focus: 'strength',
+          e1rmFormula: 'brzycki',
+          effortScale: 'rpe',
+          roundingMode: 'down',
+        });
+      });
+
+      it('rejects unknown strength settings with RangeError, changing nothing', async () => {
+        const repos = await factory(fixedClock);
+        const p = await repos.profiles.create({ name: 'Ana' });
+        const before = await repos.settings.get(p.id);
+        const bad = [
+          { focus: 'hypertrophy' },
+          { e1rmFormula: 'lombardi' },
+          { effortScale: 'borg' },
+          { roundingMode: 'ceil' },
+        ];
+        for (const patch of bad) {
+          await expect(
+            repos.settings.update(p.id, { language: 'en', ...(patch as object) }),
+          ).rejects.toThrow(RangeError);
+        }
+        expect(await repos.settings.get(p.id)).toEqual(before);
+      });
+
       it('accepts an empty patch', async () => {
         const repos = await factory(fixedClock);
         const p = await repos.profiles.create({ name: 'Ana' });
@@ -249,6 +312,7 @@ export function describeRepositoriesContract(name: string, factory: Repositories
     describeExerciseContract(factory);
     describePlanContract(factory);
     describeWorkoutContract(factory);
+    describeReferenceMaxContract(factory);
     describeBodyContract(factory);
     describeBackupContract(factory);
   });
