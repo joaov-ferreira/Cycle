@@ -1,6 +1,8 @@
 import type { PlanWorkout } from './plan';
 import type { Suggestion } from './progression';
-import { buildWorkoutExercises, targetRepsPlaceholder } from './workout-builder';
+import type { Prescription } from './prescription';
+import type { EffectiveExercise } from './program-plan';
+import { buildEffectiveExercises, buildWorkoutExercises, targetRepsPlaceholder } from './workout-builder';
 
 const planWorkout: PlanWorkout = {
   id: 'w1',
@@ -107,5 +109,104 @@ describe('targetRepsPlaceholder', () => {
   });
   it('null beyond the targets', () => {
     expect(targetRepsPlaceholder(loadSuggestion, 4)).toBeNull();
+  });
+});
+
+describe('buildEffectiveExercises (SPEC-v4 §7)', () => {
+  const prescription: Prescription = {
+    basisExerciseId: 'squat',
+    basisKg: 140,
+    phase: 'load',
+    warnings: [],
+    source: { kind: 'scheme', schemeWeek: 1 },
+    sets: [
+      { reps: 5, amrap: false, unverified: false, percent: 75, addKg: 0, exactKg: 105, kg: 105 },
+      { reps: 5, amrap: false, unverified: false, percent: 75, addKg: 0, exactKg: 105, kg: 105 },
+      { reps: 3, amrap: true, unverified: false, percent: 85, addKg: 0, exactKg: 119, kg: 120 },
+    ],
+  };
+  const percentExercise: EffectiveExercise = {
+    id: 'b1:0',
+    exerciseId: 'squat',
+    sets: 3,
+    repMin: 3,
+    repMax: 5,
+    restSeconds: 240,
+    supersetGroup: 'S1',
+    percent: { weeks: [{ sets: [] }] },
+    generated: { linkId: 'b1', programId: 'x', programWeek: 1, day: 1, kind: 'main', unverified: false },
+  };
+  const free: EffectiveExercise = {
+    id: 'b1:1',
+    exerciseId: 'bench-press',
+    sets: 1,
+    repMin: 1,
+    repMax: 1,
+    generated: { linkId: 'b1', programId: 'x', programWeek: 7, day: 1, kind: 'free', unverified: false },
+  };
+  const automatic: EffectiveExercise = { id: 'p1', exerciseId: 'leg-curl', sets: 3, repMin: 10, repMax: 15, targetRir: 2, restSeconds: 60 };
+  const result = buildEffectiveExercises([percentExercise, free, automatic], {
+    suggestions: { p1: { ...loadSuggestion, loadKg: 40, sets: 3, targetReps: [10, 10, 10] } },
+    prescriptions: { 'b1:0': prescription },
+  });
+
+  it('a percent exercise gets one working set per prescribed set, with its load and no reps', () => {
+    expect(result[0]).toEqual({
+      exerciseId: 'squat',
+      planExerciseId: 'b1:0',
+      target: { sets: 3, repMin: 3, repMax: 5, restSeconds: 240 },
+      supersetGroup: 'S1',
+      note: '',
+      prescription,
+      sets: [
+        { kind: 'working', weightKg: 105, reps: null, rir: null, done: false },
+        { kind: 'working', weightKg: 105, reps: null, rir: null, done: false },
+        { kind: 'working', weightKg: 120, reps: null, rir: null, done: false },
+      ],
+    });
+  });
+
+  it('a percent exercise without a 1RM keeps empty loads and the snapshot', () => {
+    const missing: Prescription = {
+      ...prescription,
+      basisKg: null,
+      warnings: ['missingReferenceMax'],
+      sets: prescription.sets.map((s) => ({ ...s, exactKg: null, kg: null })),
+    };
+    const [exercise] = buildEffectiveExercises([percentExercise], { suggestions: {}, prescriptions: { 'b1:0': missing } });
+    expect(exercise.sets.map((s) => s.weightKg)).toEqual([null, null, null]);
+    expect(exercise.prescription).toBe(missing);
+  });
+
+  it('a free exercise gets one empty working set and no target', () => {
+    expect(result[1]).toEqual({
+      exerciseId: 'bench-press',
+      planExerciseId: 'b1:1',
+      target: null,
+      supersetGroup: null,
+      note: '',
+      sets: [{ kind: 'working', weightKg: null, reps: null, rir: null, done: false }],
+    });
+  });
+
+  it('an automatic exercise is built like buildWorkoutExercises', () => {
+    const expected = buildWorkoutExercises(
+      { id: 'w', name: 'w', exercises: [automatic] },
+      { p1: { ...loadSuggestion, loadKg: 40, sets: 3, targetReps: [10, 10, 10] } },
+      { targetRir: 1 },
+    );
+    const [built] = buildEffectiveExercises([automatic], {
+      suggestions: { p1: { ...loadSuggestion, loadKg: 40, sets: 3, targetReps: [10, 10, 10] } },
+      prescriptions: {},
+      targetRir: 1,
+    });
+    expect(built).toEqual(expected[0]);
+    expect(result[2].prescription).toBeUndefined();
+  });
+
+  it('a percent exercise without a prescription falls back to its summary', () => {
+    const [built] = buildEffectiveExercises([percentExercise], { suggestions: {}, prescriptions: {} });
+    expect(built.sets).toHaveLength(3);
+    expect(built.target).toMatchObject({ sets: 3, repMin: 3, repMax: 5 });
   });
 });

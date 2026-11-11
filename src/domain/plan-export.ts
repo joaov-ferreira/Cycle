@@ -3,7 +3,8 @@
  * Pure: no I/O.
  */
 import type { Equipment, Exercise, Mechanics, MuscleGroup } from './exercise';
-import type { CycleConfig, PlanContent } from './plan';
+import type { CycleConfig, PlanContent, PlanExercise } from './plan';
+import type { SchemeSet } from './scheme-set';
 import { toKey, uniqueKey } from './plan-import';
 
 export interface CyclePlanCustomExercise {
@@ -15,11 +16,42 @@ export interface CyclePlanCustomExercise {
   mechanics: Mechanics;
 }
 
+/** One group of a percent week; `sets` is the number of identical sets (SPEC-v4 §9.1). */
+export interface CyclePlanPercentGroup {
+  sets?: number;
+  reps: number;
+  percent?: number;
+  addKg?: number;
+  amrap?: boolean;
+}
+
+export interface CyclePlanPercent {
+  of?: string;
+  startWeek?: number;
+  weeks: CyclePlanPercentGroup[][];
+}
+
+export interface CyclePlanProgram {
+  program: string;
+  day: number;
+  startWeek: number;
+  roles: Record<string, string>;
+  accessories: boolean;
+  params?: Record<string, number>;
+}
+
+export interface CyclePlanReferenceMax {
+  exercise: string;
+  kg: number;
+}
+
 export interface CyclePlanExercise {
   exercise: string;
-  sets: number;
-  repMin: number;
-  repMax: number;
+  /** Absent with `percent` (the exercise-level sets/reps are only a summary of the scheme). */
+  sets?: number;
+  repMin?: number;
+  repMax?: number;
+  percent?: CyclePlanPercent;
   rir?: number;
   rest?: number;
   startLoad?: number;
@@ -35,7 +67,23 @@ export interface CyclePlanDocument {
   sessionsPerWeek: number;
   cycle: CycleConfig;
   customExercises?: CyclePlanCustomExercise[];
-  workouts: { name: string; exercises: CyclePlanExercise[] }[];
+  referenceMaxes?: CyclePlanReferenceMax[];
+  workouts: { name: string; programs?: CyclePlanProgram[]; exercises: CyclePlanExercise[] }[];
+}
+
+export interface ExportOptions {
+  /** Reference 1RMs to write as `referenceMaxes` (SPEC-v4 §9.1); omitted or empty: not written. */
+  referenceMaxes?: readonly { exerciseId: string; kg: number }[];
+}
+
+function exportGroup(set: SchemeSet): CyclePlanPercentGroup {
+  return {
+    ...(set.repeat !== undefined ? { sets: set.repeat } : {}),
+    reps: set.reps,
+    ...(set.percent !== undefined ? { percent: set.percent } : {}),
+    ...(set.addKg !== undefined ? { addKg: set.addKg } : {}),
+    ...(set.amrap ? { amrap: true } : {}),
+  };
 }
 
 /**
@@ -46,6 +94,7 @@ export interface CyclePlanDocument {
 export function exportPlan(
   content: PlanContent,
   findExercise: (id: string) => Exercise | undefined,
+  options: ExportOptions = {},
 ): CyclePlanDocument {
   const keysByExerciseId = new Map<string, string>();
   const usedKeys = new Set<string>();
@@ -71,23 +120,51 @@ export function exportPlan(
     return key;
   };
 
+  const exportExercise = (planExercise: PlanExercise): CyclePlanExercise => {
+    const { percent } = planExercise;
+    const entry: CyclePlanExercise = { exercise: referenceFor(planExercise.exerciseId) };
+    if (percent) {
+      entry.percent = {
+        ...(percent.basisExerciseId !== undefined ? { of: referenceFor(percent.basisExerciseId) } : {}),
+        ...(percent.startWeek !== undefined ? { startWeek: percent.startWeek } : {}),
+        weeks: percent.weeks.map((week) => week.sets.map(exportGroup)),
+      };
+    } else {
+      entry.sets = planExercise.sets;
+      entry.repMin = planExercise.repMin;
+      entry.repMax = planExercise.repMax;
+    }
+    if (planExercise.targetRir !== undefined) entry.rir = planExercise.targetRir;
+    if (planExercise.restSeconds !== undefined) entry.rest = planExercise.restSeconds;
+    if (planExercise.startLoadKg !== undefined) entry.startLoad = planExercise.startLoadKg;
+    if (planExercise.note) entry.note = planExercise.note;
+    if (planExercise.supersetGroup) entry.superset = planExercise.supersetGroup;
+    return entry;
+  };
+
   const workouts = content.workouts.map((workout) => ({
     name: workout.name,
-    exercises: workout.exercises.map((planExercise) => {
-      const entry: CyclePlanExercise = {
-        exercise: referenceFor(planExercise.exerciseId),
-        sets: planExercise.sets,
-        repMin: planExercise.repMin,
-        repMax: planExercise.repMax,
-      };
-      if (planExercise.targetRir !== undefined) entry.rir = planExercise.targetRir;
-      if (planExercise.restSeconds !== undefined) entry.rest = planExercise.restSeconds;
-      if (planExercise.startLoadKg !== undefined) entry.startLoad = planExercise.startLoadKg;
-      if (planExercise.note) entry.note = planExercise.note;
-      if (planExercise.supersetGroup) entry.superset = planExercise.supersetGroup;
-      return entry;
-    }),
+    ...(workout.programs && workout.programs.length > 0
+      ? {
+          programs: workout.programs.map(
+            (link): CyclePlanProgram => ({
+              program: link.programId,
+              day: link.day,
+              startWeek: link.startWeek,
+              roles: Object.fromEntries(
+                Object.entries(link.roles).map(([role, exerciseId]) => [role, referenceFor(exerciseId)]),
+              ),
+              accessories: link.accessories,
+              ...(link.params && Object.keys(link.params).length > 0 ? { params: { ...link.params } } : {}),
+            }),
+          ),
+        }
+      : {}),
+    exercises: workout.exercises.map(exportExercise),
   }));
+  const referenceMaxes = (options.referenceMaxes ?? []).map(
+    (max): CyclePlanReferenceMax => ({ exercise: referenceFor(max.exerciseId), kg: max.kg }),
+  );
 
   const document: CyclePlanDocument = {
     format: 'cycle-plan',
@@ -99,6 +176,7 @@ export function exportPlan(
   };
   if (content.description !== '') document.description = content.description;
   if (customExercises.length > 0) document.customExercises = customExercises;
+  if (referenceMaxes.length > 0) document.referenceMaxes = referenceMaxes;
   return orderKeys(document);
 }
 
@@ -110,7 +188,8 @@ function exportCycle(cycle: CycleConfig): CycleConfig {
 
 /** Puts the document properties in the order of IMPORT_FORMAT.md §2.1 (readable output). */
 function orderKeys(document: CyclePlanDocument): CyclePlanDocument {
-  const { format, version, name, description, sessionsPerWeek, cycle, customExercises, workouts } = document;
+  const { format, version, name, description, sessionsPerWeek, cycle, customExercises, referenceMaxes, workouts } =
+    document;
   return {
     format,
     version,
@@ -119,6 +198,7 @@ function orderKeys(document: CyclePlanDocument): CyclePlanDocument {
     sessionsPerWeek,
     cycle,
     ...(customExercises !== undefined ? { customExercises } : {}),
+    ...(referenceMaxes !== undefined ? { referenceMaxes } : {}),
     workouts,
   };
 }

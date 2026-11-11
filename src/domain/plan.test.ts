@@ -1,4 +1,5 @@
 import { DEFAULT_CYCLE as CYCLE_DEFAULT, type CycleConfig as CycleConfigFromCycle } from './cycle';
+import { findProgram } from '../library/programs';
 import {
   DEFAULT_CYCLE,
   PLAN_LIMITS,
@@ -11,6 +12,7 @@ import {
   type PlanContent,
   type PlanIssue,
 } from './plan';
+import type { ProgramLink } from './program';
 
 describe('PLAN_LIMITS (SPEC §3.1)', () => {
   it('holds every numeric limit of the plan model', () => {
@@ -20,6 +22,7 @@ describe('PLAN_LIMITS (SPEC §3.1)', () => {
       description: { max: 500 },
       workouts: { min: 1, max: 14 },
       exercisesPerWorkout: { min: 1, max: 30 },
+      programsPerWorkout: { min: 0, max: 4 },
       sets: { min: 1, max: 20 },
       reps: { min: 1, max: 100 },
       targetRir: { min: 0, max: 5 },
@@ -366,6 +369,145 @@ describe('supersetLayout (SPEC-v3 §4.1)', () => {
     expect(supersetLayout([{}, {}])).toEqual([
       { indices: [0], label: null },
       { indices: [1], label: null },
+    ]);
+  });
+});
+
+describe('percent exercises and program blocks (SPEC-v4 §5.1, §5.2)', () => {
+  const findAny = (id: string) => ({ equipment: 'barbell' as const, id });
+  const withProgram = { findProgram };
+
+  function percentContent(): PlanContent {
+    const content = validContent();
+    content.workouts[0].exercises = [
+      {
+        id: 'p1',
+        exerciseId: 'bench',
+        sets: 3,
+        repMin: 5,
+        repMax: 5,
+        restSeconds: 180,
+        percent: { weeks: [{ sets: [{ reps: 5, percent: 75, repeat: 3 }] }, { sets: [] }], basisExerciseId: 'bench' },
+      },
+    ];
+    return content;
+  }
+  function blockContent(link: Partial<ProgramLink> = {}): PlanContent {
+    const content = validContent();
+    content.workouts[0].exercises = [];
+    content.workouts[0].programs = [
+      { id: 'b1', programId: 'cycle-531-custom', day: 1, startWeek: 1, roles: { lift: 'bench' }, accessories: false, ...link },
+    ];
+    return content;
+  }
+
+  it('accepts a percent exercise and ignores the sets/reps summary', () => {
+    const content = percentContent();
+    Object.assign(content.workouts[0].exercises[0], { sets: 0, repMin: 0, repMax: 0 });
+    expect(validatePlanContent(content, find)).toEqual([]);
+  });
+
+  it('re-paths scheme issues under percent', () => {
+    const content = percentContent();
+    content.workouts[0].exercises[0].percent = { weeks: [{ sets: [{ reps: 0, percent: 130 }] }], basisExerciseId: 'ghost' };
+    expect(validatePlanContent(content, find)).toEqual([
+      { path: 'workouts[0].exercises[0].percent.weeks[0].sets[0].reps', code: 'outOfRange' },
+      { path: 'workouts[0].exercises[0].percent.weeks[0].sets[0].percent', code: 'outOfRange' },
+      { path: 'workouts[0].exercises[0].percent.basisExerciseId', code: 'unknownExercise' },
+    ]);
+  });
+
+  it('rejects targetRir and startLoadKg with a percent scheme', () => {
+    const content = percentContent();
+    Object.assign(content.workouts[0].exercises[0], { targetRir: 2, startLoadKg: 60 });
+    expect(validatePlanContent(content, find)).toEqual([
+      { path: 'workouts[0].exercises[0].targetRir', code: 'notAllowedWithPercent' },
+      { path: 'workouts[0].exercises[0].startLoadKg', code: 'notAllowedWithPercent' },
+    ]);
+  });
+
+  it('reports an all-empty scheme', () => {
+    const content = percentContent();
+    content.workouts[0].exercises[0].percent = { weeks: [{ sets: [] }] };
+    expect(validatePlanContent(content, find)).toEqual([
+      { path: 'workouts[0].exercises[0].percent.weeks', code: 'emptyScheme' },
+    ]);
+  });
+
+  it('keeps superset rules for percent exercises', () => {
+    const content = percentContent();
+    content.workouts[0].exercises[0].supersetGroup = 'A';
+    expect(validatePlanContent(content, find)).toEqual([
+      { path: 'workouts[0].exercises[0].supersetGroup', code: 'supersetSize' },
+    ]);
+  });
+
+  it('accepts a workout made of a block only', () => {
+    expect(validatePlanContent(blockContent(), find, withProgram)).toEqual([]);
+  });
+
+  it('still rejects a workout without exercises and blocks', () => {
+    const content = blockContent();
+    content.workouts[0].programs = [];
+    expect(validatePlanContent(content, find)).toEqual([{ path: 'workouts[0].exercises', code: 'tooFew' }]);
+  });
+
+  it('accepts up to four blocks and rejects five', () => {
+    const content = blockContent();
+    const block = (n: number) => ({ ...(content.workouts[0].programs as ProgramLink[])[0], id: `b${n}` });
+    content.workouts[0].programs = [1, 2, 3, 4].map(block);
+    expect(validatePlanContent(content, find, withProgram)).toEqual([]);
+    content.workouts[0].programs = [1, 2, 3, 4, 5].map(block);
+    expect(validatePlanContent(content, find, withProgram)).toEqual([{ path: 'workouts[0].programs', code: 'tooMany' }]);
+  });
+
+  it('shares the id space of exercises and blocks', () => {
+    const content = blockContent({ id: 'w2e1' });
+    expect(validatePlanContent(content, find, withProgram)).toEqual([
+      { path: 'workouts[1].exercises[0].id', code: 'duplicateId' },
+    ]);
+    const reversed = validContent();
+    reversed.workouts[1].exercises = [];
+    reversed.workouts[1].programs = [
+      { id: 'w1e1', programId: 'cycle-531-custom', day: 1, startWeek: 1, roles: { lift: 'bench' }, accessories: false },
+    ];
+    expect(validatePlanContent(reversed, find, withProgram)).toEqual([
+      { path: 'workouts[1].programs[0].id', code: 'duplicateId' },
+    ]);
+    const empty = blockContent({ id: '' });
+    expect(validatePlanContent(empty, find, withProgram)).toEqual([
+      { path: 'workouts[0].programs[0].id', code: 'required' },
+    ]);
+  });
+
+  it.each<[string, Partial<ProgramLink>, PlanIssue]>([
+    ['unknown program', { programId: 'nope' }, { path: 'workouts[0].programs[0].programId', code: 'unknownProgram' }],
+    ['day too high', { day: 2 }, { path: 'workouts[0].programs[0].day', code: 'outOfRange' }],
+    ['day not an integer', { day: 1.5 }, { path: 'workouts[0].programs[0].day', code: 'notInteger' }],
+    ['startWeek too high', { startWeek: 4 }, { path: 'workouts[0].programs[0].startWeek', code: 'outOfRange' }],
+    ['startWeek zero', { startWeek: 0 }, { path: 'workouts[0].programs[0].startWeek', code: 'outOfRange' }],
+    ['no role', { roles: {} }, { path: 'workouts[0].programs[0].roles', code: 'noRoleMapped' }],
+    ['unknown role', { roles: { lift: 'bench', squat: 'bench' } }, { path: 'workouts[0].programs[0].roles.squat', code: 'unknownRole' }],
+    ['unknown exercise', { roles: { lift: 'ghost' } }, { path: 'workouts[0].programs[0].roles.lift', code: 'unknownExercise' }],
+    ['unknown param', { params: { nope: 1 } }, { path: 'workouts[0].programs[0].params.nope', code: 'unknownParam' }],
+    ['param out of range', { params: { week1Percent: 2 } }, { path: 'workouts[0].programs[0].params.week1Percent', code: 'paramOutOfRange' }],
+    ['param off step', { params: { week1Percent: 0.7525 } }, { path: 'workouts[0].programs[0].params.week1Percent', code: 'paramOffStep' }],
+  ])('block: %s', (_name, link, issue) => {
+    const resolveExercise = (id: string) => (id === 'ghost' ? undefined : find(id));
+    expect(validatePlanContent(blockContent(link), resolveExercise, withProgram)).toEqual([issue]);
+  });
+
+  it('validates blocks structurally without a program lookup', () => {
+    expect(validatePlanContent(blockContent({ programId: 'nope' }), find)).toEqual([]);
+    expect(validatePlanContent(blockContent({ day: 99, roles: { whatever: 'bench' } }), find)).toEqual([]);
+    expect(validatePlanContent(blockContent({ day: 0 }), find)).toEqual([
+      { path: 'workouts[0].programs[0].day', code: 'outOfRange' },
+    ]);
+    expect(
+      validatePlanContent(blockContent({ roles: { lift: 'x' } }), (id) => (id === 'x' ? undefined : find(id))),
+    ).toEqual([{ path: 'workouts[0].programs[0].roles.lift', code: 'unknownExercise' }]);
+    expect(validatePlanContent(blockContent({ programId: '' }), findAny)).toEqual([
+      { path: 'workouts[0].programs[0].programId', code: 'required' },
     ]);
   });
 });

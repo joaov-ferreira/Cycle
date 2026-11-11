@@ -216,6 +216,51 @@ describe('buildReviewSummary', () => {
     expect(buildReviewSummary(fixture('pt-BR'))).toBe(expected);
   });
 
+  describe('strength lines (SPEC-v4 §9.3)', () => {
+    const strength = [
+      { exerciseId: 'barbell-bench-press', referenceKg: 140, bestE1rmKg: 143.5 },
+      { exerciseId: 'custom-7', referenceKg: 90.25, bestE1rmKg: null },
+      { exerciseId: 'barbell-back-squat', referenceKg: 160, bestE1rmKg: 163.333 },
+    ];
+
+    it('prints one line per entry between the exercises and the weekly sets (en)', () => {
+      const summary = buildReviewSummary(fixture('en', { strength, exerciseList: [BENCH, HAMMER_ROW] }));
+      expect(summary).toContain(
+        [
+          '  (no sessions)',
+          '',
+          'barbell-bench-press — Barbell Bench Press: 1RM 140 kg · best e1RM in the cycle 143.5 kg',
+          'custom-7 — Hammer row: 1RM 90.25 kg',
+          'barbell-back-squat — barbell-back-squat: 1RM 160 kg · best e1RM in the cycle 163.33 kg',
+          '',
+          'Weekly sets per muscle group (average): chest 12, back 10.5',
+        ].join('\n'),
+      );
+    });
+
+    it('is localized (pt-BR) and takes names from the exercise list when the exercise has no session block', () => {
+      const withList = [
+        BENCH,
+        HAMMER_ROW,
+        exercise({ id: 'barbell-back-squat', name: { en: 'Back Squat', 'pt-BR': 'Agachamento livre' } }),
+      ];
+      const summary = buildReviewSummary(fixture('pt-BR', { strength, exerciseList: withList }));
+      expect(summary).toContain('barbell-bench-press — Supino reto com barra: 1RM 140 kg · melhor e1RM no ciclo 143.5 kg');
+      expect(summary).toContain('barbell-back-squat — Agachamento livre: 1RM 160 kg · melhor e1RM no ciclo 163.33 kg');
+    });
+
+    it('is byte-identical to today without the field or with an empty list', () => {
+      const base = buildReviewSummary(fixture('en'));
+      expect(buildReviewSummary(fixture('en', { strength: [] }))).toBe(base);
+      expect(buildReviewSummary(fixture('en', { strength: undefined }))).toBe(base);
+      expect(base).not.toContain('1RM');
+    });
+
+    it('reaches the full prompt', () => {
+      expect(buildAiReviewPrompt(fixture('en', { strength }))).toContain('1RM 140 kg · best e1RM in the cycle 143.5 kg');
+    });
+  });
+
   it('omits the period line when the period is null', () => {
     const summary = buildReviewSummary(fixture('en', { period: null }));
     expect(summary.startsWith('Sessions done: 10 of 14 planned (adherence 71%)\n')).toBe(true);

@@ -72,6 +72,14 @@ export const planImport: typeof enPlanImport = {
     invalidDirective: 'Não foi possível ler esta configuração.',
     emptyWorkout: 'Este treino não tem exercícios.',
     noWorkouts: 'A periodização não tem treinos.',
+    notAllowedWithPercent: 'RIR e carga inicial não podem ser usados junto com um esquema em porcentagem.',
+    emptyScheme: 'O esquema em porcentagem não tem séries em nenhuma semana.',
+    unknownProgram: 'Este programa não existe no app.',
+    unknownRole: 'Este programa não tem um papel com este nome.',
+    unknownParam: 'Este programa não tem um parâmetro com este nome.',
+    paramOutOfRange: 'Este parâmetro do programa está fora do intervalo permitido.',
+    paramOffStep: 'Este parâmetro do programa não respeita o passo permitido.',
+    mixedPercent: 'Informe a porcentagem em todos os grupos da linha, ou em nenhum (ex.: 3x5 @75% / 3x3 @85%).',
   },
 
   ai: {
@@ -141,6 +149,14 @@ export const planImport: typeof enPlanImport = {
     supersetNotAdjacent: 'Os exercícios do mesmo grupo (bi-set, tri-set ou série gigante) precisam estar em sequência.',
     supersetSize: 'Um bi-set, tri-set ou série gigante precisa de 2 a 4 exercícios.',
     invalidRirRamp: 'A rampa de esforço precisa de valores de RIR de 0 a 5, começando igual ou acima do valor final.',
+    notAllowedWithPercent: 'RIR e carga inicial não se aplicam a um esquema em porcentagem',
+    emptyScheme: 'o esquema não tem séries em nenhuma semana',
+    unknownProgram: 'programa desconhecido',
+    unknownRole: 'papel do programa desconhecido',
+    noRoleMapped: 'nenhum exercício escolhido para o programa',
+    unknownParam: 'parâmetro do programa desconhecido',
+    paramOutOfRange: 'parâmetro do programa fora do intervalo',
+    paramOffStep: 'parâmetro do programa fora do passo',
   },
 
   export: {

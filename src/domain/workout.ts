@@ -6,7 +6,7 @@ import type { Phase } from './cycle';
 import { RIR_STEP } from './effort';
 import { allowsZeroLoad, type Equipment } from './exercise';
 import { countedSets, volume } from './metrics';
-import type { Prescription } from './prescription';
+import type { PrescribedSet, Prescription } from './prescription';
 
 /** One set as logged. Only `kind === 'working'` and `done` sets count for metrics (§6.1); drop sets count for volume only. */
 export interface LoggedSet {
@@ -134,6 +134,34 @@ export function validateSet(set: LoggedSet, equipment: Equipment): SetErrors {
   }
 
   return errors;
+}
+
+/**
+ * The prescribed set a logged set corresponds to (SPEC-v4 §7): the i-th `working` set pairs with
+ * the i-th prescribed set. `null` for warm-up and drop sets, for extra sets beyond the
+ * prescription and for exercises without one.
+ */
+export function prescribedSetAt(
+  exercise: Pick<WorkoutExercise, 'sets'> & { prescription?: Prescription | null },
+  setIndex: number,
+): PrescribedSet | null {
+  const { prescription } = exercise;
+  const set = exercise.sets[setIndex];
+  if (!prescription || !set || set.kind !== 'working') return null;
+  const position = exercise.sets.slice(0, setIndex).filter((s) => s.kind === 'working').length;
+  return prescription.sets[position] ?? null;
+}
+
+/**
+ * The reps stored when a prescribed set is ticked with empty reps (SPEC-v4 §7). `null` for AMRAP
+ * sets (the reps must be typed), extra sets and exercises without a prescription.
+ */
+export function repsToConfirm(
+  exercise: Pick<WorkoutExercise, 'sets'> & { prescription?: Prescription | null },
+  setIndex: number,
+): number | null {
+  const prescribed = prescribedSetAt(exercise, setIndex);
+  return prescribed && !prescribed.amrap ? prescribed.reps : null;
 }
 
 /**

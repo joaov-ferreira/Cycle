@@ -75,6 +75,14 @@ export const planImport = {
     invalidDirective: 'This setting could not be read.',
     emptyWorkout: 'This workout has no exercises.',
     noWorkouts: 'The plan has no workouts.',
+    notAllowedWithPercent: 'RIR and starting load cannot be used together with a percent scheme.',
+    emptyScheme: 'The percent scheme has no sets in any week.',
+    unknownProgram: 'This program does not exist in the app.',
+    unknownRole: 'This program has no role with this name.',
+    unknownParam: 'This program has no parameter with this name.',
+    paramOutOfRange: 'This program parameter is outside its allowed range.',
+    paramOffStep: 'This program parameter does not match its allowed step.',
+    mixedPercent: 'Give a percentage to every group of the line, or to none (e.g. 3x5 @75% / 3x3 @85%).',
   },
 
   // ---- Create with AI ----
@@ -146,6 +154,14 @@ export const planImport = {
     supersetNotAdjacent: 'Exercises of the same superset must be next to each other.',
     supersetSize: 'A superset needs 2 to 4 exercises.',
     invalidRirRamp: 'The effort ramp needs RIR values from 0 to 5, starting at or above the final value.',
+    notAllowedWithPercent: 'RIR and starting load do not apply to a percent scheme',
+    emptyScheme: 'the scheme has no sets in any week',
+    unknownProgram: 'unknown program',
+    unknownRole: 'unknown program role',
+    noRoleMapped: 'no exercise chosen for the program',
+    unknownParam: 'unknown program parameter',
+    paramOutOfRange: 'program parameter out of range',
+    paramOffStep: 'program parameter off its step',
   },
 
   // ---- Export ----
