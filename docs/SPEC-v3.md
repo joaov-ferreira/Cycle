@@ -2,9 +2,9 @@
 
 > Extends [`SPEC.md`](./SPEC.md) (v2). Everything in the v2 spec stays valid unless this document
 > says otherwise; section references such as "v2 §6.2" point to `SPEC.md`. The implementation plan is
-> [`PLAN-v3.md`](./PLAN-v3.md). v3 starts only after v2 is merged into `main`.
+> [`PLAN.md`](./PLAN.md). v2 is merged into `main` (PR #2).
 
-- **Status:** v3.0 (approved for implementation after v2)
+- **Status:** v3.0 (approved for implementation)
 - **Theme:** v2 made CYCLE a logbook that plans and suggests. v3 makes it the tool the user keeps
   open during the session, closes the loop with AI assistants, deepens the periodization and
   protects the data.

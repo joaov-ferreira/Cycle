@@ -42,12 +42,13 @@ Docs: https://docs.expo.dev/eas/index.md
 
 ## Project documents
 
-- `docs/SPEC.md` — product and technical specification (source of truth).
+- `docs/SPEC.md` — product and technical specification (source of truth for v2).
+- `docs/SPEC-v3.md` — v3 specification: extends `docs/SPEC.md`; where it says otherwise, it wins.
 - `docs/PLAN.md` — staged implementation plan; each stage runs in a clean-context agent of the indicated model family.
-- `docs/archive/` — the v1 (powerlifting) spec, plan and orchestrator prompt, kept for reference only.
+- `docs/archive/` — the v1 (powerlifting) spec, plan and orchestrator prompt and the v2 plan, kept for reference only.
 - `docs/DECISIONS.md` — architecture/data-source decisions log (create it if missing; append, never rewrite history).
 
-Read all three before starting any stage. Implement only the scope of your stage.
+Read them before starting any stage. Implement only the scope of your stage.
 
 ## Language
 
@@ -78,10 +79,10 @@ Definition of done for every change: `npm test`, `npx expo lint` and `npx tsc --
 
 ## Git & PR workflow
 
-> **v2 migration exception:** the stages of the current `docs/PLAN.md` are developed on the single
-> integration branch named there and land on `main` through one PR at the end. Sub-agents commit to
-> the branch (or the worktree branch) they are given and never push, open PRs or merge; the
-> orchestrator does that. The rules below apply again to changes made after the migration.
+> **Multi-stage plan exception (v2, v3):** the stages of the current `docs/PLAN.md` are developed on
+> the single integration branch named there and land on `main` through one PR at the end. Sub-agents
+> commit to the branch (or the worktree branch) they are given and never push, open PRs or merge;
+> the orchestrator does that. The rules below apply to changes made outside such a plan.
 
 Work happens on a branch and lands on `main` through a PR whenever possible. Committing directly to `main` is **allowed** as a fallback (see step 8), but never skip the branch, TDD and green-checks steps.
 
