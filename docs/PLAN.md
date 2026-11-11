@@ -37,10 +37,10 @@
 | 3c | 3 | Cycle engine, progression engine, deload advice | sonnet | ✅ |
 | 3d | 3 | Workout validation, stats (PRs, weekly volume, chart series) | haiku | ✅ |
 | 3e | 3 | Persistence: migration 010, repositories, v1 data carry-over | sonnet | ✅ |
-| 4a | 4 | Built-in plan templates | haiku | ⬜ |
-| 4b | 4 | State store and selectors | sonnet | ⬜ |
-| 4c | 4 | Shared UI: exercise picker, set row, stepper | haiku | ⬜ |
-| 4d | 4 | AI prompt builder, generated prompt docs, schema consistency tests | haiku | ⬜ |
+| 4a | 4 | Built-in plan templates | haiku | ✅ |
+| 4b | 4 | State store and selectors | sonnet | ✅ |
+| 4c | 4 | Shared UI: exercise picker, set row, stepper | haiku | ✅ |
+| 4d | 4 | AI prompt builder, generated prompt docs, schema consistency tests | haiku | ✅ |
 | 5a | 5 | Exercises screens | sonnet | ⬜ |
 | 5b | 5 | Plan screens: list, detail, editor, cycle card | sonnet | ⬜ |
 | 5c | 5 | New-plan flow: templates gallery, import, export | sonnet | ⬜ |
