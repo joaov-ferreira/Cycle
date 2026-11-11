@@ -16,6 +16,8 @@ export default function HomeRoute() {
       onOpenWorkoutDetail={(id) => router.push(`/history/${id}` as Href)}
       onNewPlan={(kind) => router.push(NEW_PLAN_ROUTES[kind])}
       onOpenPlan={() => router.navigate('/plan')}
+      onOpenCycleReport={(planId, cycleNumber) => router.push(`/plans/${planId}/cycles/${cycleNumber}` as Href)}
+      onOpenSettings={() => router.push('/settings' as Href)}
     />
   );
 }

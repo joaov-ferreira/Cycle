@@ -29,6 +29,19 @@ export const home: typeof enHome = {
     },
     summary: '{{sets}} · {{volume}}',
   },
+  streak: {
+    one: '{{count}} semana seguida',
+    other: '{{count}} semanas seguidas',
+  },
+  cycleComplete: {
+    title: 'Ciclo {{number}} concluído',
+    report: 'Ver relatório',
+    dismiss: 'Dispensar',
+  },
+  backup: {
+    message: 'Faz um tempo desde o seu último backup',
+    action: 'Fazer backup agora',
+  },
   error: {
     generic: 'Algo deu errado. Tente novamente.',
     workoutInProgress: 'Conclua ou descarte o treino em andamento primeiro.',
