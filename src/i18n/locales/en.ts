@@ -13,6 +13,13 @@ import { home } from './en/home';
 import { plan } from './en/plan';
 import { planImport } from './en/planImport';
 import { planEditor } from './en/planEditor';
+import { timer } from './en/timer';
+import { tools } from './en/tools';
+import { cycleReport } from './en/cycleReport';
+import { aiReview } from './en/aiReview';
+import { backup } from './en/backup';
+import { body } from './en/body';
+import { insights } from './en/insights';
 import { workout } from './en/workout';
 import { history } from './en/history';
 import { progress } from './en/progress';
@@ -32,6 +39,13 @@ export const en = {
   plan,
   planImport,
   planEditor,
+  timer,
+  tools,
+  cycleReport,
+  aiReview,
+  backup,
+  body,
+  insights,
   workout,
   history,
   progress,
