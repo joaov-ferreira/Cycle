@@ -152,7 +152,8 @@ export function describeWorkoutContract(factory: (clock: Clock) => Promise<Repos
         set(60, 2.5),
         set(60, 8, { rir: 11 }),
         set(60, 8, { rir: -1 }),
-        set(60, 8, { rir: 1.5 }),
+        set(60, 8, { rir: 1.25 }),
+        set(60, 8, { rir: 10.5 }),
         set(NaN, 8),
       ];
       for (const s of bad) {

@@ -11,6 +11,10 @@ import {
 import type { BackupSettings } from '@/domain/backup';
 import { isBodyMetricKind, type BodyMetricInput } from '@/domain/body';
 import { isExperience, type Experience } from '@/domain/cycle';
+import { isE1rmFormula } from '@/domain/e1rm';
+import { isEffortScale, isValidRirValue } from '@/domain/effort';
+import { isTrainingFocus } from '@/domain/focus';
+import { ROUNDING_MODES } from '@/domain/rounding';
 import { BAR_LIMITS, STANDARD_PLATES_KG } from '@/domain/plates';
 import { REST_DEFAULT_LIMITS } from '@/domain/rest-timer';
 import { isLanguageSetting } from '@/i18n/locale';
@@ -59,6 +63,9 @@ export function assertIncrementOverride(incrementKg: number): void {
   }
 }
 
+const isRoundingMode = (value: unknown): value is (typeof ROUNDING_MODES)[number] =>
+  typeof value === 'string' && (ROUNDING_MODES as readonly string[]).includes(value);
+
 export function assertExperience(value: unknown): asserts value is Experience {
   if (!isExperience(value)) throw new RangeError(`Unknown experience level: ${String(value)}`);
 }
@@ -80,8 +87,8 @@ export function assertValidExercises(exercises: readonly WorkoutExercise[]): voi
       if (s.reps !== null && !isIntegerIn(s.reps, reps.min, reps.max)) {
         throw new RangeError(`Set reps must be an integer between ${reps.min} and ${reps.max}`);
       }
-      if (s.rir !== null && !isIntegerIn(s.rir, rir.min, rir.max)) {
-        throw new RangeError(`Set RIR must be an integer between ${rir.min} and ${rir.max}`);
+      if (s.rir !== null && !(isValidRirValue(s.rir) && s.rir >= rir.min && s.rir <= rir.max)) {
+        throw new RangeError(`Set RIR must be between ${rir.min} and ${rir.max} in steps of 0.5`);
       }
     }
   }
@@ -130,6 +137,18 @@ export const sortPlates = (plates: readonly number[]): number[] => [...plates].s
 /** Throws `RangeError` when a settings patch holds an invalid value; checks every field first. */
 export function assertSettingsPatch(patch: SettingsPatch): void {
   if (patch.experience !== undefined) assertExperience(patch.experience);
+  if (patch.focus !== undefined && !isTrainingFocus(patch.focus)) {
+    throw new RangeError(`Unknown training focus: ${String(patch.focus)}`);
+  }
+  if (patch.e1rmFormula !== undefined && !isE1rmFormula(patch.e1rmFormula)) {
+    throw new RangeError(`Unknown e1RM formula: ${String(patch.e1rmFormula)}`);
+  }
+  if (patch.effortScale !== undefined && !isEffortScale(patch.effortScale)) {
+    throw new RangeError(`Unknown effort scale: ${String(patch.effortScale)}`);
+  }
+  if (patch.roundingMode !== undefined && !isRoundingMode(patch.roundingMode)) {
+    throw new RangeError(`Unknown rounding mode: ${String(patch.roundingMode)}`);
+  }
   if (patch.defaultRestSeconds !== undefined && !isValidRestSeconds(patch.defaultRestSeconds)) {
     const { min, max, step } = REST_DEFAULT_LIMITS;
     throw new RangeError(`Default rest must be ${min}-${max} s in steps of ${step}`);
@@ -177,6 +196,10 @@ export function settingsFromBackup(raw: BackupSettings): Omit<Settings, 'profile
     barKg: isValidBarKg(raw.barKg) ? raw.barKg : defaults.barKg,
     platesKg: isValidPlates(raw.platesKg) ? sortPlates(raw.platesKg) : defaults.platesKg,
     lastBackupAt: typeof raw.lastBackupAt === 'string' ? raw.lastBackupAt : defaults.lastBackupAt,
+    focus: isTrainingFocus(raw.focus) ? raw.focus : defaults.focus,
+    e1rmFormula: isE1rmFormula(raw.e1rmFormula) ? raw.e1rmFormula : defaults.e1rmFormula,
+    effortScale: isEffortScale(raw.effortScale) ? raw.effortScale : defaults.effortScale,
+    roundingMode: isRoundingMode(raw.roundingMode) ? raw.roundingMode : defaults.roundingMode,
   };
 }
 

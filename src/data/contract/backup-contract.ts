@@ -58,6 +58,10 @@ export function describeBackupContract(factory: (clock: Clock) => Promise<Reposi
       barKg: 15,
       platesKg: [2.5, 20, 5, 10],
       lastBackupAt: '2026-11-01T08:00:00.000Z',
+      focus: 'strength',
+      e1rmFormula: 'rts',
+      effortScale: 'rpe',
+      roundingMode: 'up',
     });
     await repos.exercises.createCustom(a, customInput());
     await repos.exercises.createCustom(
@@ -149,6 +153,10 @@ export function describeBackupContract(factory: (clock: Clock) => Promise<Reposi
           barKg: 20,
           platesKg: [25, 20, 15, 10, 5, 2.5, 1.25],
           lastBackupAt: null,
+          focus: 'general',
+          e1rmFormula: 'epley',
+          effortScale: 'rir',
+          roundingMode: 'nearest',
         },
         customExercises: [],
         exerciseSettings: [],
@@ -176,6 +184,10 @@ export function describeBackupContract(factory: (clock: Clock) => Promise<Reposi
           barKg: 15,
           platesKg: [20, 10, 5, 2.5],
           lastBackupAt: '2026-11-01T08:00:00.000Z',
+          focus: 'strength',
+          e1rmFormula: 'rts',
+          effortScale: 'rpe',
+          roundingMode: 'up',
         },
         customExercises: [
           { id: 'custom-1', name: 'Cable fly', primaryMuscle: 'chest', secondaryMuscles: ['shoulders'], equipment: 'cable', mechanics: 'isolation', archived: false },
@@ -478,6 +490,10 @@ export function describeBackupContract(factory: (clock: Clock) => Promise<Reposi
           barKg: 99,
           platesKg: [25, 25],
           lastBackupAt: 42 as never,
+          focus: 'hypertrophy' as never,
+          e1rmFormula: 'rts',
+          effortScale: 7 as never,
+          roundingMode: 'ceil' as never,
           somethingNew: 'ignored',
         },
         customExercises: [],
@@ -499,6 +515,10 @@ export function describeBackupContract(factory: (clock: Clock) => Promise<Reposi
         barKg: 20,
         platesKg: [25, 20, 15, 10, 5, 2.5, 1.25],
         lastBackupAt: null,
+        focus: 'general',
+        e1rmFormula: 'rts',
+        effortScale: 'rir',
+        roundingMode: 'nearest',
       });
 
       const empty = await repos.backup.restoreAsNewProfile({ ...base, settings: {} }, 'Y');

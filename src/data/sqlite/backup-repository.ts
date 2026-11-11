@@ -38,8 +38,9 @@ export function createSqliteBackupRepository(
         const s = restore.settings;
         await db.runAsync(
           `INSERT INTO settings (profile_id, language, theme, onboarding_completed, experience,
-             default_rest_seconds, rest_notifications, keep_awake, bar_kg, plates, last_backup_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             default_rest_seconds, rest_notifications, keep_awake, bar_kg, plates, last_backup_at,
+             focus, strength_e1rm_formula, effort_scale, strength_rounding_mode)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             profileId,
             s.language,
@@ -52,6 +53,10 @@ export function createSqliteBackupRepository(
             s.barKg,
             JSON.stringify(s.platesKg),
             s.lastBackupAt,
+            s.focus,
+            s.e1rmFormula,
+            s.effortScale,
+            s.roundingMode,
           ],
         );
 

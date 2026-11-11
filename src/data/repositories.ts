@@ -6,6 +6,11 @@ import type { BodyMetric, BodyMetricInput, BodyMetricKind } from '@/domain/body'
 import type { ExerciseSession, Workout, WorkoutExercise } from '@/domain/workout';
 import type { LanguageSetting } from '@/i18n/locale';
 import { DEFAULT_EXPERIENCE } from '@/domain/cycle';
+import { DEFAULT_E1RM_FORMULA, type E1rmFormula } from '@/domain/e1rm';
+import { DEFAULT_EFFORT_SCALE, type EffortScale } from '@/domain/effort';
+import { DEFAULT_TRAINING_FOCUS, type TrainingFocus } from '@/domain/focus';
+import type { ReferenceMax, ReferenceMaxOrigin } from '@/domain/reference-max';
+import { DEFAULT_ROUNDING_MODE, type RoundingMode } from '@/domain/rounding';
 import { DEFAULT_BAR_KG, DEFAULT_PLATES_KG } from '@/domain/plates';
 import { DEFAULT_REST_SECONDS } from '@/domain/rest-timer';
 
@@ -41,6 +46,14 @@ export type Settings = {
   platesKg: number[];
   /** ISO 8601 timestamp of the last backup export, or null when none was made. */
   lastBackupAt: string | null;
+  /** Training focus (SPEC-v4 §1, §10.6). */
+  focus: TrainingFocus;
+  /** Formula of the e1RM estimates shown to the user (SPEC-v4 §3). */
+  e1rmFormula: E1rmFormula;
+  /** Scale of the effort input in the logger; RIR is always what is stored (SPEC-v4 §3.3). */
+  effortScale: EffortScale;
+  /** How calculated loads are rounded to the exercise's increment (SPEC-v4 §6.2). */
+  roundingMode: RoundingMode;
 };
 
 export type SettingsPatch = Partial<Omit<Settings, 'profileId'>>;
@@ -56,6 +69,10 @@ export const DEFAULT_SETTINGS: Omit<Settings, 'profileId'> = {
   barKg: DEFAULT_BAR_KG,
   platesKg: [...DEFAULT_PLATES_KG],
   lastBackupAt: null,
+  focus: DEFAULT_TRAINING_FOCUS,
+  e1rmFormula: DEFAULT_E1RM_FORMULA,
+  effortScale: DEFAULT_EFFORT_SCALE,
+  roundingMode: DEFAULT_ROUNDING_MODE,
 };
 
 export interface ProfileRepository {
@@ -78,7 +95,8 @@ export interface SettingsRepository {
   /**
    * Throws `RangeError` (changing nothing) for an unknown experience, a rest outside
    * `REST_DEFAULT_LIMITS` or off its step, a bar weight outside `BAR_LIMITS` or off its step, or
-   * plates that are empty, duplicated or not standard. Plates are stored heaviest first.
+   * plates that are empty, duplicated or not standard, or an unknown focus, e1RM formula, effort scale
+   * or rounding mode. Plates are stored heaviest first.
    */
   update(profileId: number, patch: SettingsPatch): Promise<Settings>;
 }
