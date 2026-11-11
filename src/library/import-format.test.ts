@@ -5,13 +5,11 @@
 import fs from 'fs';
 import path from 'path';
 import { CUSTOM_EXERCISE_NAME, EQUIPMENT, MUSCLE_GROUPS } from '../domain/exercise';
-import { PLAN_LIMITS } from '../domain/plan';
+import { PLAN_LIMITS, validatePlanContent } from '../domain/plan';
 import { SCHEME_LIMITS } from '../domain/percent-scheme';
 import { REFERENCE_MAX_LIMITS } from '../domain/reference-max';
-import { validatePlanContent } from '../domain/plan';
-import { finalizePendingImport, resolveDraft } from '../domain/plan-import';
 import { findProgram } from './programs';
-import { parsePlanImport, unresolvedReferences } from '../domain/plan-import';
+import { finalizePendingImport, parsePlanImport, resolveDraft, unresolvedReferences } from '../domain/plan-import';
 import { AI_PLAN_PROMPT_TEMPLATE, buildAiPlanPrompt } from './ai-prompt';
 import { findExercise, listExercises } from './index';
 
