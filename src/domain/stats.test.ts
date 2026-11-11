@@ -1,4 +1,7 @@
+import { DEFAULT_CYCLE } from './cycle';
 import type { Exercise } from './exercise';
+import { countedSets, sessionScore, volume, workLoad } from './metrics';
+import { suggest } from './progression';
 import {
   bestE1rm,
   bestReps,
@@ -400,5 +403,66 @@ describe('trainedExerciseIds (SPEC §9.1)', () => {
 
   it('is empty without counted sets', () => {
     expect(trainedExerciseIds([])).toEqual([]);
+  });
+});
+
+describe('drop sets in statistics (SPEC-v3 §4.2)', () => {
+  const dropSet = (weightKg: number, reps: number): LoggedSet => ({
+    kind: 'drop',
+    weightKg,
+    reps,
+    rir: null,
+    done: true,
+  });
+  const base = [set(40, 12, 2), set(40, 12, 2), set(40, 12, 2)];
+  const withDrop = [...base, dropSet(32.5, 8)];
+
+  it('changes nothing in counted sets, work load, score, best e1RM and top weight', () => {
+    expect(countedSets(withDrop)).toEqual(countedSets(base));
+    expect(workLoad(withDrop)).toBe(40);
+    expect(sessionScore(withDrop)).toBe(sessionScore(base));
+    expect(bestE1rm(withDrop)).toBe(bestE1rm(base));
+    expect(topWeight(withDrop)).toBe(40);
+    expect(bestReps(withDrop)).toBe(12);
+  });
+
+  it('a heavier drop set cannot become a record: records ignore it', () => {
+    const history = [session(1, '2026-11-01T12:00:00.000Z', base)];
+    const candidate = session(2, '2026-11-08T12:00:00.000Z', [...base, dropSet(50, 20)]);
+    expect(personalRecords([candidate, ...history])).toEqual(personalRecords([session(2, '2026-11-08T12:00:00.000Z', base), ...history]));
+  });
+
+  it('volume metric grows: 1440 -> 1700', () => {
+    expect(volume(base)).toBe(1440);
+    const series = exerciseSeries([session(1, '2026-11-01T12:00:00.000Z', withDrop)], 'volume');
+    expect(series.map((p) => p.value)).toEqual([1700]);
+    expect(metricsFor('barbell')).toContain('volume');
+  });
+
+  it('weekly muscle sets are unchanged', () => {
+    const catalog: Record<string, Pick<Exercise, 'primaryMuscle' | 'secondaryMuscles'>> = {
+      bench: { primaryMuscle: 'chest', secondaryMuscles: ['triceps'] },
+    };
+    const find = (id: string) => catalog[id];
+    const at = new Date(2026, 10, 11, 9, 0);
+    const done = (sets: LoggedSet[]) =>
+      completedWorkout({
+        completedAt: new Date(2026, 10, 10, 10, 0).toISOString(),
+        exercises: [exerciseWith('bench', sets)],
+      });
+    expect(weeklyMuscleSets([done(withDrop)], find, at)).toEqual(weeklyMuscleSets([done(base)], find, at));
+    expect(weeklyMuscleSets([done(withDrop)], find, at)).toEqual({ chest: 3, triceps: 1.5 });
+  });
+
+  it('the progression suggestion is unchanged', () => {
+    const input = (sets: LoggedSet[]) => ({
+      target: { sets: 3, repMin: 8, repMax: 12, targetRir: 2 },
+      equipment: 'barbell' as const,
+      incrementKg: 2.5,
+      phase: 'load' as const,
+      cycle: DEFAULT_CYCLE,
+      history: [session(1, '2026-11-01T12:00:00.000Z', sets)],
+    });
+    expect(suggest(input(withDrop))).toEqual(suggest(input(base)));
   });
 });

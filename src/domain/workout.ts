@@ -6,9 +6,9 @@ import type { Phase } from './cycle';
 import { allowsZeroLoad, type Equipment } from './exercise';
 import { countedSets, volume } from './metrics';
 
-/** One set as logged. Only `kind === 'working'` and `done` sets count for metrics (§6.1). */
+/** One set as logged. Only `kind === 'working'` and `done` sets count for metrics (§6.1); drop sets count for volume only. */
 export interface LoggedSet {
-  kind: 'working' | 'warmup';
+  kind: 'working' | 'warmup' | 'drop';
   /** 0–1000, at most 2 decimals; 0 only for zero-load equipment (§2.1). */
   weightKg: number | null;
   /** Integer 1–100. */
@@ -30,6 +30,8 @@ export interface WorkoutExercise {
     targetRir?: number;
     restSeconds?: number;
   } | null;
+  /** Superset label copied from the plan exercise; absent in workouts stored by v2. */
+  supersetGroup?: string | null;
   /** At most 500 characters. */
   note: string;
   sets: LoggedSet[];
@@ -62,6 +64,8 @@ export interface ExerciseSession {
   phase: Phase;
   cycleNumber: number | null;
   planId: number | null;
+  /** Target RIR of the session (from the workout's target snapshot); `null` when none. */
+  targetRir?: number | null;
   sets: LoggedSet[];
 }
 
@@ -124,6 +128,24 @@ export function validateSet(set: LoggedSet, equipment: Equipment): SetErrors {
   return errors;
 }
 
+/**
+ * Order rule of drop sets (SPEC-v3 §4.2): a drop set must come directly after a working set or
+ * another drop set of the same exercise. Returns one entry per offending drop set.
+ */
+export function validateSetOrder(sets: readonly LoggedSet[]): { index: number; code: 'dropWithoutWorkingSet' }[] {
+  const issues: { index: number; code: 'dropWithoutWorkingSet' }[] = [];
+  let validPrevious = false;
+  sets.forEach((set, index) => {
+    if (set.kind === 'drop') {
+      if (!validPrevious) issues.push({ index, code: 'dropWithoutWorkingSet' });
+      // an orphan drop set does not make the next one valid
+      return;
+    }
+    validPrevious = set.kind === 'working';
+  });
+  return issues;
+}
+
 /** True when at least one field of a `SetErrors` object carries a code. */
 export function hasSetErrors(errors: SetErrors): boolean {
   return Object.values(errors).some((code) => code !== undefined);
@@ -143,13 +165,15 @@ export function canCompleteWorkout(exercises: readonly WorkoutExercise[]): boole
 }
 
 /**
- * What is stored when a workout is finished (SPEC §7.4): sets not marked done are dropped,
+ * What is stored when a workout is finished (SPEC §7.4): sets not marked done are dropped (then drop sets left without a working set before them),
  * exercises left without any set are dropped, order is kept. Inputs are not mutated.
  */
 export function finalizeExercises(exercises: readonly WorkoutExercise[]): WorkoutExercise[] {
   const result: WorkoutExercise[] = [];
   for (const exercise of exercises) {
-    const sets = exercise.sets.filter((set) => set.done);
+    const doneSets = exercise.sets.filter((set) => set.done);
+    const orphans = new Set(validateSetOrder(doneSets).map((issue) => issue.index));
+    const sets = doneSets.filter((_, index) => !orphans.has(index));
     if (sets.length > 0) result.push({ ...exercise, sets });
   }
   return result;
@@ -163,7 +187,9 @@ export interface WorkoutSummary {
   exerciseCount: number;
   /** Counted sets (done working sets with reps ≥ 1). */
   workingSets: number;
-  /** Total volume of the counted sets, in kg. */
+  /** Done drop sets. */
+  dropSets: number;
+  /** Total volume (counted sets plus done drop sets), in kg. */
   volumeKg: number;
 }
 
@@ -178,12 +204,15 @@ export function workoutSummary(
 
   let exerciseCount = 0;
   let workingSets = 0;
+  let dropSets = 0;
   let volumeKg = 0;
   for (const exercise of workout.exercises) {
     const counted = countedSets(exercise.sets).length;
-    if (counted === 0) continue;
-    exerciseCount += 1;
-    workingSets += counted;
+    if (counted > 0) {
+      exerciseCount += 1;
+      workingSets += counted;
+    }
+    dropSets += exercise.sets.filter((set) => set.kind === 'drop' && set.done).length;
     volumeKg += volume(exercise.sets);
   }
 
@@ -191,6 +220,7 @@ export function workoutSummary(
     durationSeconds,
     exerciseCount,
     workingSets,
+    dropSets,
     volumeKg: Math.round(volumeKg * 1000) / 1000,
   };
 }
@@ -210,6 +240,7 @@ export function toExerciseSession(workout: Workout, exerciseId: string): Exercis
     phase: workout.phase,
     cycleNumber: workout.cycleNumber,
     planId: workout.planId,
+    targetRir: matching[0].target?.targetRir ?? null,
     sets: matching.flatMap((exercise) => exercise.sets),
   };
 }
