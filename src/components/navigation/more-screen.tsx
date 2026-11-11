@@ -8,6 +8,7 @@ import { Card, Screen, Text } from '../ui';
 const LINKS: readonly { id: string; title: MessageKey; description: MessageKey; href: Href }[] = [
   { id: 'exercises', title: 'exercises.title', description: 'navigation.moreDescriptions.exercises', href: '/exercises' },
   { id: 'history', title: 'history.title', description: 'navigation.moreDescriptions.history', href: '/history' },
+  { id: 'body', title: 'body.title', description: 'navigation.moreDescriptions.body', href: '/body' },
   { id: 'settings', title: 'settings.title', description: 'navigation.moreDescriptions.settings', href: '/settings' },
 ];
 
