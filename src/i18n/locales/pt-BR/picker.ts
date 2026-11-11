@@ -3,4 +3,14 @@ import type { picker as enPicker } from '../en/picker';
 /** Brazilian Portuguese `picker` namespace, typed against the English source. */
 export const picker: typeof enPicker = {
   title: 'Escolher exercício',
+  searchLabel: 'Buscar exercícios',
+  muscleFilter: 'Grupo muscular',
+  equipmentFilter: 'Equipamento',
+  suggestions: 'Sugestões',
+  results: 'Exercícios',
+  rowSubtitle: '{{muscle}} · {{equipment}}',
+  emptyTitle: 'Nenhum exercício encontrado',
+  emptyMessage: 'Tente outra busca ou filtro.',
+  createExercise: 'Criar “{{name}}”',
+  createNew: 'Novo exercício',
 };
