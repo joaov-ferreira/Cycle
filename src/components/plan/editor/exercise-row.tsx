@@ -115,14 +115,18 @@ export function ExerciseRow({
   const repsError = error('repMin') ?? error('repMax');
   const { percent } = exercise;
   const scheme = percent ? schemeSummary(percent) : null;
+  const repSummary = () => {
+    const min = scheme?.repMin ?? exercise.repMin;
+    const max = scheme?.repMax ?? exercise.repMax;
+    const sets = formatNumber(scheme?.sets ?? exercise.sets);
+    return min === max && percent
+      ? t('plan.target', { sets, reps: formatNumber(min) })
+      : t('planEditor.summary', { sets, min: formatNumber(min), max: formatNumber(max) });
+  };
   const summary = [
     percent && !scheme
       ? t('planEditor.percent.noSets')
-      : t('planEditor.summary', {
-          sets: formatNumber(scheme?.sets ?? exercise.sets),
-          min: formatNumber(scheme?.repMin ?? exercise.repMin),
-          max: formatNumber(scheme?.repMax ?? exercise.repMax),
-        }),
+      : repSummary(),
     percent ? t('planEditor.percent.rowTag') : null,
     percent ? t('planEditor.percent.weeksCount', { count: percent.weeks.length }) : null,
     exercise.targetRir === undefined ? null : t('planEditor.rirSummary', { rir: formatNumber(exercise.targetRir) }),

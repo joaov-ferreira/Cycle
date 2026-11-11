@@ -129,6 +129,20 @@ describe('Plan editor: percent progression', () => {
     expect(await screen.findByText('4 × 3–5 · % of 1RM · 2 weeks')).toBeOnTheScreen();
   });
 
+  it('shows a single rep count, not a range, when the scheme uses one', async () => {
+    await setup({
+      content: oneExercise({
+        percent: { weeks: [{ sets: [{ reps: 6, percent: 70, repeat: 4 }] }] },
+        sets: 4,
+        repMin: 6,
+        repMax: 6,
+        targetRir: undefined,
+        startLoadKg: undefined,
+      }),
+    });
+    expect(await screen.findByText('4 × 6 · % of 1RM · 1 week')).toBeOnTheScreen();
+  });
+
   it('allows an empty week and says the exercise is not trained then', async () => {
     const { store, onSaved } = await setup();
     await expand();
