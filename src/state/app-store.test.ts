@@ -26,6 +26,7 @@ describe('app store', () => {
       language: 'system',
       theme: 'dark',
       onboardingCompleted: false,
+      experience: 'intermediate',
     });
     expect(await repos.profiles.list()).toHaveLength(1);
   });
