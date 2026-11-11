@@ -5,7 +5,7 @@ import { HomeScreen, type NewPlanKind } from '@/components/home/home-screen';
 const NEW_PLAN_ROUTES: Record<NewPlanKind, Href> = {
   templates: '/plans/templates',
   import: '/plans/import',
-  scratch: '/plans/new',
+  scratch: '/plans/scratch/edit',
 };
 
 export default function HomeRoute() {
