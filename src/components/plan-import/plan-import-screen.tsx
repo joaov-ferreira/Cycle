@@ -19,6 +19,8 @@ export type PlanImportScreenProps = {
   /** Called with the saved plan (the route replaces this screen with the plan's detail). */
   onImported: (plan: Plan) => void;
   onBack?: () => void;
+  /** The plan the preview offers to update (the route reads `?update=`); preselects "Update plan". */
+  updatePlanId?: number;
   /** Overridable for tests; defaults to the system document picker. */
   pickFile?: () => Promise<{ name: string; text: string; size?: number } | null>;
   /** Overridable for tests; defaults to the platform share sheet. */
@@ -31,6 +33,7 @@ type Step = 'input' | 'ai' | 'preview';
 export function PlanImportScreen({
   onImported,
   onBack,
+  updatePlanId,
   pickFile = pickTextFile,
   share = shareText,
 }: PlanImportScreenProps) {
@@ -100,6 +103,7 @@ export function PlanImportScreen({
           draft={draft}
           exercises={exercises}
           onImported={onImported}
+          updatePlanId={updatePlanId}
           onEditText={() => setStep('input')}
         />
       ) : (
