@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { createClock, type TestClock } from '@/test-utils/clock';
 import { seedCompletedWorkout, createTestStore } from '@/test-utils/seed';
@@ -155,7 +155,7 @@ describe('ProgressScreen: chart', () => {
     const fixture = await emptyFixture();
     await seedBenchSessions(fixture);
     await render(fixture, { initialExerciseId: BENCH });
-    await fireEvent.press(screen.getByRole('button', { name: 'Volume' }));
+    await fireEvent.press(within(screen.getByLabelText('Metric')).getByRole('button', { name: 'Volume' }));
     // 40 × 36 = 1,440 kg; 42.5 × 24 = 1,020 kg
     expect(screen.getByRole('button', { name: `Oct 1, 2026: 1,440${NBSP}kg` })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: `Nov 3, 2026: 1,020${NBSP}kg` })).toBeOnTheScreen();
@@ -182,7 +182,7 @@ describe('ProgressScreen: chart', () => {
     await logOn(fixture, '2026-11-03T12:00:00.000Z', { [PULL_UP]: { weightKg: 0, reps: [10, 10] } });
     await render(fixture, { initialExerciseId: PULL_UP });
     expect(screen.getByRole('button', { name: 'Reps', selected: true })).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Volume' })).toBeOnTheScreen();
+    expect(within(screen.getByLabelText('Metric')).getByRole('button', { name: 'Volume' })).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'e1RM' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Top weight' })).toBeNull();
     expect(screen.getByRole('button', { name: `Nov 3, 2026: 10${NBSP}reps` })).toBeOnTheScreen();
