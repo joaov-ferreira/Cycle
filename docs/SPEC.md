@@ -123,6 +123,8 @@ interface Exercise {
 - The name must not collide (normalized) with any built-in or other non-archived custom exercise of
   the profile (error code `duplicateName`).
 - Custom exercises are scoped per profile.
+- `validateCustomExercise(input: CustomExerciseInput, others)` returns error codes (`required`,
+  `tooLong`, `duplicateName`, `invalidMuscle`, `invalidEquipment`, `invalidSecondaryMuscles`).
 
 ### 2.4 Exercises screen (More → Exercises)
 
@@ -172,9 +174,10 @@ interface Plan extends PlanContent {
 
 `DEFAULT_CYCLE: CycleConfig = { loadWeeks: 6, deloadWeeks: 1, deloadVolumeFactor: 0.5, deloadLoadFactor: 0.9 }`.
 
-`validatePlanContent(content, knownExerciseIds)` returns a list of issues
-`{ path: string; code: PlanIssueCode }` (never display strings); an empty list means valid. Codes cover
-every rule above plus `unknownExercise` and `duplicateId`.
+`validatePlanContent(content, findExercise)` — `findExercise(id)` returns the exercise or
+`undefined` — returns a list of issues `{ path: string; code: PlanIssueCode }` (never display
+strings); an empty list means valid. Codes cover every rule above plus `unknownExercise`,
+`duplicateId` and `zeroLoadNotAllowed` (`startLoadKg` 0 on equipment that requires a load).
 
 ### 3.2 Plan management (Plan tab)
 
@@ -347,7 +350,8 @@ advanced the lifter, the more often a deload is needed; all values are editable)
 | `intermediate` | 6 | 1 | 0.5 | 0.9 |
 | `advanced` | 4 | 1 | 0.5 | 0.9 |
 
-The experience level is asked in onboarding and editable in Settings (default `intermediate`). The
+The experience level (`Experience = 'beginner' | 'intermediate' | 'advanced'`) is asked in
+onboarding and editable in Settings (default `intermediate`). The
 cycle card's **Suggest** button fills the form with the suggestion; new plans created from scratch or
 imported without a `cycle` start from it.
 
@@ -544,6 +548,9 @@ interface Workout {
   exercises: WorkoutExercise[];
 }
 ```
+
+`ExerciseSession` (`workoutId`, `completedAt`, `phase`, `cycleNumber`, `planId`, `sets`) is one past
+session of one exercise — the unit read by progression (§6) and statistics (§9), newest first.
 
 ### 7.2 Starting
 
