@@ -292,7 +292,7 @@ describe('finishing', () => {
     expect(result.workout).toMatchObject({ status: 'completed', completedAt: clock().toISOString(), notes: 'n' });
     expect(result.workout.exercises).toHaveLength(1);
     expect(result.workout.exercises[0].sets).toHaveLength(1);
-    expect(result.summary).toEqual({ durationSeconds: 2700, exerciseCount: 1, workingSets: 1, volumeKg: 400 });
+    expect(result.summary).toEqual({ durationSeconds: 2700, exerciseCount: 1, workingSets: 1, dropSets: 0, volumeKg: 400 });
     expect(result.records).toEqual([]);
     expect(store.getState().lastFinish).toEqual(result);
     expect(store.getState().currentWorkout).toBeNull();
