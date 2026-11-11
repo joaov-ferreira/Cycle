@@ -3,15 +3,25 @@
  * an accessible name and is at least 44 pt tall, and every text input is labeled.
  */
 import * as Localization from 'expo-localization';
-import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
+import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import type { ReactNode } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { layout } from '@/constants/theme';
 import type { AppStore } from '@/state/types';
 import { appRoutes } from '@/test-utils/app-routes';
-import { createClock, DAY_MS } from '@/test-utils/clock';
-import { createTestStore, seedBodyMetrics, seedCompletedWorkout, seedPlan, v3PlanContent } from '@/test-utils/seed';
+import { createClock, DAY_MS, type TestClock } from '@/test-utils/clock';
+import {
+  BENCH,
+  createTestStore,
+  seedBodyMetrics,
+  seedCompletedCycle,
+  seedCompletedWorkout,
+  seedPlan,
+  seedStrengthProfile,
+  v1ExamplePlan,
+  v3PlanContent,
+} from '@/test-utils/seed';
 
 import { AppProviders } from './app-providers';
 
@@ -83,7 +93,7 @@ function audit(): string[] {
   return problems;
 }
 
-async function open(url: string, setup?: (store: AppStore) => Promise<void>, width = 390) {
+async function open(url: string, setup?: (store: AppStore, clock: TestClock) => Promise<void>, width = 390) {
   setWindowWidth(width);
   const clock = createClock(new Date(2026, 2, 2, 9, 0));
   const { store, repos } = await createTestStore({ clock });
@@ -99,7 +109,7 @@ async function open(url: string, setup?: (store: AppStore) => Promise<void>, wid
     mechanics: 'compound',
     secondaryMuscles: ['biceps'],
   });
-  await setup?.(store);
+  await setup?.(store, clock);
   const wrapper = ({ children }: { children: ReactNode }) => (
     <AppProviders openRepositories={() => Promise.resolve(repos)} store={store}>
       {children}
@@ -111,7 +121,7 @@ async function open(url: string, setup?: (store: AppStore) => Promise<void>, wid
 
 const tap = async (name: string | RegExp) => fireEvent.press(await screen.findByRole('button', { name }));
 
-type Case = [label: string, url: string, ready: string, setup?: (store: AppStore) => Promise<void>];
+type Case = [label: string, url: string, ready: string, setup?: (store: AppStore, clock: TestClock) => Promise<void>];
 
 const startWorkout = async (store: AppStore) => {
   await store.getState().startPlanWorkout();
@@ -139,6 +149,22 @@ const loggerWithTimerSupersetAndDrop = async (store: AppStore) => {
   await actions().updateSet(1, 0, { weightKg: 50, reps: 10 });
   await actions().toggleSetDone(1, 0);
 };
+
+/**
+ * A strength profile: focus strength, the 1RMs 140 / 100 / 180, and the v1 example plan (program blocks)
+ * as the active plan. The sample plan of `open` stays plan 1; the strength plan is plan 2.
+ */
+const strengthProfile = async (store: AppStore) => {
+  await seedStrengthProfile(store);
+  await store.getState().createPlan(v1ExamplePlan(), { activate: true });
+};
+
+/** The same plan without 1RMs: its percent exercises miss their loads. */
+const strengthPlanWithoutMaxes = async (store: AppStore) => {
+  await store.getState().createPlan(v1ExamplePlan(), { activate: true });
+};
+
+const STRENGTH_PLAN = '/plans/2';
 
 const CASES: Case[] = [
   ['Home', '/', 'screen-home'],
@@ -169,6 +195,46 @@ const CASES: Case[] = [
     await store.getState().updatePlan(store.getState().plans[0].id, v3PlanContent());
   }],
   ['Logger with a superset card, a drop set and the rest timer', '/workout', 'rest-timer-bar', loggerWithTimerSupersetAndDrop],
+  // ---- v4: strength mode ----
+  ['Programs', '/programs', 'screen-program-list'],
+  ['Program detail', '/programs/smolov-jr', 'screen-program-detail'],
+  ['Program start wizard', '/programs/smolov-jr/start', 'screen-program-start', seedStrengthProfile],
+  ['1RMs', '/maxes', 'screen-maxes', seedStrengthProfile],
+  ['1RM detail', '/maxes/barbell-back-squat', 'screen-max-detail', seedStrengthProfile],
+  ['1RM calculator', '/tools/one-rep-max', 'screen-calculator'],
+  ['Periodization table', `${STRENGTH_PLAN}/periodization`, 'screen-periodization', strengthProfile],
+  ['Plan detail with program blocks and percent loads', STRENGTH_PLAN, 'screen-plan-detail', strengthProfile],
+  ['Plan detail with a missing 1RM', STRENGTH_PLAN, 'plan-fidelity', strengthPlanWithoutMaxes],
+  ['Workout start with a prescription', '/workout', 'screen-workout', strengthProfile],
+  ['Logger with a prescription', '/workout', 'exercise-card-0', async (store) => {
+    await strengthProfile(store);
+    await store.getState().startPlanWorkout();
+  }],
+  ['Logger with a missing 1RM', '/workout', 'exercise-card-0', async (store) => {
+    await strengthPlanWithoutMaxes(store);
+    await store.getState().startPlanWorkout();
+  }],
+  ['Logger in RPE mode', '/workout', 'exercise-card-0', async (store) => {
+    await strengthProfile(store);
+    await store.getState().setEffortScale('rpe');
+    await store.getState().startPlanWorkout();
+  }],
+  ['Progress with the Strength tab', '/progress', `strength-card-${BENCH}`, async (store) => {
+    await strengthProfile(store);
+    await store.getState().startPlanWorkout('w1');
+    await store.getState().updateSet(0, 0, { weightKg: 100, reps: 5, rir: 1 });
+    await store.getState().toggleSetDone(0, 0);
+    await store.getState().finishWorkout();
+  }],
+  ['Home of a strength profile', '/', 'screen-home', strengthProfile],
+  ['Settings with the RPE and strength options', '/settings', 'strength-section', async (store) => {
+    await strengthProfile(store);
+    await store.getState().setEffortScale('rpe');
+  }],
+  ['Cycle report with Programs and 1RMs', `${STRENGTH_PLAN}/cycles/1`, 'cycle-report-strength', async (store, clock) => {
+    await strengthProfile(store);
+    await seedCompletedCycle(store, clock);
+  }],
 ];
 
 describe.each(['en-US', 'pt-BR'])('accessibility audit (%s)', (tag) => {
@@ -234,6 +300,47 @@ describe('accessibility audit: states that need a tap first', () => {
     await open('/workout', startWorkout);
     await tap('Add exercise');
     await fireEvent.changeText(await screen.findByLabelText('Search exercises'), 'Zumba');
+    expect(audit()).toEqual([]);
+  });
+
+  it('plan editor with a program block form and a percent editor open', async () => {
+    await open('/plans/2/edit', strengthProfile);
+    await tap('Add a program block to Smolov Jr.');
+    await tap('Smolov');
+    expect(await screen.findByRole('button', { name: 'Save block' })).toBeOnTheScreen();
+    expect(audit()).toEqual([]);
+
+    await open('/plans/1/edit');
+    await tap('Edit Barbell Bench Press targets');
+    await tap('Percent of 1RM');
+    expect(await screen.findByTestId('percent-week-1')).toBeOnTheScreen();
+    expect(audit()).toEqual([]);
+  });
+
+  it('periodization table on a wide screen', async () => {
+    await open('/plans/2/periodization', strengthProfile, 1280);
+    expect(await screen.findByTestId('screen-periodization')).toBeOnTheScreen();
+    expect(audit()).toEqual([]);
+  });
+
+  it('summary with the strength card and "Use as new 1RM"', async () => {
+    const store = await open('/workout', async (s) => {
+      await seedStrengthProfile(s);
+      await s.getState().createPlan(v1ExamplePlan(), { activate: true });
+    });
+    await act(async () => {
+      await store.getState().startPlanWorkout('w1');
+      await store.getState().updateSet(0, 0, { weightKg: 100, reps: 5, rir: 1 });
+      await store.getState().toggleSetDone(0, 0);
+      await store.getState().finishWorkout();
+    });
+    expect(await screen.findByTestId(`summary-strength-${BENCH}`)).toBeOnTheScreen();
+    expect(audit()).toEqual([]);
+  });
+
+  it('1RM detail with the estimate form open', async () => {
+    await open('/maxes/barbell-back-squat', seedStrengthProfile);
+    await tap('Estimate from a set');
     expect(audit()).toEqual([]);
   });
 
