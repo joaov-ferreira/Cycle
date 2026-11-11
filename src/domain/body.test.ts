@@ -186,6 +186,19 @@ describe('metricSeries', () => {
     ]);
   });
 
+  it('keeps entries that share a date next to each other, in the input order', () => {
+    const entries = [
+      metric(2, '2026-10-30', 'weight', 78.6),
+      metric(1, '2026-10-29', 'weight', 79.0),
+      metric(3, '2026-10-30', 'weight', 78.4),
+    ];
+    expect(metricSeries(entries, 'weight')).toEqual([
+      { date: '2026-10-29', value: 79.0 },
+      { date: '2026-10-30', value: 78.6 },
+      { date: '2026-10-30', value: 78.4 },
+    ]);
+  });
+
   it('returns an empty series when there is no entry of the kind', () => {
     expect(metricSeries(EXAMPLE, 'hips')).toEqual([]);
     expect(metricSeries([], 'weight')).toEqual([]);
@@ -201,7 +214,7 @@ describe('metricSeries', () => {
   it('keeps the entries of the last four weeks (28 days) for "4w"', () => {
     const now = new Date(2026, 9, 30, 12);
     const entries = [
-      metric(1, '2026-10-09', 'weight', 81),
+      metric(1, '2026-10-01', 'weight', 81), // 29 days before: outside the window
       metric(2, '2026-10-20', 'weight', 79.4),
       metric(3, '2026-10-30', 'weight', 78.6),
     ];
