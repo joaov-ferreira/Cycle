@@ -119,15 +119,17 @@ export function CycleReportScreen({
                   ) : (
                     <Text variant="label">{name}</Text>
                   )}
-                  <Text tone="secondary">{t('cycleReport.exerciseSessions', { count: row.sessions })}</Text>
-                  <Text tabular>{loadText(row.firstLoadKg, row.lastLoadKg)}</Text>
-                  {row.scoreChangePct !== null ? <Text tabular>{changeText(row.scoreChangePct)}</Text> : null}
-                  {row.stalled ? (
-                    <Text tone="danger">{t('cycleReport.stalled')}</Text>
-                  ) : null}
-                  {row.records > 0 ? (
-                    <Text tone="accent">{t('cycleReport.records', { count: row.records })}</Text>
-                  ) : null}
+                  <View style={styles.facts}>
+                    <Text tone="secondary">{t('cycleReport.exerciseSessions', { count: row.sessions })}</Text>
+                    <Text tabular>{loadText(row.firstLoadKg, row.lastLoadKg)}</Text>
+                    {row.scoreChangePct !== null ? <Text tabular>{changeText(row.scoreChangePct)}</Text> : null}
+                    {row.stalled ? (
+                      <Text tone="danger">{t('cycleReport.stalled')}</Text>
+                    ) : null}
+                    {row.records > 0 ? (
+                      <Text tone="accent">{t('cycleReport.records', { count: row.records })}</Text>
+                    ) : null}
+                  </View>
                 </Card>
               );
             })}
@@ -158,5 +160,6 @@ export function CycleReportScreen({
 const styles = StyleSheet.create({
   section: { gap: spacing.sm },
   stat: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md },
+  facts: { flexDirection: 'row', flexWrap: 'wrap', columnGap: spacing.md, rowGap: spacing.xs },
   nameButton: { minHeight: layout.minTouchTarget, justifyContent: 'center' },
 });
