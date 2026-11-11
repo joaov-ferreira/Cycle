@@ -78,6 +78,18 @@ describe('issueMessage', () => {
     expect(message('en', 'sessionsPerWeek', 'required')).toBe('Required');
   });
 
+  it('words the superset issues in both locales', () => {
+    const path = 'workouts[0].exercises[1].supersetGroup';
+    expect(message('en', path, 'supersetNotAdjacent')).toBe(
+      'Exercises of the same superset must be next to each other.',
+    );
+    expect(message('en', path, 'supersetSize')).toBe('A superset needs 2 to 4 exercises.');
+    expect(message('pt-BR', path, 'supersetNotAdjacent')).toBe(
+      'Os exercícios do mesmo bi-set precisam estar em sequência.',
+    );
+    expect(message('pt-BR', path, 'supersetSize')).toBe('Um bi-set precisa de 2 a 4 exercícios.');
+  });
+
   it('produces a non-empty message for every code in both locales', () => {
     const codes: PlanIssueCode[] = [
       'required',
@@ -92,6 +104,8 @@ describe('issueMessage', () => {
       'unknownExercise',
       'duplicateId',
       'zeroLoadNotAllowed',
+      'supersetNotAdjacent',
+      'supersetSize',
     ];
     const paths = ['name', 'description', 'sessionsPerWeek', 'workouts', 'workouts[0].name', 'workouts[0].exercises', 'workouts[0].exercises[0].sets', 'cycle.loadWeeks'];
     for (const locale of ['en', 'pt-BR'] as const) {

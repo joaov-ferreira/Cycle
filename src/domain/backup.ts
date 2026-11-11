@@ -279,8 +279,7 @@ function readPlan(item: unknown, path: string): BackupPlan {
 function readLoggedSet(item: unknown, path: string): LoggedSet {
   const o = obj(item, path);
   return {
-    // `drop` is accepted from files written by newer app versions; the type keeps v2 kinds.
-    kind: oneOf(o, 'kind', path, SET_KINDS) as LoggedSet['kind'],
+    kind: oneOf(o, 'kind', path, SET_KINDS),
     weightKg: nullable(o, 'weightKg', path, num),
     reps: nullable(o, 'reps', path, num),
     rir: nullable(o, 'rir', path, num),

@@ -67,6 +67,7 @@ export const planImport: typeof enPlanImport = {
     duplicateKey: 'Esta chave está duplicada ou igual ao id de um exercício da biblioteca.',
     missingPlanName: 'A periodização precisa de um nome (uma linha começando com #).',
     exerciseOutsideWorkout: 'Este exercício não está dentro de um treino (uma linha começando com ##).',
+    supersetWithoutPrevious: 'Uma linha com “+” precisa de um exercício antes dela no mesmo treino.',
     invalidExerciseLine: 'Não foi possível ler esta linha de exercício. Use: nome | 4x8-12.',
     invalidDirective: 'Não foi possível ler esta configuração.',
     emptyWorkout: 'Este treino não tem exercícios.',
@@ -127,6 +128,8 @@ export const planImport: typeof enPlanImport = {
     unknownExercise: 'exercício desconhecido',
     duplicateId: 'id duplicado',
     zeroLoadNotAllowed: '0 kg não é permitido para este exercício',
+    supersetNotAdjacent: 'Os exercícios do mesmo bi-set precisam estar em sequência.',
+    supersetSize: 'Um bi-set precisa de 2 a 4 exercícios.',
   },
 
   export: {

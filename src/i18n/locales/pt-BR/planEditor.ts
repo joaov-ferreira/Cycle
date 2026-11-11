@@ -80,6 +80,8 @@ export const planEditor: typeof enPlanEditor = {
     unknownExercise: 'Este exercício não existe mais',
     duplicateId: 'Identificador duplicado',
     zeroLoadNotAllowed: 'Só exercícios com peso corporal e elástico aceitam 0 kg',
+    supersetNotAdjacent: 'Os exercícios do mesmo bi-set precisam estar em sequência.',
+    supersetSize: 'Um bi-set precisa de 2 a 4 exercícios.',
     other: 'Ajustes da periodização: {{message}}',
   },
 };

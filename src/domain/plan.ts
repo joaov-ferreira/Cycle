@@ -26,6 +26,11 @@ export interface PlanExercise {
   startLoadKg?: number;
   /** At most 200 characters. */
   note?: string;
+  /**
+   * Superset label, 1–10 characters (SPEC-v3 §4.1). Consecutive exercises of a workout with the
+   * same label form a superset of 2–4 exercises.
+   */
+  supersetGroup?: string;
 }
 
 /** One training day of a plan. */
@@ -73,6 +78,8 @@ export const PLAN_LIMITS = {
   restSeconds: { min: 0, max: 900 },
   startLoadKg: { min: 0, max: 1000, maxDecimals: 2 },
   note: { max: 200 },
+  supersetGroup: { min: 1, max: 10 },
+  supersetSize: { min: 2, max: 4 },
   sessionsPerWeek: { min: 1, max: 14 },
   loadWeeks: { min: 1, max: 16 },
   deloadWeeks: { min: 0, max: 2 },
@@ -96,7 +103,9 @@ export type PlanIssueCode =
   | 'tooManyDecimals'
   | 'unknownExercise'
   | 'duplicateId'
-  | 'zeroLoadNotAllowed';
+  | 'zeroLoadNotAllowed'
+  | 'supersetNotAdjacent'
+  | 'supersetSize';
 
 /** `path` looks like `name`, `workouts[1].name`, `workouts[0].exercises[2].repMax`, `cycle.loadWeeks`. */
 export type PlanIssue = { path: string; code: PlanIssueCode };
@@ -208,8 +217,61 @@ export function validatePlanContent(
         add(`${ePath}.note`, textIssue(exercise.note, PLAN_LIMITS.note.max, false, false));
       }
     });
+    validateSupersets(workout.exercises, wPath, add);
   });
   return issues;
+}
+
+/** Superset rules of one workout (SPEC-v3 §4.1): label text, adjacency and group size. */
+function validateSupersets(
+  exercises: readonly PlanExercise[],
+  wPath: string,
+  add: (path: string, code: PlanIssueCode | null) => void,
+): void {
+  const groups = new Map<string, number[]>();
+  exercises.forEach((exercise, ei) => {
+    if (exercise.supersetGroup === undefined) return;
+    const path = `${wPath}.exercises[${ei}].supersetGroup`;
+    const issue = textIssue(exercise.supersetGroup, PLAN_LIMITS.supersetGroup.max, true, true);
+    add(path, issue);
+    if (issue) return;
+    const label = exercise.supersetGroup.trim();
+    groups.set(label, [...(groups.get(label) ?? []), ei]);
+  });
+  for (const indices of groups.values()) {
+    const { min, max } = PLAN_LIMITS.supersetSize;
+    if (indices.length < min || indices.length > max) {
+      add(`${wPath}.exercises[${indices[0]}].supersetGroup`, 'supersetSize');
+    }
+    indices.forEach((ei, position) => {
+      if (position > 0 && indices[position - 1] !== ei - 1) {
+        add(`${wPath}.exercises[${ei}].supersetGroup`, 'supersetNotAdjacent');
+      }
+    });
+  }
+}
+
+/** A block of the workout layout: a superset (`label` set) or a single exercise (`label` null). */
+export type SupersetBlock = { indices: number[]; label: string | null };
+
+/**
+ * The workout as blocks in order (SPEC-v3 §4.1): each run of 2 or more consecutive exercises
+ * sharing a label is a superset block; any other exercise is a block of its own.
+ */
+export function supersetLayout(exercises: readonly { supersetGroup?: string | null }[]): SupersetBlock[] {
+  const blocks: SupersetBlock[] = [];
+  let i = 0;
+  while (i < exercises.length) {
+    const label = exercises[i].supersetGroup?.trim() || null;
+    let end = i + 1;
+    if (label !== null) {
+      while (end < exercises.length && exercises[end].supersetGroup?.trim() === label) end += 1;
+    }
+    const indices = Array.from({ length: end - i }, (_, k) => i + k);
+    blocks.push(end - i >= 2 ? { indices, label } : { indices, label: null });
+    i = end;
+  }
+  return blocks;
 }
 
 /** The first `<prefix><n>` (n = 1, 2, …) that is not in `existing`. */
