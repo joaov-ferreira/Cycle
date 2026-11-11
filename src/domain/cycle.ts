@@ -18,6 +18,16 @@ export interface CycleConfig {
   deloadVolumeFactor: number;
   /** 0.5–1.0 in steps of 0.05: fraction of the work load used in a deload. */
   deloadLoadFactor: number;
+  /**
+   * Optional effort ramp across the load weeks (SPEC-v3 §5): integers 0–5 with `start ≥ end`.
+   * Absent or null = no ramp.
+   */
+  rirRamp?: RirRamp | null;
+}
+
+export interface RirRamp {
+  start: number;
+  end: number;
 }
 
 /** Position of a plan inside its cycle (SPEC §5.2). */
@@ -141,6 +151,22 @@ export interface TimelineCell {
   phase: Phase;
   week: number;
   current: boolean;
+  /** The week's target RIR; present only when the cycle has an effort ramp. */
+  targetRir?: number;
+}
+
+/**
+ * Target RIR of the current week (SPEC-v3 §5); undefined without a ramp. Load phase: linear from
+ * `start` to `end` over the load weeks (halves round up); deload phase: `start`.
+ */
+export function weekTargetRir(cycle: CycleConfig, state: CycleState): number | undefined {
+  const ramp = cycle.rirRamp;
+  if (!ramp) return undefined;
+  if (state.phase === 'deload') return ramp.start;
+  const n = cycle.loadWeeks;
+  if (n <= 1) return ramp.end;
+  const w = Math.min(state.week, n);
+  return Math.round(ramp.start - ((ramp.start - ramp.end) * (w - 1)) / (n - 1));
 }
 
 /** One cell per week of the cycle, for the UI timeline. Exactly one cell is current. */
@@ -158,6 +184,12 @@ export function cycleTimeline(cycle: CycleConfig, state: CycleState): TimelineCe
     ? cycle.loadWeeks + Math.min(state.week, deloadCells) - 1
     : Math.min(state.week, cycle.loadWeeks) - 1;
   cells[index] = { ...cells[index], current: true };
+  if (cycle.rirRamp) {
+    return cells.map((cell) => ({
+      ...cell,
+      targetRir: weekTargetRir(cycle, { ...state, phase: cell.phase, week: cell.week }),
+    }));
+  }
   return cells;
 }
 
