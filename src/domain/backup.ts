@@ -4,8 +4,14 @@
  * It defines its own plain shapes; the persistence layer maps repository data to and from them.
  */
 import type { CycleState, Phase } from './cycle';
+import { isValidRirValue } from './effort';
 import { isEquipment, isMechanics, isMuscleGroup, type Equipment, type Mechanics, type MuscleGroup } from './exercise';
 import type { PlanContent, PlanExercise, PlanWorkout } from './plan';
+import type { PercentProgression } from './percent-scheme';
+import type { PrescribedSet, Prescription, PrescriptionSource, PrescriptionWarning } from './prescription';
+import type { ProgramLink } from './program';
+import { validateMaxKg, type ReferenceMaxOrigin } from './reference-max';
+import type { SchemeSet, SchemeWeek } from './scheme-set';
 import type { LoggedSet, Workout, WorkoutExercise } from './workout';
 
 export const BACKUP_FORMAT = 'cycle-backup';
@@ -27,6 +33,14 @@ export interface BackupExerciseSettings {
   incrementKg?: number;
   note?: string;
   barKg?: number;
+}
+
+/** A reference 1RM record (SPEC-v4 §2); ids are not exported, the list keeps the history order. */
+export interface BackupReferenceMax {
+  exerciseId: string;
+  kg: number;
+  effectiveAt: string;
+  origin: ReferenceMaxOrigin;
 }
 
 export interface BackupPlan {
@@ -56,6 +70,7 @@ export interface BackupData {
   settings: BackupSettings;
   customExercises: BackupCustomExercise[];
   exerciseSettings: BackupExerciseSettings[];
+  referenceMaxes: BackupReferenceMax[];
   plans: BackupPlan[];
   workouts: BackupWorkout[];
   bodyMetrics: BackupBodyMetric[];
@@ -70,6 +85,8 @@ export interface BackupDocument {
   settings: BackupSettings;
   customExercises: BackupCustomExercise[];
   exerciseSettings: BackupExerciseSettings[];
+  /** Absent in v3 backups (parsed as an empty list). */
+  referenceMaxes: BackupReferenceMax[];
   plans: BackupPlan[];
   workouts: BackupWorkout[];
   bodyMetrics: BackupBodyMetric[];
@@ -102,6 +119,7 @@ export function buildBackup(data: BackupData, meta: { exportedAt: string; appVer
     settings: data.settings,
     customExercises: data.customExercises,
     exerciseSettings: data.exerciseSettings,
+    referenceMaxes: data.referenceMaxes,
     plans: data.plans,
     workouts: data.workouts,
     bodyMetrics: data.bodyMetrics,
@@ -173,7 +191,23 @@ function oneOf<T extends string>(parent: Obj, key: string, base: string, allowed
   return typeof v === 'string' && (allowed as readonly string[]).includes(v) ? (v as T) : fail(join(base, key));
 }
 
+const optionalNum = (parent: Obj, key: string, base: string): number | undefined =>
+  isAbsent(parent[key]) ? undefined : num(parent, key, base);
+
+const optionalBool = (parent: Obj, key: string, base: string): boolean | undefined =>
+  isAbsent(parent[key]) ? undefined : bool(parent, key, base);
+
+/** Object whose values are read by `read`; the path of a bad value is `<path>.<key>`. */
+function record<T>(value: unknown, path: string, read: (v: unknown, p: string) => T): Record<string, T> {
+  const o = obj(value, path);
+  const result: Record<string, T> = {};
+  for (const [key, v] of Object.entries(o)) result[key] = read(v, join(path, key));
+  return result;
+}
+
 const PHASES: readonly Phase[] = ['load', 'deload'];
+const REFERENCE_MAX_ORIGINS: readonly ReferenceMaxOrigin[] = ['manual', 'fromE1rm', 'onboarding', 'import', 'v1'];
+const PRESCRIPTION_WARNINGS: readonly PrescriptionWarning[] = ['missingReferenceMax', 'noPercent', 'unverified'];
 const STATUSES = ['in_progress', 'completed'] as const;
 const SET_KINDS = ['working', 'warmup', 'drop'] as const;
 
@@ -200,6 +234,20 @@ function readCustomExercise(item: unknown, path: string): BackupCustomExercise {
   };
 }
 
+function readReferenceMax(item: unknown, path: string): BackupReferenceMax {
+  const o = obj(item, path);
+  const effectiveAt = nonEmpty(o, 'effectiveAt', path);
+  if (Number.isNaN(Date.parse(effectiveAt))) fail(join(path, 'effectiveAt'));
+  const kg = num(o, 'kg', path);
+  if (validateMaxKg(kg) !== null) fail(join(path, 'kg'));
+  return {
+    exerciseId: nonEmpty(o, 'exerciseId', path),
+    kg,
+    effectiveAt,
+    origin: oneOf(o, 'origin', path, REFERENCE_MAX_ORIGINS),
+  };
+}
+
 function readExerciseSettings(item: unknown, path: string): BackupExerciseSettings {
   const o = obj(item, path);
   const result: BackupExerciseSettings = { exerciseId: nonEmpty(o, 'exerciseId', path) };
@@ -220,6 +268,54 @@ function readCycleState(value: unknown, path: string): CycleState {
   };
 }
 
+function readSchemeSet(item: unknown, path: string): SchemeSet {
+  const o = obj(item, path);
+  const result: SchemeSet = { reps: num(o, 'reps', path) };
+  const percent = optionalNum(o, 'percent', path);
+  if (percent !== undefined) result.percent = percent;
+  const addKg = optionalNum(o, 'addKg', path);
+  if (addKg !== undefined) result.addKg = addKg;
+  const repeat = optionalNum(o, 'repeat', path);
+  if (repeat !== undefined) result.repeat = repeat;
+  const amrap = optionalBool(o, 'amrap', path);
+  if (amrap !== undefined) result.amrap = amrap;
+  const unverified = optionalBool(o, 'unverified', path);
+  if (unverified !== undefined) result.unverified = unverified;
+  return result;
+}
+
+function readSchemeWeek(item: unknown, path: string): SchemeWeek {
+  const o = obj(item, path);
+  return { sets: mapArray(o.sets, join(path, 'sets'), readSchemeSet) };
+}
+
+function readPercent(value: unknown, path: string): PercentProgression {
+  const o = obj(value, path);
+  const result: PercentProgression = { weeks: mapArray(o.weeks, join(path, 'weeks'), readSchemeWeek) };
+  const startWeek = optionalNum(o, 'startWeek', path);
+  if (startWeek !== undefined) result.startWeek = startWeek;
+  if (!isAbsent(o.basisExerciseId)) result.basisExerciseId = nonEmpty(o, 'basisExerciseId', path);
+  return result;
+}
+
+function readProgramLink(item: unknown, path: string): ProgramLink {
+  const o = obj(item, path);
+  const result: ProgramLink = {
+    id: nonEmpty(o, 'id', path),
+    programId: nonEmpty(o, 'programId', path),
+    day: num(o, 'day', path),
+    startWeek: num(o, 'startWeek', path),
+    roles: record(o.roles, join(path, 'roles'), (v, p) => (typeof v === 'string' && v.length > 0 ? v : fail(p))),
+    accessories: bool(o, 'accessories', path),
+  };
+  if (!isAbsent(o.params)) {
+    result.params = record(o.params, join(path, 'params'), (v, p) =>
+      typeof v === 'number' && Number.isFinite(v) ? v : fail(p),
+    );
+  }
+  return result;
+}
+
 function readPlanExercise(item: unknown, path: string): PlanExercise {
   const o = obj(item, path);
   const result: PlanExercise = {
@@ -234,16 +330,19 @@ function readPlanExercise(item: unknown, path: string): PlanExercise {
   if (!isAbsent(o.startLoadKg)) result.startLoadKg = num(o, 'startLoadKg', path);
   if (!isAbsent(o.note)) result.note = str(o, 'note', path);
   if (!isAbsent(o.supersetGroup)) result.supersetGroup = str(o, 'supersetGroup', path);
+  if (!isAbsent(o.percent)) result.percent = readPercent(o.percent, join(path, 'percent'));
   return result;
 }
 
 function readPlanWorkout(item: unknown, path: string): PlanWorkout {
   const o = obj(item, path);
-  return {
+  const result: PlanWorkout = {
     id: nonEmpty(o, 'id', path),
     name: str(o, 'name', path),
     exercises: mapArray(o.exercises, join(path, 'exercises'), readPlanExercise),
   };
+  if (!isAbsent(o.programs)) result.programs = mapArray(o.programs, join(path, 'programs'), readProgramLink);
+  return result;
 }
 
 function readPlanContent(value: unknown, path: string): PlanContent {
@@ -285,13 +384,19 @@ function readPlan(item: unknown, path: string): BackupPlan {
   };
 }
 
+/** A finite number on the half-point RIR scale, 0–10 (SPEC-v4 §3.3). */
+function rirValue(parent: Obj, key: string, base: string): number {
+  const v = num(parent, key, base);
+  return isValidRirValue(v) ? v : fail(join(base, key));
+}
+
 function readLoggedSet(item: unknown, path: string): LoggedSet {
   const o = obj(item, path);
   return {
     kind: oneOf(o, 'kind', path, SET_KINDS),
     weightKg: nullable(o, 'weightKg', path, num),
     reps: nullable(o, 'reps', path, num),
-    rir: nullable(o, 'rir', path, num),
+    rir: nullable(o, 'rir', path, rirValue),
     done: bool(o, 'done', path),
   };
 }
@@ -309,6 +414,52 @@ function readTarget(value: unknown, path: string): WorkoutExercise['target'] {
   return result;
 }
 
+function readPrescribedSet(item: unknown, path: string): PrescribedSet {
+  const o = obj(item, path);
+  return {
+    reps: num(o, 'reps', path),
+    amrap: bool(o, 'amrap', path),
+    unverified: bool(o, 'unverified', path),
+    percent: nullable(o, 'percent', path, num),
+    addKg: num(o, 'addKg', path),
+    exactKg: nullable(o, 'exactKg', path, num),
+    kg: nullable(o, 'kg', path, num),
+  };
+}
+
+function readPrescriptionSource(value: unknown, path: string): PrescriptionSource {
+  const o = obj(value, path);
+  const kind = oneOf(o, 'kind', path, ['program', 'scheme'] as const);
+  if (kind === 'scheme') return { kind, schemeWeek: num(o, 'schemeWeek', path) };
+  const result: Extract<PrescriptionSource, { kind: 'program' }> = {
+    kind,
+    programId: nonEmpty(o, 'programId', path),
+    programWeek: num(o, 'programWeek', path),
+    day: num(o, 'day', path),
+  };
+  if (!isAbsent(o.label)) {
+    const labelPath = join(path, 'label');
+    const label = obj(o.label, labelPath);
+    result.label = { en: str(label, 'en', labelPath) };
+    if (!isAbsent(label['pt-BR'])) result.label['pt-BR'] = str(label, 'pt-BR', labelPath);
+  }
+  return result;
+}
+
+function readPrescription(value: unknown, path: string): Prescription {
+  const o = obj(value, path);
+  return {
+    basisExerciseId: nonEmpty(o, 'basisExerciseId', path),
+    basisKg: nullable(o, 'basisKg', path, num),
+    sets: mapArray(o.sets, join(path, 'sets'), readPrescribedSet),
+    source: readPrescriptionSource(o.source, join(path, 'source')),
+    phase: oneOf(o, 'phase', path, PHASES),
+    warnings: mapArray(o.warnings, join(path, 'warnings'), (w, p) =>
+      typeof w === 'string' && (PRESCRIPTION_WARNINGS as readonly string[]).includes(w) ? (w as PrescriptionWarning) : fail(p),
+    ),
+  };
+}
+
 function readWorkoutExercise(item: unknown, path: string): WorkoutExercise {
   const o = obj(item, path);
   const result: WorkoutExercise = {
@@ -321,6 +472,8 @@ function readWorkoutExercise(item: unknown, path: string): WorkoutExercise {
   // Stored by v3; absent in workouts saved by v2. `null` (no superset) is kept as `null`.
   if (o.supersetGroup === null) result.supersetGroup = null;
   else if (o.supersetGroup !== undefined) result.supersetGroup = str(o, 'supersetGroup', path);
+  // Stored by v4; absent otherwise. A `null` is read as absent.
+  if (!isAbsent(o.prescription)) result.prescription = readPrescription(o.prescription, join(path, 'prescription'));
   return result;
 }
 
@@ -397,6 +550,7 @@ export function parseBackup(text: string): ParseBackupResult {
   const settings = read(() => readSettings(root.settings, 'settings'), {});
   const customExercises = list('customExercises', readCustomExercise, false);
   const exerciseSettings = list('exerciseSettings', readExerciseSettings, true);
+  const referenceMaxes = list('referenceMaxes', readReferenceMax, true);
   const plans = list('plans', readPlan, false);
   const workouts = list('workouts', readWorkout, false);
   const bodyMetrics = list('bodyMetrics', readBodyMetric, true);
@@ -413,6 +567,7 @@ export function parseBackup(text: string): ParseBackupResult {
       settings,
       customExercises,
       exerciseSettings,
+      referenceMaxes,
       plans,
       workouts,
       bodyMetrics,
@@ -475,10 +630,32 @@ export function backupFileName(profileName: string, date: Date): string {
 export function remapBackup(
   backup: BackupDocument,
   maps: { exerciseIds: Record<string, string>; planIds: Record<number, number> },
-): { plans: BackupPlan[]; workouts: BackupWorkout[]; exerciseSettings: BackupExerciseSettings[] } {
+): {
+  plans: BackupPlan[];
+  workouts: BackupWorkout[];
+  exerciseSettings: BackupExerciseSettings[];
+  referenceMaxes: BackupReferenceMax[];
+} {
   const has = (map: object, key: string | number): boolean => Object.prototype.hasOwnProperty.call(map, key);
   const ex = (id: string): string => (has(maps.exerciseIds, id) ? maps.exerciseIds[id] : id);
   const plan = (id: number): number | null => (has(maps.planIds, id) ? maps.planIds[id] : null);
+  const remapPercent = (percent: PercentProgression): PercentProgression => ({
+    ...percent,
+    weeks: percent.weeks.map((week) => ({ sets: week.sets.map((set) => ({ ...set })) })),
+    ...(percent.basisExerciseId === undefined ? {} : { basisExerciseId: ex(percent.basisExerciseId) }),
+  });
+  const remapLink = (link: ProgramLink): ProgramLink => ({
+    ...link,
+    roles: Object.fromEntries(Object.entries(link.roles).map(([role, id]) => [role, ex(id)])),
+    ...(link.params ? { params: { ...link.params } } : {}),
+  });
+  const remapPrescription = (p: Prescription): Prescription => ({
+    ...p,
+    basisExerciseId: ex(p.basisExerciseId),
+    sets: p.sets.map((set) => ({ ...set })),
+    source: p.source.kind === 'program' && p.source.label ? { ...p.source, label: { ...p.source.label } } : { ...p.source },
+    warnings: [...p.warnings],
+  });
 
   return {
     plans: backup.plans.map((p) => ({
@@ -489,7 +666,12 @@ export function remapBackup(
         cycle: { ...p.content.cycle, ...(p.content.cycle.rirRamp ? { rirRamp: { ...p.content.cycle.rirRamp } } : {}) },
         workouts: p.content.workouts.map((w) => ({
           ...w,
-          exercises: w.exercises.map((e) => ({ ...e, exerciseId: ex(e.exerciseId) })),
+          exercises: w.exercises.map((e) => ({
+            ...e,
+            exerciseId: ex(e.exerciseId),
+            ...(e.percent ? { percent: remapPercent(e.percent) } : {}),
+          })),
+          ...(w.programs ? { programs: w.programs.map(remapLink) } : {}),
         })),
       },
       cycleState: { ...p.cycleState },
@@ -502,20 +684,36 @@ export function remapBackup(
         exerciseId: ex(e.exerciseId),
         target: e.target === null ? null : { ...e.target },
         sets: e.sets.map((s) => ({ ...s })),
+        ...(e.prescription ? { prescription: remapPrescription(e.prescription) } : {}),
       })),
     })),
     exerciseSettings: backup.exerciseSettings.map((s) => ({ ...s, exerciseId: ex(s.exerciseId) })),
+    referenceMaxes: backup.referenceMaxes.map((m) => ({ ...m, exerciseId: ex(m.exerciseId) })),
   };
 }
 
-/** Custom exercise ids (`custom-…`) used by plans, workouts or exercise settings, sorted. */
+/** Custom exercise ids (`custom-…`) used by plans, workouts, exercise settings or reference maxes, sorted. */
 export function referencedCustomExerciseIds(backup: BackupDocument): string[] {
   const ids = new Set<string>();
   const add = (id: string) => {
     if (id.startsWith('custom-')) ids.add(id);
   };
-  for (const p of backup.plans) for (const w of p.content.workouts) for (const e of w.exercises) add(e.exerciseId);
-  for (const w of backup.workouts) for (const e of w.exercises) add(e.exerciseId);
+  for (const p of backup.plans) {
+    for (const w of p.content.workouts) {
+      for (const e of w.exercises) {
+        add(e.exerciseId);
+        if (e.percent?.basisExerciseId !== undefined) add(e.percent.basisExerciseId);
+      }
+      for (const link of w.programs ?? []) for (const id of Object.values(link.roles)) add(id);
+    }
+  }
+  for (const w of backup.workouts) {
+    for (const e of w.exercises) {
+      add(e.exerciseId);
+      if (e.prescription) add(e.prescription.basisExerciseId);
+    }
+  }
   for (const s of backup.exerciseSettings) add(s.exerciseId);
+  for (const m of backup.referenceMaxes) add(m.exerciseId);
   return [...ids].sort();
 }

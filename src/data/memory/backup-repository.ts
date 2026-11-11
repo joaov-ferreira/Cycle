@@ -7,6 +7,7 @@ import {
   planRestore,
   restorableBodyMetrics,
   restorableExerciseSettings,
+  restorableReferenceMaxes,
 } from '../backup-shared';
 import { cloneJson, customExerciseId, storedWorkoutExercise } from '../logbook-shared';
 import type { BackupRepository, Repositories } from '../repositories';
@@ -84,6 +85,11 @@ export function createMemoryBackupRepository(
 
         const entries = restorableExerciseSettings(remapped.exerciseSettings);
         if (entries.size > 0) state.exerciseSettings.set(profileId, entries);
+
+        for (const input of restorableReferenceMaxes(remapped.referenceMaxes)) {
+          const id = state.nextId.referenceMax++;
+          state.referenceMaxes.set(id, { id, profileId, ...input });
+        }
 
         for (const metric of restorableBodyMetrics(backup)) {
           const id = state.nextId.bodyMetric++;

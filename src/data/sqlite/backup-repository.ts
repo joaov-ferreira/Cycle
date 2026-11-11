@@ -6,6 +6,7 @@ import {
   planRestore,
   restorableBodyMetrics,
   restorableExerciseSettings,
+  restorableReferenceMaxes,
 } from '../backup-shared';
 import type { SqlDatabase } from '../database';
 import { customExerciseId } from '../logbook-shared';
@@ -136,6 +137,14 @@ export function createSqliteBackupRepository(
             `INSERT INTO exercise_settings (profile_id, exercise_id, increment_kg, note, bar_kg)
              VALUES (?, ?, ?, ?, ?)`,
             [profileId, exerciseId, entry.incrementKg ?? null, entry.note ?? null, entry.barKg ?? null],
+          );
+        }
+
+        for (const max of restorableReferenceMaxes(remapped.referenceMaxes)) {
+          await db.runAsync(
+            `INSERT INTO reference_maxes (profile_id, exercise_id, kg, effective_at, origin)
+             VALUES (?, ?, ?, ?, ?)`,
+            [profileId, max.exerciseId, max.kg, max.effectiveAt, max.origin],
           );
         }
 

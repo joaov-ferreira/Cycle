@@ -1,13 +1,15 @@
 import {
   buildBackup,
+  parseBackup,
   remapBackup,
+  serializeBackup,
   type BackupData,
   type BackupDocument,
 } from '@/domain/backup';
 import type { PlanContent } from '@/domain/plan';
 
 import { ProfileNotFoundError, type Clock, type Repositories } from '../repositories';
-import { customInput, draft, entry, movableClock, planContent, set } from './fixtures';
+import { customInput, draft, entry, movableClock, planContent, prescriptionSnapshot, set, v4PlanContent } from './fixtures';
 
 const META = { exportedAt: '2026-12-01T00:00:00.000Z', appVersion: '3.0.0' };
 
@@ -23,6 +25,7 @@ export function normalizeIds(data: BackupData): BackupData {
     ...data,
     customExercises: data.customExercises.map((c, i) => ({ ...c, id: `custom-#${i}` })),
     exerciseSettings: [...remapped.exerciseSettings].sort((x, y) => (x.exerciseId < y.exerciseId ? -1 : 1)),
+    referenceMaxes: remapped.referenceMaxes,
     plans: remapped.plans,
     workouts: remapped.workouts.map((w, i) => ({ ...w, id: i + 1 })),
   };
@@ -160,6 +163,7 @@ export function describeBackupContract(factory: (clock: Clock) => Promise<Reposi
         },
         customExercises: [],
         exerciseSettings: [],
+        referenceMaxes: [],
         plans: [],
         workouts: [],
         bodyMetrics: [],
@@ -197,6 +201,7 @@ export function describeBackupContract(factory: (clock: Clock) => Promise<Reposi
           { exerciseId: 'barbell-bench-press', incrementKg: 1.25 },
           { exerciseId: 'custom-1', note: 'seat on position 4', barKg: 10 },
         ],
+        referenceMaxes: [],
         plans: [
           {
             id: 1,
@@ -498,6 +503,7 @@ export function describeBackupContract(factory: (clock: Clock) => Promise<Reposi
         },
         customExercises: [],
         exerciseSettings: [],
+        referenceMaxes: [],
         plans: [],
         workouts: [],
         bodyMetrics: [],
@@ -537,6 +543,7 @@ export function describeBackupContract(factory: (clock: Clock) => Promise<Reposi
         settings: { platesKg: [5, 20, 0.5], lastBackupAt: '2026-11-20T10:00:00.000Z', barKg: 0, defaultRestSeconds: 0 },
         customExercises: [],
         exerciseSettings: [],
+        referenceMaxes: [],
         plans: [],
         workouts: [],
         bodyMetrics: [],
@@ -597,6 +604,179 @@ export function describeBackupContract(factory: (clock: Clock) => Promise<Reposi
       const doc = toDocument(await repos.backup.exportProfile(b));
       const restored = await repos.backup.restoreAsNewProfile(doc, ' Ana (restored) 2 ');
       expect(restored.name).toBe(' Ana (restored) 2 ');
+    });
+  });
+
+  describe('backup: v4 content (SPEC-v4 §11.2)', () => {
+    /** Seeds profile `a` with reference maxes, a percent plan, a program block, a prescription and RIR 1.5. */
+    async function seedStrength(repos: Repositories, a: number) {
+      await repos.settings.update(a, {
+        focus: 'strength',
+        e1rmFormula: 'brzycki',
+        effortScale: 'rpe',
+        roundingMode: 'down',
+        onboardingCompleted: true,
+      });
+      const box = await repos.exercises.createCustom(a, customInput({ name: 'Box squat' }));
+      const pin = await repos.exercises.createCustom(a, customInput({ name: 'Pin press' }));
+      expect([box.id, pin.id]).toEqual(['custom-1', 'custom-2']);
+      for (const [exerciseId, kg, effectiveAt, origin] of [
+        ['barbell-bench-press', 100, '2026-01-10T10:00:00.000Z', 'onboarding'],
+        ['barbell-bench-press', 102.5, '2026-02-10T10:00:00.000Z', 'manual'],
+        ['barbell-bench-press', 105, '2026-03-10T10:00:00.000Z', 'fromE1rm'],
+        ['custom-1', 120, '2026-01-12T10:00:00.000Z', 'manual'],
+        ['conventional-deadlift', 180.25, '2025-12-01T10:00:00.000Z', 'v1'],
+      ] as const) {
+        await repos.referenceMaxes.add(a, { exerciseId, kg, effectiveAt, origin });
+      }
+      const plan = await repos.plans.create(a, v4PlanContent('custom-1'));
+      await repos.plans.setActiveId(a, plan.id);
+      const saved = await repos.workouts.saveDraft(
+        a,
+        draft({
+          planId: plan.id,
+          planWorkoutId: 'w1',
+          name: 'Squat day',
+          exercises: [
+            entry('barbell-back-squat', [set(105, 5, { rir: 1.5 }), set(117.5, 3, { rir: 0.5 })], {
+              planExerciseId: 'p1:0',
+              prescription: prescriptionSnapshot('custom-1'),
+            }),
+            entry('custom-2', [set(60, 8)], { planExerciseId: 'pg2:1' }),
+          ],
+        }),
+      );
+      await repos.workouts.complete(a, saved.id, { exercises: saved.exercises, notes: '', completedAt: '2026-11-05T11:00:00.000Z' });
+    }
+
+    it('exports reference maxes oldest first, the four settings, and the v4 plan and workout fields', async () => {
+      const { repos, a } = await setup();
+      await seedStrength(repos, a);
+      const data = await repos.backup.exportProfile(a);
+      expect(data.referenceMaxes).toEqual([
+        { exerciseId: 'conventional-deadlift', kg: 180.25, effectiveAt: '2025-12-01T10:00:00.000Z', origin: 'v1' },
+        { exerciseId: 'barbell-bench-press', kg: 100, effectiveAt: '2026-01-10T10:00:00.000Z', origin: 'onboarding' },
+        { exerciseId: 'custom-1', kg: 120, effectiveAt: '2026-01-12T10:00:00.000Z', origin: 'manual' },
+        { exerciseId: 'barbell-bench-press', kg: 102.5, effectiveAt: '2026-02-10T10:00:00.000Z', origin: 'manual' },
+        { exerciseId: 'barbell-bench-press', kg: 105, effectiveAt: '2026-03-10T10:00:00.000Z', origin: 'fromE1rm' },
+      ]);
+      expect(data.settings).toMatchObject({ focus: 'strength', e1rmFormula: 'brzycki', effortScale: 'rpe', roundingMode: 'down' });
+      expect(data.plans[0].content.workouts).toEqual(v4PlanContent('custom-1').workouts);
+      expect(data.workouts[0].exercises[0].prescription).toEqual(prescriptionSnapshot('custom-1'));
+      expect(data.workouts[0].exercises[0].sets.map((s) => s.rir)).toEqual([1.5, 0.5]);
+    });
+
+    it('round trips through restore as a new profile, equal under the id mapping', async () => {
+      const { repos, a } = await setup();
+      await seedStrength(repos, a);
+      const before = await repos.backup.exportProfile(a);
+
+      // Through a serialized document, as a real backup file travels.
+      const parsed = parseBackup(serializeBackup(toDocument(before)));
+      if (!parsed.ok) throw new Error(JSON.stringify(parsed.errors));
+      const restored = await repos.backup.restoreAsNewProfile(parsed.backup, 'Ana (restored)');
+      const copy = await repos.backup.exportProfile(restored.id);
+
+      expect(normalizeIds({ ...copy, profileName: 'Ana' })).toEqual(normalizeIds(before));
+      expect(await repos.settings.get(restored.id)).toMatchObject({
+        focus: 'strength',
+        e1rmFormula: 'brzycki',
+        effortScale: 'rpe',
+        roundingMode: 'down',
+      });
+      expect(await repos.referenceMaxes.list(restored.id)).toHaveLength(5);
+      // The original keeps its own records.
+      expect(await repos.referenceMaxes.list(a)).toHaveLength(5);
+    });
+
+    it('remaps custom exercise ids in reference maxes, percent basis, role mappings and prescription basis', async () => {
+      const { repos, a } = await setup();
+      await seedStrength(repos, a);
+      // A first restore shifts the custom ids (custom-1/2 become custom-3/4) in the next one.
+      const first = await repos.backup.restoreAsNewProfile(toDocument(await repos.backup.exportProfile(a)), 'One');
+      const second = await repos.backup.restoreAsNewProfile(toDocument(await repos.backup.exportProfile(a)), 'Two');
+      const customIds = (await repos.exercises.listCustom(second.id)).map((c) => c.id);
+      expect(customIds).toEqual(['custom-5', 'custom-6']);
+
+      const copy = await repos.backup.exportProfile(second.id);
+      expect(copy.referenceMaxes.map((m) => m.exerciseId)).toEqual([
+        'conventional-deadlift',
+        'barbell-bench-press',
+        'custom-5',
+        'barbell-bench-press',
+        'barbell-bench-press',
+      ]);
+      const workouts = copy.plans[0].content.workouts;
+      expect(workouts[0].exercises[0].percent?.basisExerciseId).toBe('custom-5');
+      expect(workouts[0].programs?.[1].roles).toEqual({ squat: 'custom-5', bench: 'barbell-bench-press' });
+      expect(workouts[1].programs?.[0].roles).toEqual({ lift: 'custom-5' });
+      expect(copy.workouts[0].exercises[0].prescription?.basisExerciseId).toBe('custom-5');
+      expect(copy.workouts[0].exercises[1].exerciseId).toBe('custom-6');
+      // The other restored profile is independent of this one.
+      const other = await repos.backup.exportProfile(first.id);
+      expect(other.referenceMaxes[2].exerciseId).toBe('custom-3');
+    });
+
+    it('the restored custom exercise keeps its reference maxes when deleted from the copy only', async () => {
+      const { repos, a } = await setup();
+      await seedStrength(repos, a);
+      const restored = await repos.backup.restoreAsNewProfile(toDocument(await repos.backup.exportProfile(a)), 'Copy');
+      const [box] = await repos.exercises.listCustom(restored.id);
+      // The plan still references it, so it cannot be deleted; the original is untouched anyway.
+      await expect(repos.exercises.deleteCustom(restored.id, box.id)).rejects.toMatchObject({ code: 'EXERCISE_IN_USE' });
+      expect(await repos.referenceMaxes.list(a)).toHaveLength(5);
+    });
+
+    it('restores a v3 document (no referenceMaxes, no strength settings, no v4 fields) exactly as before', async () => {
+      const { repos, a, time } = await setup();
+      await seed(repos, a, time);
+      const doc = JSON.parse(serializeBackup(toDocument(await repos.backup.exportProfile(a))));
+      delete doc.referenceMaxes;
+      for (const key of ['focus', 'e1rmFormula', 'effortScale', 'roundingMode']) delete doc.settings[key];
+      const parsed = parseBackup(JSON.stringify(doc));
+      if (!parsed.ok) throw new Error(JSON.stringify(parsed.errors));
+      expect(parsed.backup.referenceMaxes).toEqual([]);
+
+      const restored = await repos.backup.restoreAsNewProfile(parsed.backup, 'v3');
+      expect(await repos.referenceMaxes.list(restored.id)).toEqual([]);
+      expect(await repos.settings.get(restored.id)).toMatchObject({
+        focus: 'general',
+        e1rmFormula: 'epley',
+        effortScale: 'rir',
+        roundingMode: 'nearest',
+        experience: 'advanced',
+      });
+      const copy = await repos.backup.exportProfile(restored.id);
+      expect(copy.plans.map((p) => p.content.workouts.map((w) => w.programs))).toEqual([[undefined, undefined], [undefined, undefined]]);
+      expect(copy.workouts.flatMap((w) => w.exercises).some((e) => 'prescription' in e)).toBe(false);
+    });
+
+    it('leaves nothing behind when a reference max is invalid', async () => {
+      const { repos, a } = await setup();
+      await seedStrength(repos, a);
+      const doc = toDocument(await repos.backup.exportProfile(a));
+      doc.referenceMaxes[2].kg = 0;
+      const profilesBefore = await repos.profiles.list();
+      await expect(repos.backup.restoreAsNewProfile(doc, 'Broken')).rejects.toThrow(RangeError);
+      expect(await repos.profiles.list()).toEqual(profilesBefore);
+      expect(await repos.referenceMaxes.list(a)).toHaveLength(5);
+
+      // Ids are not consumed by the failed attempt.
+      doc.referenceMaxes[2].kg = 120;
+      const ok = await repos.backup.restoreAsNewProfile(doc, 'Fine');
+      expect(ok.id).toBe(3);
+      expect((await repos.exercises.listCustom(ok.id)).map((c) => c.id)).toEqual(['custom-3', 'custom-4']);
+      expect((await repos.referenceMaxes.list(ok.id)).map((m) => m.id)).toEqual([6, 7, 8, 9, 10]);
+    });
+
+    it('leaves nothing behind when a half-point RIR is off the step', async () => {
+      const { repos, a } = await setup();
+      await seedStrength(repos, a);
+      const doc = toDocument(await repos.backup.exportProfile(a));
+      doc.workouts[0].exercises[0].sets[0].rir = 1.25;
+      await expect(repos.backup.restoreAsNewProfile(doc, 'Broken')).rejects.toThrow(RangeError);
+      expect(await repos.profiles.list()).toHaveLength(2);
+      expect(await repos.referenceMaxes.list(3)).toEqual([]);
     });
   });
 }

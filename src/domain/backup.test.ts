@@ -98,6 +98,7 @@ function fixtureData(): BackupData {
         archived: true,
       },
     ],
+    referenceMaxes: [],
     exerciseSettings: [
       { exerciseId: 'bench-press', incrementKg: 1.25, barKg: 20 },
       { exerciseId: 'custom-3', note: 'elbows in' },

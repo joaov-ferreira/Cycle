@@ -9,12 +9,14 @@ import type {
   BackupDocument,
   BackupExerciseSettings,
   BackupPlan,
+  BackupReferenceMax,
   BackupWorkout,
 } from '@/domain/backup';
 import type { Exercise } from '@/domain/exercise';
 
 import type { BodyMetricInput } from '@/domain/body';
 
+import { assertReferenceMaxInput } from './reference-max-shared';
 import {
   assertBodyMetricInput,
   assertExerciseBar,
@@ -27,13 +29,14 @@ import {
 import {
   ProfileNotFoundError,
   type ExerciseSettingsEntry,
+  type ReferenceMaxInput,
   type Repositories,
   type Settings,
 } from './repositories';
 
 type ReadRepositories = Pick<
   Repositories,
-  'profiles' | 'settings' | 'exercises' | 'plans' | 'workouts' | 'bodyMetrics'
+  'profiles' | 'settings' | 'exercises' | 'plans' | 'workouts' | 'bodyMetrics' | 'referenceMaxes'
 >;
 
 const toBackupExercise = (exercise: Exercise): BackupCustomExercise => ({
@@ -90,11 +93,16 @@ export async function exportProfileData(
     value,
   }));
 
+  const referenceMaxes: BackupReferenceMax[] = (await repos.referenceMaxes.list(profileId)).map(
+    ({ exerciseId, kg, effectiveAt, origin }) => ({ exerciseId, kg, effectiveAt, origin }),
+  );
+
   return {
     profileName: profile.name,
     settings: settingsToBackup(settings),
     customExercises,
     exerciseSettings,
+    referenceMaxes,
     plans,
     workouts: allWorkouts,
     bodyMetrics,
@@ -148,6 +156,20 @@ export function restorableBodyMetrics(backup: BackupDocument): BodyMetricInput[]
     byKey.set(`${input.date}|${input.kind}`, { date: input.date, kind: input.kind, value: input.value });
   }
   return [...byKey.values()];
+}
+
+/** Reference maxes to insert, in backup order (exercise ids already remapped): structure checked. */
+export function restorableReferenceMaxes(maxes: readonly BackupReferenceMax[]): ReferenceMaxInput[] {
+  return maxes.map((max) => {
+    const input: ReferenceMaxInput = {
+      exerciseId: max.exerciseId,
+      kg: max.kg,
+      effectiveAt: max.effectiveAt,
+      origin: max.origin,
+    };
+    assertReferenceMaxInput(input);
+    return input;
+  });
 }
 
 /** Exercise settings to insert, by exercise id (already remapped): values checked, empty ones dropped. */
