@@ -31,7 +31,7 @@ export function HistoryDetailScreen({
 
   if (!workout) {
     return (
-      <Screen testID="screen-history-detail">
+      <Screen title={t('history.detailTitle')} testID="screen-history-detail">
         <EmptyState
           title={t('history.notFoundTitle')}
           message={t('history.notFoundMessage')}
