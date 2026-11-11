@@ -21,6 +21,8 @@ export interface PlanExercise {
   targetRir?: number;
   /** Integer 0–900. */
   restSeconds?: number;
+  /** 0–1000 kg, at most 2 decimals; load suggested for the first session without history. */
+  startLoadKg?: number;
   /** At most 200 characters. */
   note?: string;
 }
@@ -68,6 +70,7 @@ export const PLAN_LIMITS = {
   reps: { min: 1, max: 100 },
   targetRir: { min: 0, max: 5 },
   restSeconds: { min: 0, max: 900 },
+  startLoadKg: { min: 0, max: 1000, decimals: 2 },
   note: { max: 200 },
   sessionsPerWeek: { min: 1, max: 14 },
   loadWeeks: { min: 1, max: 16 },
