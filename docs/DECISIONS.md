@@ -1026,3 +1026,40 @@ Decisions taken while the v2 stages were implemented and reviewed (stage ids as 
 - **Not verified in this migration:** behavior on a physical Android device (the APK is built by the
   GitHub Actions pipeline; screens were exercised with jest and on web only).
 
+## 2026-11-11 — v3: gym companion
+
+- **Scope (owner request: "think of a v3 with useful new features").** Chosen for value in the gym
+  and for closing loops v2 left open: rest timer, plate calculator, warm-up sets, supersets and drop
+  sets, RIR ramp across the load weeks, cycle report and history, Review with AI (training summary
+  prompt and plan update in place), backup/restore/CSV, body tracking, calendar/streak/trends, small
+  aids (persistent exercise notes, similar exercises, how-to link, share summary, repeat workout).
+  Left out: cloud sync, training-day reminders, lb units, timed/cardio exercises, volume ramps.
+- **Workflow.** Same as v2: one integration branch, one PR, stages delegated to sub-agents in parallel
+  worktrees with disjoint file ownership. The branch continues from `main` after the v2 squash merge
+  through a no-change merge commit (`git merge -s ours` of the pre-squash history), because a force
+  push to restart the branch was not permitted in the execution environment; the PR diff is v3 only.
+- **Source compatibility of model changes.** New fields are optional (`PlanExercise.supersetGroup`,
+  `WorkoutExercise.supersetGroup`, `CycleConfig.rirRamp`, `ExerciseSession.targetRir`) and
+  `LoggedSet.kind` only gained a value, so plans and workouts stored by v2 load unchanged and each
+  layer could be extended in its own stage.
+- **Drop sets count for volume only.** Work load, progression, session score, e1RM, records, set
+  counts and weekly sets per muscle ignore them, so adding drop sets never changes a suggestion.
+- **Supersets** are labels on consecutive plan exercises (2–4); the logger keeps one card per group
+  with each exercise's own set rows (not interleaved round by round), and the rest timer starts only
+  after a set of the group's last exercise.
+- **Rest timer** is derived from timestamps in the store (no ticking state, not persisted). The
+  notification is scheduled through a `RestNotifier` port implemented with `expo-notifications`;
+  permission is requested on first use and a denial degrades to the in-app countdown and vibration.
+- **Easy-session rule** compares the logged RIR with the target RIR of that session (snapshot),
+  because with a ramp the plan's target changes every week.
+- **Backup** is a versioned JSON document (`cycle-backup` v1); restore always creates a new profile
+  in one transaction and remaps ids, so nothing is ever overwritten. Backups can exceed the 256 KB
+  limit of plan imports, so the backup picker has its own (16 MiB) limit.
+- **Import format stays at version 1.** `superset` and `cycle.rirRamp` are optional additions; older
+  readers ignore unknown properties by design. The AI prompt templates became one line per paragraph
+  (hard-wrapped text looked ragged on a phone) and explain the two additions.
+- **Model use.** haiku: 1a, 1c, 1e, 1f, 4e, 4h; sonnet: 1b, 1d, 2a, 2b, 3, 4a, 4b, 4c, 4d, 4f, 5. No
+  escalation was needed; 1b took one follow-up round for catalog keys required by its new error codes.
+- **Not verified:** behavior on a physical device (notifications, keep-awake, share sheet, file
+  writing); verified by tests, on web, and by the APK build in CI.
+
