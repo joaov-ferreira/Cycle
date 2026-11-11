@@ -139,15 +139,34 @@ export function exercisePromptLine(exercise: Exercise, locale: PromptLocale): st
   return [exercise.id, exercise.name[locale], muscle, equipment].join(' — ');
 }
 
-/**
- * The prompt for `locale`: the template with one line per non-archived exercise, in the order
- * given (callers pass the built-in library first, then custom exercises).
- */
-export function buildAiPlanPrompt(exercises: readonly Exercise[], locale: PromptLocale): string {
+/** The first line of the OUTPUT block of each locale, where the reusable part of the prompt starts. */
+const OUTPUT_LINE: Record<PromptLocale, string> = { en: 'OUTPUT', 'pt-BR': 'SAÍDA' };
+
+/** Replaces `{{EXERCISES}}` in `text` with one line per non-archived exercise, in the given order. */
+function fillExerciseList(text: string, exercises: readonly Exercise[], locale: PromptLocale): string {
   const lines = exercises
     .filter((exercise) => !exercise.archived)
     .map((exercise) => exercisePromptLine(exercise, locale))
     .join('\n');
   // split/join, not String.replace: a name containing "$&" must stay literal.
-  return AI_PLAN_PROMPT_TEMPLATE[locale].split(EXERCISES_PLACEHOLDER).join(lines);
+  return text.split(EXERCISES_PLACEHOLDER).join(lines);
+}
+
+/**
+ * The prompt for `locale`: the template with one line per non-archived exercise, in the order
+ * given (callers pass the built-in library first, then custom exercises).
+ */
+export function buildAiPlanPrompt(exercises: readonly Exercise[], locale: PromptLocale): string {
+  return fillExerciseList(AI_PLAN_PROMPT_TEMPLATE[locale], exercises, locale);
+}
+
+/**
+ * The plan prompt from its OUTPUT / SAÍDA line to the end (output format, rules and exercise list),
+ * with the exercise list filled as in `buildAiPlanPrompt`. Reused by the AI review prompt.
+ */
+export function aiPlanPromptOutputSection(exercises: readonly Exercise[], locale: PromptLocale): string {
+  // The marker is present in both static templates (pinned by ai-review-prompt.test.ts).
+  const template = AI_PLAN_PROMPT_TEMPLATE[locale];
+  const start = template.indexOf(`\n${OUTPUT_LINE[locale]}\n`) + 1;
+  return fillExerciseList(template.slice(start), exercises, locale);
 }
