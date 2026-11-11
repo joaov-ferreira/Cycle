@@ -5,6 +5,7 @@
  * micrograms of kilograms, so no floating-point drift changes a result. Only working sets that
  * are done and have at least one rep count.
  */
+import { DEFAULT_E1RM_FORMULA, type E1rmFormula, estimate1rm } from './e1rm';
 import type { LoggedSet } from './workout';
 
 /** A logged set that counts: a done working set with a weight and at least one rep. */
@@ -37,16 +38,13 @@ export function countedSets(sets: readonly LoggedSet[]): CountedSet[] {
 }
 
 /**
- * Epley estimate of the one-rep max with RIR added to the reps: `n = reps + rir`,
- * `n = 1` gives the weight, otherwise `weight × (1 + n / 30)`. Rounded to 3 decimals.
- * Returns `null` for a zero weight.
+ * The one-rep max estimate in kg with RIR added to the reps (SPEC §6.1, SPEC-v4 §3.1). The default
+ * formula is Epley: `n = reps + rir`, `n = 1` gives the weight, otherwise `weight × (1 + n / 30)`.
+ * Rounded to 3 decimals. Returns `null` when the formula has no estimate (zero weight, Brzycki
+ * from `n = 37`). Confidence is not returned here; use `estimate1rm` for it.
  */
-export function e1rm(weightKg: number, reps: number, rir = 0): number | null {
-  if (weightKg === 0) return null;
-  const weightGrams = toGrams(weightKg);
-  const n = reps + rir;
-  if (n === 1) return weightGrams / GRAMS_PER_KG;
-  return divRoundHalfUp(weightGrams * (EPLEY_DIVISOR + n), EPLEY_DIVISOR) / GRAMS_PER_KG;
+export function e1rm(weightKg: number, reps: number, rir = 0, formula: E1rmFormula = DEFAULT_E1RM_FORMULA): number | null {
+  return estimate1rm(weightKg, reps, rir, formula)?.kg ?? null;
 }
 
 /** Volume of one set: weight × reps, exact to the gram. */

@@ -181,12 +181,17 @@ describe('validateSet (SPEC §7.3)', () => {
     expect(validateSet(working({ reps: 12.5 }), 'barbell')).toEqual({ reps: 'notInteger' });
   });
 
-  it('requires RIR to be an integer from 0 to 10', () => {
+  it('requires RIR from 0 to 10 in steps of 0.5 (SPEC-v4 §3.3)', () => {
     expect(validateSet(working({ rir: 0 }), 'barbell')).toEqual({});
     expect(validateSet(working({ rir: 10 }), 'barbell')).toEqual({});
+    expect(validateSet(working({ rir: 1.5 }), 'barbell')).toEqual({});
+    expect(validateSet(working({ rir: 2.5 }), 'barbell')).toEqual({});
     expect(validateSet(working({ rir: 11 }), 'barbell')).toEqual({ rir: 'outOfRange' });
+    expect(validateSet(working({ rir: 10.5 }), 'barbell')).toEqual({ rir: 'outOfRange' });
     expect(validateSet(working({ rir: -1 }), 'barbell')).toEqual({ rir: 'outOfRange' });
-    expect(validateSet(working({ rir: 2.5 }), 'barbell')).toEqual({ rir: 'notInteger' });
+    expect(validateSet(working({ rir: -0.5 }), 'barbell')).toEqual({ rir: 'outOfRange' });
+    expect(validateSet(working({ rir: 2.3 }), 'barbell')).toEqual({ rir: 'notInteger' });
+    expect(validateSet(working({ rir: 0.25 }), 'barbell')).toEqual({ rir: 'notInteger' });
   });
 
   it('reports every invalid field at once', () => {
