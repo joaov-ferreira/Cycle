@@ -203,7 +203,7 @@ describe('010_v2_logbook v1 carry-over', () => {
       sets: await db.getAllAsync('SELECT * FROM performed_sets ORDER BY id', []),
     };
     const result = await runMigrations(db, migrations);
-    expect(result.applied).toEqual([10]);
+    expect(result.applied).toEqual([10, 11]);
 
     expect(
       await db.getAllAsync(
