@@ -1,7 +1,9 @@
 /**
  * Pure helpers over the editor's local draft (`PlanContent`). No React, no I/O.
  */
-import { PLAN_LIMITS, uniqueId, type PlanContent, type PlanExercise } from '@/domain/plan';
+import { PLAN_LIMITS, uniqueId, type PlanContent, type PlanExercise, type PlanWorkout } from '@/domain/plan';
+
+import { usedIds } from './block-ops';
 
 /** A copy of `list` with the item at `index` moved by `delta`; unchanged at the ends. */
 export function moveItem<T>(list: readonly T[], index: number, delta: -1 | 1): T[] {
@@ -35,14 +37,9 @@ export function newWorkoutId(content: PlanContent): string {
   );
 }
 
-/** Every plan exercise id of the plan (ids are unique across workouts). */
-function planExerciseIds(content: PlanContent): string[] {
-  return content.workouts.flatMap((w) => w.exercises.map((e) => e.id));
-}
-
 /** A new plan exercise: 3 sets x 8-12, no RIR, rest or load. */
 export function newPlanExercise(content: PlanContent, exerciseId: string): PlanExercise {
-  return { id: uniqueId(planExerciseIds(content), 'e'), exerciseId, sets: 3, repMin: 8, repMax: 12 };
+  return { id: uniqueId(usedIds(content), 'e'), exerciseId, sets: 3, repMin: 8, repMax: 12 };
 }
 
 /** The first "Workout A", "Workout B", ... (as formatted by the caller) not in `existing`. */
@@ -53,4 +50,13 @@ export function pickWorkoutName(existing: readonly string[], format: (letter: st
     if (!used.has(name)) return name;
   }
   return format(String(existing.length + 1));
+}
+
+/** The workout without its block `index`; the `programs` key goes away with the last block. */
+export function removeBlock(workout: PlanWorkout, index: number): PlanWorkout {
+  const programs = (workout.programs ?? []).filter((_, i) => i !== index);
+  const next = { ...workout };
+  if (programs.length === 0) delete next.programs;
+  else next.programs = programs;
+  return next;
 }

@@ -17,6 +17,10 @@ export type PlanDetailScreenProps = {
   onReviewWithAi?: (planId: number) => void;
   /** Opens the report of one cycle of the plan. */
   onOpenCycle?: (planId: number, cycleNumber: number) => void;
+  /** Opens the periodization table of the plan. */
+  onOpenPeriodization?: (planId: number) => void;
+  /** Opens the 1RM screen of an exercise. */
+  onOpenMax?: (exerciseId: string) => void;
 };
 
 /** One plan: header and actions, cycle card (status, timeline, advice, settings) and workouts. */
@@ -29,6 +33,8 @@ export function PlanDetailScreen({
   onOpenPlan,
   onReviewWithAi,
   onOpenCycle,
+  onOpenPeriodization,
+  onOpenMax,
 }: PlanDetailScreenProps) {
   const { t } = useI18n();
   const plan = useAppStore((s) => s.plans.find((p) => p.id === planId));
@@ -44,6 +50,8 @@ export function PlanDetailScreen({
           onOpenPlan={onOpenPlan}
           onReviewWithAi={onReviewWithAi}
           onOpenCycle={onOpenCycle}
+          onOpenPeriodization={onOpenPeriodization}
+          onOpenMax={onOpenMax}
         />
       ) : (
         <EmptyState
