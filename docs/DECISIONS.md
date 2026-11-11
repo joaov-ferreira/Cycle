@@ -949,3 +949,36 @@ the reference shipped with the installed package
   `actionlint` 1.7.7 (Docker images) report nothing; the signing plugin was also run through a real
   `expo prebuild` and produced the expected `app/build.gradle`. The Actions runs on `main` are the
   end-to-end check, and the APK was not installed on an emulator or device in this stage.
+
+## 2026-11-11 — v2: pivot to a general weight-training app
+
+- **Decision (owner request).** CYCLE changes from a powerlifting periodization manager to a general
+  weight-training ("musculação") app: exercise library with custom exercises, importable plans,
+  load/deload cycles, set/reps/load logbook and automatic load progression from history. New
+  `docs/SPEC.md` (v2) and `docs/PLAN.md` (v2); the v1 documents moved to `docs/archive/`.
+- **Replace, not extend.** The v1 model (three lifts, reference 1RMs, percentage programs, three-week
+  generator, RTS e1RM history) is removed from the code instead of being kept next to the new model.
+  Alternative considered: keep the percentage programs as a second kind of plan — rejected because it
+  doubles the data model and the UI (two meanings of "periodization") for a feature the new product
+  does not ask for. The v1 code stays in git history (last v1 commit `3774916`).
+- **v1 user data is preserved.** Migrations 001–009 are immutable and the v1 tables are not dropped;
+  migration 010 copies completed v1 sessions into the v2 logbook (SPEC §11.3).
+- **Training-driven weeks.** A cycle week is `sessionsPerWeek` completed plan sessions, not a calendar
+  week, so a missed day never burns a week of the cycle and A/B/C rotations work at any frequency.
+  Alternative: calendar weeks anchored to a start date — rejected because skipped weeks would trigger
+  a deload nobody trained for.
+- **Progression model.** Double progression inside the plan's rep range (SPEC §6): increase the load
+  when every set reaches the top of the range, add reps otherwise, reduce after two sessions below the
+  range. Deterministic rules with reason codes so every suggestion can be explained in the UI.
+  The cycle lengths per experience level, the stall rule and the deload factors are app-defined,
+  editable heuristics, not transcriptions of a published method.
+- **e1RM.** Only the RIR-adjusted Epley formula remains, computed on the fly from logged sets as a
+  trend metric (no stored e1RM history, no formula setting).
+- **Import formats.** A versioned JSON document (`cycle-plan` v1) and a plain-text format; exercise
+  names are matched exactly after normalization and never guessed — unmatched names are resolved by
+  the user in the import preview (pick an existing exercise or create a custom one).
+- **Workflow.** Owner instruction for this migration: one integration branch
+  (`claude/bodybuilding-training-app-lr6egj`), one PR to `main` at the end, squash merge. Stages are
+  delegated to sub-agents (haiku/sonnet/opus by complexity, escalating on failure); independent stages
+  run in parallel git worktrees and are merged by the orchestrator. Supersedes the 2026-11-05
+  "Orchestration" entry (direct-to-main fallback) for this migration: GitHub PR tooling is available.

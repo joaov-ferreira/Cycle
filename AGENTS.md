@@ -44,6 +44,7 @@ Docs: https://docs.expo.dev/eas/index.md
 
 - `docs/SPEC.md` — product and technical specification (source of truth).
 - `docs/PLAN.md` — staged implementation plan; each stage runs in a clean-context agent of the indicated model family.
+- `docs/archive/` — the v1 (powerlifting) spec, plan and orchestrator prompt, kept for reference only.
 - `docs/DECISIONS.md` — architecture/data-source decisions log (create it if missing; append, never rewrite history).
 
 Read all three before starting any stage. Implement only the scope of your stage.
@@ -65,10 +66,10 @@ All production code is written test-first. For every behavior:
 Rules:
 
 - Never write production code without a failing test that requires it. Bug fixes start with a test that reproduces the bug.
-- Pure logic lives in `src/domain/` and `src/programs/` (no React/Expo/IO imports) and is unit-tested exhaustively, including edge cases. Coverage there must stay ≥ 95% lines; global ≥ 80%.
+- Pure logic lives in `src/domain/` and pure data in `src/library/` (no React/Expo/IO imports) and is unit-tested exhaustively, including edge cases. Coverage there must stay ≥ 95% lines; global ≥ 80%.
 - Persistence is accessed only through repository interfaces in `src/data/`; tests use the in-memory implementation.
 - UI is tested with `@testing-library/react-native` (behavior and accessible queries, not snapshots of markup). Screens that display formatted numbers are tested in both `en` and `pt-BR`.
-- Program data (Smolov, Smolov Jr., Sheiko, RTS table) is covered by data tests that assert the transcription against the cited source, day by day. Never invent sets, reps or percentages; mark missing data `unverified`.
+- Library data (built-in exercises and plan templates in `src/library/`) is covered by data tests that enforce the rules of `docs/SPEC.md` §2.2 and §3.3 (ids, bilingual names, uniqueness, coverage, valid plans). Plan templates are app-authored starting points; never present them as transcriptions of published programs.
 - Calculation tests use exact expected values (computed by hand and written in the test), never values produced by the code under test.
 - Do not skip, disable or weaken tests to get green.
 - Commit in small steps; a good rhythm is one commit per red→green→refactor cycle (e.g. `test: …` then `feat: …`, or a single commit containing both).
@@ -76,6 +77,11 @@ Rules:
 Definition of done for every change: `npm test`, `npx expo lint` and `npx tsc --noEmit` pass locally, and in CI once the CI workflow exists (it is added in the last plan stage). `README.md` is updated in the same change whenever the change affects what the README describes (features, setup, commands, build).
 
 ## Git & PR workflow
+
+> **v2 migration exception:** the stages of the current `docs/PLAN.md` are developed on the single
+> integration branch named there and land on `main` through one PR at the end. Sub-agents commit to
+> the branch (or the worktree branch) they are given and never push, open PRs or merge; the
+> orchestrator does that. The rules below apply again to changes made after the migration.
 
 Work happens on a branch and lands on `main` through a PR whenever possible. Committing directly to `main` is **allowed** as a fallback (see step 8), but never skip the branch, TDD and green-checks steps.
 
