@@ -245,17 +245,10 @@ interface CycleReport {
   `SAÍDA` line to the end** (output format, rules and the exercise list), unchanged.
 
   ````text
-  You are an experienced strength and hypertrophy coach. Below are my current training plan in the
-  CYCLE app and a summary of what I actually did. Review my results and give me an adjusted plan as a
-  file for the CYCLE app.
+  You are an experienced strength and hypertrophy coach. Below are my current training plan in the CYCLE app and a summary of what I actually did. Review my results and give me an adjusted plan as a file for the CYCLE app.
 
   HOW TO REVIEW
-  Look at each exercise: where the load or the reps went up, keep what works; where I stalled or fell
-  below the rep range, change something (rep range, sets, exercise variation, order or rest). Check
-  the weekly sets per muscle group and my adherence, and rebalance the volume if needed. Keep the
-  exercises I am progressing on unless there is a reason to swap them. After the JSON, explain the
-  main changes in a few lines. If my notes are empty and you need to know how I feel (pain, fatigue,
-  schedule changes), ask me first and wait for my answer.
+  Look at each exercise: where the load or the reps went up, keep what works; where I stalled or fell below the rep range, change something (rep range, sets, exercise variation, order or rest). Check the weekly sets per muscle group and my adherence, and rebalance the volume if needed. Keep the exercises I am progressing on unless there is a reason to swap them. After the JSON, explain the main changes in a few lines. If my notes are empty and you need to know how I feel (pain, fatigue, schedule changes), ask me first and wait for my answer.
 
   MY NOTES
   {{NOTES}}
@@ -268,18 +261,10 @@ interface CycleReport {
   ````
 
   ````text
-  Você é um treinador experiente de força e hipertrofia. Abaixo estão a minha periodização atual no
-  app CYCLE e um resumo do que eu realmente fiz. Analise os meus resultados e me entregue uma
-  periodização ajustada como um arquivo para o app CYCLE.
+  Você é um treinador experiente de força e hipertrofia. Abaixo estão a minha periodização atual no app CYCLE e um resumo do que eu realmente fiz. Analise os meus resultados e me entregue uma periodização ajustada como um arquivo para o app CYCLE.
 
   COMO ANALISAR
-  Olhe cada exercício: onde a carga ou as repetições subiram, mantenha o que funciona; onde estagnei
-  ou fiquei abaixo da faixa de repetições, mude algo (faixa de repetições, séries, variação do
-  exercício, ordem ou descanso). Confira as séries semanais por grupo muscular e a minha aderência e
-  reequilibre o volume se for preciso. Mantenha os exercícios em que estou progredindo, a menos que
-  haja motivo para trocar. Depois do JSON, explique as principais mudanças em poucas linhas. Se as
-  minhas observações estiverem vazias e você precisar saber como me sinto (dor, fadiga, mudanças de
-  agenda), pergunte primeiro e espere a minha resposta.
+  Olhe cada exercício: onde a carga ou as repetições subiram, mantenha o que funciona; onde estagnei ou fiquei abaixo da faixa de repetições, mude algo (faixa de repetições, séries, variação do exercício, ordem ou descanso). Confira as séries semanais por grupo muscular e a minha aderência e reequilibre o volume se for preciso. Mantenha os exercícios em que estou progredindo, a menos que haja motivo para trocar. Depois do JSON, explique as principais mudanças em poucas linhas. Se as minhas observações estiverem vazias e você precisar saber como me sinto (dor, fadiga, mudanças de agenda), pergunte primeiro e espere a minha resposta.
 
   MINHAS OBSERVAÇÕES
   {{NOTES}}
