@@ -30,6 +30,7 @@ export default function RootLayout() {
             <Stack.Screen name="plans/import" />
             <Stack.Screen name="plans/[id]/index" />
             <Stack.Screen name="plans/[id]/edit" />
+            <Stack.Screen name="plans/[id]/export" />
             <Stack.Screen name="exercises/index" />
             <Stack.Screen name="exercises/new" />
             <Stack.Screen name="exercises/[id]" />
