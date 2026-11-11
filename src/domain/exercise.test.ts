@@ -1,5 +1,7 @@
 import {
   allowsZeroLoad,
+  CUSTOM_EXERCISE_NAME,
+  type CustomExerciseInput,
   DEFAULT_INCREMENT_KG,
   EQUIPMENT,
   INCREMENT_OVERRIDE_LIMITS,
@@ -22,6 +24,23 @@ const squat: Exercise = {
   custom: false,
   archived: false,
 };
+
+describe('custom exercise input (SPEC §2.3)', () => {
+  it('has a 1–60 character name limit', () => {
+    expect(CUSTOM_EXERCISE_NAME).toEqual({ min: 1, max: 60 });
+  });
+
+  it('accepts the fields a user provides for a custom exercise', () => {
+    const input: CustomExerciseInput = {
+      name: 'Landmine press',
+      primaryMuscle: 'shoulders',
+      secondaryMuscles: ['triceps'],
+      equipment: 'other',
+      mechanics: 'compound',
+    };
+    expect(input.name).toBe('Landmine press');
+  });
+});
 
 describe('MUSCLE_GROUPS and EQUIPMENT', () => {
   it('list the SPEC §2.1 values in order', () => {

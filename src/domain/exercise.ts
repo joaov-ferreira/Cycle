@@ -54,6 +54,15 @@ export function isMechanics(value: unknown): value is Mechanics {
   return isOneOf(MECHANICS, value);
 }
 
+/** What the user provides to create or edit a custom exercise (SPEC §2.3). */
+export type CustomExerciseInput = { name: string } & Pick<
+  Exercise,
+  'primaryMuscle' | 'secondaryMuscles' | 'equipment' | 'mechanics'
+>;
+
+/** Name length limits of a custom exercise (after trimming). */
+export const CUSTOM_EXERCISE_NAME = { min: 1, max: 60 } as const;
+
 /**
  * Only bodyweight and band exercises accept a logged weight of 0 (the weight is then the
  * added load). Every other equipment requires a weight above zero.
