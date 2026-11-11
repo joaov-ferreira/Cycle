@@ -10,6 +10,14 @@ export const settings = {
     newLabel: 'New profile name',
     add: 'Add profile',
   },
+  experience: {
+    title: 'Experience',
+    label: 'Experience level',
+    beginner: 'Beginner',
+    intermediate: 'Intermediate',
+    advanced: 'Advanced',
+    hint: 'Sets the suggested cycle: {{loadWeeks}} load weeks + {{deloadWeeks}} deload.',
+  },
   theme: {
     title: 'Theme',
     label: 'App theme',
