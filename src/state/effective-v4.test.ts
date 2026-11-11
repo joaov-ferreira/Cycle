@@ -3,7 +3,6 @@ import type { Prescription } from '@/domain/prescription';
 import {
   BENCH,
   createTestStore,
-  DEADLIFT,
   samplePlanContent,
   seedPlan,
   seedReferenceMax,
