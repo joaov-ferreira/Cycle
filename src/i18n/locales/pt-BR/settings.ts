@@ -36,6 +36,34 @@ export const settings: typeof enSettings = {
       plates: 'Escolha ao menos uma anilha.',
     },
   },
+  strength: {
+    title: 'Força',
+    focus: {
+      label: 'Foco do treino',
+      general: { label: 'Treino geral', description: 'Músculo, saúde e condicionamento.' },
+      strength: { label: 'Força', description: 'Powerlifting e programas em porcentagem.' },
+    },
+    formula: {
+      label: 'Fórmula de estimativa do 1RM',
+      epley: { label: 'Epley', description: 'A padrão. Carga × (1 + repetições ÷ 30), contando as repetições na reserva como repetições.' },
+      brzycki: { label: 'Brzycki', description: 'Carga × 36 ÷ (37 − repetições). Mais conservadora que a Epley até cerca de 10 repetições.' },
+      rts: { label: 'RTS', description: 'Tabela de repetições e RPE da Reactive Training Systems; Epley fora da tabela.' },
+    },
+    effort: {
+      label: 'Escala de esforço',
+      rir: 'RIR',
+      rpe: 'RPE',
+      hint: 'O RIR conta as repetições na reserva; o RPE avalia o esforço de 1 a 10. Ambos aceitam meio ponto.',
+    },
+    rounding: {
+      label: 'Arredondamento das cargas calculadas',
+      nearest: { label: 'Mais próximo', description: 'Arredonda para o incremento mais próximo; em caso de empate, para baixo.' },
+      down: { label: 'Sempre para baixo', description: 'Nunca acima da carga calculada.' },
+      up: { label: 'Sempre para cima', description: 'Nunca abaixo da carga calculada.' },
+    },
+    openMaxes: 'Abrir 1RMs',
+    error: 'Não foi possível salvar a configuração. Tente novamente.',
+  },
   notification: {
     title: 'Descanso terminado',
     body: 'Próximo: {{exercise}} — série {{set}}',

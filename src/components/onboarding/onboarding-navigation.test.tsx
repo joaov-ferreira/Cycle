@@ -24,6 +24,7 @@ const routes = (initial: OnboardingNext | null, onDone: () => void) => ({
   index: () => <Harness initial={initial} onDone={onDone} />,
   'plans/templates': () => <Text>templates screen</Text>,
   'plans/import': () => <Text>import screen</Text>,
+  'programs/index': () => <Text>programs screen</Text>,
 });
 
 describe('OnboardingNavigation', () => {
@@ -40,6 +41,14 @@ describe('OnboardingNavigation', () => {
     const result = await renderRouter(routes('import', onDone), { initialUrl: '/' });
     expect(await screen.findByText('import screen')).toBeOnTheScreen();
     expect(result.getPathname()).toBe('/plans/import');
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the strength programs after the onboarding chose "Choose a strength program"', async () => {
+    const onDone = jest.fn();
+    const result = await renderRouter(routes('programs', onDone), { initialUrl: '/' });
+    expect(await screen.findByText('programs screen')).toBeOnTheScreen();
+    expect(result.getPathname()).toBe('/programs');
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 

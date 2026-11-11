@@ -1,4 +1,4 @@
-import { useRootNavigationState, useRouter } from 'expo-router';
+import { useRootNavigationState, useRouter, type Href } from 'expo-router';
 import { useEffect } from 'react';
 
 import type { OnboardingNext } from './onboarding-screen';
@@ -13,7 +13,7 @@ export type OnboardingNavigationProps = {
 /**
  * Carries out the onboarding's destination. It waits until the root navigator is mounted
  * (`useRootNavigationState` has a key) instead of navigating synchronously in the gate's handler.
- * `home` needs no navigation: the tabs are already the first screen.
+ * `programs` opens the strength program library. `home` needs no navigation: the tabs are already the first screen.
  */
 export function OnboardingNavigation({ next, onDone }: OnboardingNavigationProps) {
   const router = useRouter();
@@ -24,6 +24,8 @@ export function OnboardingNavigation({ next, onDone }: OnboardingNavigationProps
     if (next === null || !navigatorReady) return;
     if (next === 'templates') router.push('/plans/templates');
     if (next === 'import') router.push('/plans/import');
+    // The strength programs live in another stage's route files; typed routes may not know it yet.
+    if (next === 'programs') router.push('/programs' as Href);
     onDone();
   }, [next, navigatorReady, router, onDone]);
 

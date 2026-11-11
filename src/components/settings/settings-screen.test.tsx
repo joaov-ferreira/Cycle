@@ -54,12 +54,12 @@ describe('SettingsScreen: experience', () => {
 });
 
 describe('SettingsScreen: theme', () => {
-  it('shows the profile, experience, theme and language sections in this order', async () => {
+  it('shows the profile, experience, strength, tools, data, theme and language sections in this order', async () => {
     await renderInApp(<SettingsScreen />);
     const headers = (await screen.findAllByRole('header'))
       .map((h) => h.props.children)
       .filter((text: string) => /^[A-Za-z ]{4,}$/.test(text));
-    expect(headers).toEqual(['Settings', 'Profile', 'Experience', 'Workout tools', 'Data', 'Theme', 'Language']);
+    expect(headers).toEqual(['Settings', 'Profile', 'Experience', 'Strength', 'Workout tools', 'Data', 'Theme', 'Language']);
   });
 
   it('switches the theme and persists it', async () => {
