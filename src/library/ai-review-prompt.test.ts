@@ -329,21 +329,14 @@ describe('aiPlanPromptOutputSection', () => {
   });
 });
 
-describe('the first 30 lines of a full prompt', () => {
+describe('the first 23 lines of a full prompt', () => {
   it('match the English fixture', () => {
-    const lines = buildAiReviewPrompt(fixture('en', { notes: 'Feeling fine.' })).split('\n').slice(0, 30);
+    const lines = buildAiReviewPrompt(fixture('en', { notes: 'Feeling fine.' })).split('\n').slice(0, 23);
     expect(lines).toEqual([
-      'You are an experienced strength and hypertrophy coach. Below are my current training plan in the',
-      'CYCLE app and a summary of what I actually did. Review my results and give me an adjusted plan as a',
-      'file for the CYCLE app.',
+      'You are an experienced strength and hypertrophy coach. Below are my current training plan in the CYCLE app and a summary of what I actually did. Review my results and give me an adjusted plan as a file for the CYCLE app.',
       '',
       'HOW TO REVIEW',
-      'Look at each exercise: where the load or the reps went up, keep what works; where I stalled or fell',
-      'below the rep range, change something (rep range, sets, exercise variation, order or rest). Check',
-      'the weekly sets per muscle group and my adherence, and rebalance the volume if needed. Keep the',
-      'exercises I am progressing on unless there is a reason to swap them. After the JSON, explain the',
-      'main changes in a few lines. If my notes are empty and you need to know how I feel (pain, fatigue,',
-      'schedule changes), ask me first and wait for my answer.',
+      'Look at each exercise: where the load or the reps went up, keep what works; where I stalled or fell below the rep range, change something (rep range, sets, exercise variation, order or rest). Check the weekly sets per muscle group and my adherence, and rebalance the volume if needed. Keep the exercises I am progressing on unless there is a reason to swap them. After the JSON, explain the main changes in a few lines. If my notes are empty and you need to know how I feel (pain, fatigue, schedule changes), ask me first and wait for my answer.',
       '',
       'MY NOTES',
       'Feeling fine.',
