@@ -1,21 +1,45 @@
 import { PlanNotFoundError } from '@/data/repositories';
 import {
   clampCycleState,
+  completeSession,
   startDeload as startDeloadState,
   startNewCycle as startNewCycleState,
 } from '@/domain/cycle';
 import type { Exercise } from '@/domain/exercise';
 import { validateCustomExercise } from '@/domain/exercise-match';
+import { withPercentSummary } from '@/domain/percent-scheme';
+import { validateMaxKg } from '@/domain/reference-max';
 import {
   validatePlanContent,
   type Plan,
   type PlanContent,
+  type PlanWorkout,
 } from '@/domain/plan';
-import { finalizePendingImport, PENDING_PREFIX, type PendingImport } from '@/domain/plan-import';
+import {
+  finalizePendingImport,
+  finalizeReferenceMaxes,
+  PENDING_PREFIX,
+  type PendingImport,
+} from '@/domain/plan-import';
+import { advanceProgramBlocks as advanceBlocks, programToPlan } from '@/domain/program-plan';
+import { findProgram } from '@/library';
 
-import { CustomExerciseValidationError, PlanValidationError } from '../errors';
-import { selectAllExercises, selectFindExercise } from '../selectors';
+import {
+  CustomExerciseValidationError,
+  NotARestDayError,
+  PlanValidationError,
+  UnknownExerciseError,
+  UnknownProgramError,
+} from '../errors';
+import {
+  selectAllExercises,
+  selectCurrentMaxes,
+  selectEffectiveWorkout,
+  selectExerciseById,
+  selectFindExercise,
+} from '../selectors';
 import type { AppState, StoreContext } from '../types';
+import { assertValidMaxes, reloadReferenceMaxes } from './reference-maxes';
 
 export type PlanActions = Pick<
   AppState,
@@ -31,15 +55,24 @@ export type PlanActions = Pick<
   | 'startNewCycle'
   | 'dismissDeloadAdvice'
   | 'dismissCompletedCycle'
+  | 'startProgram'
+  | 'advanceProgramBlocks'
+  | 'completeRestDay'
   | 'updatePlanFromImport'
 >;
+
+/** Writes the sets/reps summary of every percent exercise (SPEC-v4 §5.1); plain plans are untouched. */
+function withSummaries(workouts: PlanWorkout[]): PlanWorkout[] {
+  if (!workouts.some((w) => w.exercises.some((e) => e.percent))) return workouts;
+  return workouts.map((w) => ({ ...w, exercises: w.exercises.map(withPercentSummary) }));
+}
 
 /** Only the user-editable fields (a `Plan` may be passed where content is expected). */
 function contentOf(plan: PlanContent): PlanContent {
   return {
     name: plan.name,
     description: plan.description,
-    workouts: plan.workouts,
+    workouts: withSummaries(plan.workouts),
     sessionsPerWeek: plan.sessionsPerWeek,
     cycle: plan.cycle,
   };
@@ -59,7 +92,7 @@ export function createPlanActions(ctx: StoreContext): PlanActions {
   }
 
   function assertValid(content: PlanContent, find: (id: string) => Pick<Exercise, 'equipment'> | undefined) {
-    const issues = validatePlanContent(content, find);
+    const issues = validatePlanContent(content, find, { findProgram });
     if (issues.length > 0) throw new PlanValidationError(issues);
   }
 
@@ -109,11 +142,28 @@ export function createPlanActions(ctx: StoreContext): PlanActions {
         created.push(exercise);
         idsByKey[key] = exercise.id;
       }
-      return { created, content: finalizePendingImport(pending, idsByKey) };
+      return { created, idsByKey, content: finalizePendingImport(pending, idsByKey) };
     } catch (error) {
       await removeCreated(profileId, created);
       throw error;
     }
+  }
+
+  /**
+   * Saves the 1RMs of an import (SPEC-v4 §9.1, origin `import`) only for exercises that have none;
+   * the others keep their value. Invalid values are skipped (the parser already rejects them).
+   */
+  async function saveImportedMaxes(profileId: number, pending: PendingImport, idsByKey: Record<string, string>) {
+    const known = new Set(Object.keys(selectCurrentMaxes(get())));
+    const effectiveAt = ctx.now().toISOString();
+    let added = false;
+    for (const max of finalizeReferenceMaxes(pending, idsByKey)) {
+      if (known.has(max.exerciseId) || validateMaxKg(max.kg) !== null) continue;
+      await repos.referenceMaxes.add(profileId, { exerciseId: max.exerciseId, kg: max.kg, origin: 'import', effectiveAt });
+      known.add(max.exerciseId);
+      added = true;
+    }
+    if (added) await reloadReferenceMaxes(ctx, profileId);
   }
 
   async function removeCreated(profileId: number, created: Exercise[]) {
@@ -154,15 +204,16 @@ export function createPlanActions(ctx: StoreContext): PlanActions {
     async importPlan(pending, options) {
       const profile = requireReady();
       validatePending(pending);
-      const { created, content } = await createPendingExercises(profile.id, pending);
+      const { created, idsByKey, content } = await createPendingExercises(profile.id, pending);
       let plan: Plan;
       try {
-        plan = await repos.plans.create(profile.id, content);
+        plan = await repos.plans.create(profile.id, contentOf(content));
       } catch (error) {
         await removeCreated(profile.id, created);
         throw error;
       }
       set({ customExercises: [...get().customExercises, ...created] });
+      await saveImportedMaxes(profile.id, pending, idsByKey);
       return adopt(profile.id, plan, options?.activate ?? false);
     },
 
@@ -174,7 +225,7 @@ export function createPlanActions(ctx: StoreContext): PlanActions {
       const backupContent = { ...contentOf(current), name: options.backupName.trim() };
       assertValid(backupContent, selectFindExercise(get()));
 
-      const { created, content } = await createPendingExercises(profile.id, pending);
+      const { created, idsByKey, content } = await createPendingExercises(profile.id, pending);
       let backup: Plan;
       let updated: Plan;
       try {
@@ -194,6 +245,7 @@ export function createPlanActions(ctx: StoreContext): PlanActions {
         customExercises: [...get().customExercises, ...created],
         plans: [...get().plans.map((p) => (p.id === updated.id ? updated : p)), backup],
       });
+      await saveImportedMaxes(profile.id, pending, idsByKey);
       return updated;
     },
 
@@ -250,6 +302,53 @@ export function createPlanActions(ctx: StoreContext): PlanActions {
 
     dismissCompletedCycle() {
       set({ completedCycle: null });
+    },
+
+    async startProgram(input) {
+      const profile = requireReady();
+      const template = findProgram(input.programId);
+      if (!template) throw new UnknownProgramError(input.programId);
+      const content = programToPlan(template, {
+        name: input.name.trim(),
+        roles: input.roles,
+        params: input.params,
+        accessories: input.accessories,
+        locale: input.locale,
+      });
+      assertValid(content, selectFindExercise(get()));
+      const maxes = input.maxes ?? [];
+      assertValidMaxes(maxes);
+      for (const { exerciseId } of maxes) {
+        if (!selectExerciseById(get(), exerciseId)) throw new UnknownExerciseError(exerciseId);
+      }
+      for (const max of maxes) {
+        await repos.referenceMaxes.add(profile.id, {
+          exerciseId: max.exerciseId,
+          kg: max.kg,
+          origin: input.maxOrigin ?? 'manual',
+          effectiveAt: ctx.now().toISOString(),
+        });
+      }
+      if (maxes.length > 0) await reloadReferenceMaxes(ctx, profile.id);
+      const plan = await repos.plans.create(profile.id, contentOf(content));
+      return (await adopt(profile.id, plan, true)).id;
+    },
+
+    async advanceProgramBlocks(planId) {
+      return updatePlan(planId, advanceBlocks(contentOf(requirePlan(planId)), findProgram));
+    },
+
+    async completeRestDay(planId) {
+      const profile = requireReady();
+      const plan = requirePlan(planId);
+      const state = plan.cycleState;
+      const index = plan.workouts[state.nextWorkoutIndex] ? state.nextWorkoutIndex : 0;
+      if (!selectEffectiveWorkout(get(), planId, index)?.workout.isRestDay) throw new NotARestDayError(planId);
+      const advanced = await repos.plans.setCycleState(profile.id, planId, completeSession(plan, state, index));
+      replacePlan(advanced);
+      if (advanced.cycleState.cycleNumber > state.cycleNumber) {
+        set({ completedCycle: { planId, cycleNumber: state.cycleNumber } });
+      }
     },
   };
 }

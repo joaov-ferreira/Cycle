@@ -430,16 +430,13 @@ export function effectiveWeek(
  * current phase and week), the prescription of each effective exercise and the progression
  * suggestions of the automatic ones. `null` for an unknown plan or workout.
  */
-export const selectEffectiveWorkout = memoSelector(
-  (s: AppState) => [
-    s.plans,
-    s.workouts,
-    s.customExercises,
-    s.incrementOverrides,
-    s.referenceMaxes,
-    s.settings?.roundingMode,
-  ],
-  (s, planId: number, workoutIndex: number, at?: WeekRef): EffectiveWorkoutView | null => {
+export const selectEffectiveWorkout = memoSelector<
+  AppState,
+  [planId: number, workoutIndex: number, at?: WeekRef],
+  EffectiveWorkoutView | null
+>(
+  (s) => [s.plans, s.workouts, s.customExercises, s.incrementOverrides, s.referenceMaxes, s.settings?.roundingMode],
+  (s, planId, workoutIndex, at) => {
     const plan = s.plans.find((p) => p.id === planId);
     const workout = plan?.workouts[workoutIndex];
     if (!plan || !workout) return null;
