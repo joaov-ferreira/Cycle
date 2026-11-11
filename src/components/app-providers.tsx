@@ -26,6 +26,10 @@ type Boot = { kind: 'loading' } | { kind: 'ready'; store: AppStore } | { kind: '
 export type AppProvidersProps = {
   /** Opens persistence (SQLite in the app, in-memory in tests). Must be a stable reference. */
   openRepositories: () => Promise<Repositories>;
+  /** Clock for every timestamp the store creates (tests). Must be a stable reference. */
+  now?: () => Date;
+  /** A pre-built store (tests); booted with `init` when it is not ready yet. Stable reference. */
+  store?: AppStore;
   /** Called once boot finishes (successfully or not), e.g. to hide the splash screen. */
   onReady?: () => void;
   children: ReactNode;
@@ -89,7 +93,7 @@ function BootScreen({ failed }: { failed: boolean }) {
  * Root providers: opens persistence, boots the app store (default profile on first boot),
  * then provides store, locale (setting or device) and theme (dark by default).
  */
-export function AppProviders({ openRepositories, onReady, children }: AppProvidersProps) {
+export function AppProviders({ openRepositories, now, store: providedStore, onReady, children }: AppProvidersProps) {
   const deviceTag = useDeviceLocaleTag();
   const [boot, setBoot] = useState<Boot>({ kind: 'loading' });
 
@@ -98,9 +102,11 @@ export function AppProviders({ openRepositories, onReady, children }: AppProvide
     (async () => {
       let next: Boot;
       try {
-        const store = createAppStore(await openRepositories());
+        const store = providedStore ?? createAppStore(await openRepositories(), { now });
         const locale = resolveLocale(getDeviceLocaleTag());
-        await store.getState().init(translate(catalogs[locale], locale, 'profile.defaultName'));
+        if (store.getState().status !== 'ready') {
+          await store.getState().init(translate(catalogs[locale], locale, 'profile.defaultName'));
+        }
         next = store.getState().status === 'ready' ? { kind: 'ready', store } : { kind: 'error' };
       } catch {
         next = { kind: 'error' };
@@ -113,7 +119,7 @@ export function AppProviders({ openRepositories, onReady, children }: AppProvide
     return () => {
       cancelled = true;
     };
-  }, [openRepositories, onReady]);
+  }, [openRepositories, now, providedStore, onReady]);
 
   if (boot.kind !== 'ready') {
     return (

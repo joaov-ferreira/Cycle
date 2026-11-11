@@ -4,6 +4,7 @@ import * as Localization from 'expo-localization';
 import { createMemoryRepositories } from '@/data/memory/memory-repositories';
 import type { Repositories } from '@/data/repositories';
 import { useT } from '@/i18n';
+import { createAppStore } from '@/state/app-store';
 import { useAppStore } from '@/state/app-store-context';
 
 import { AppProviders } from './app-providers';
@@ -129,5 +130,39 @@ describe('AppProviders', () => {
     expect(screen.getByText('Loading…')).toBeOnTheScreen();
     resolve(createMemoryRepositories());
     expect(await screen.findByText('Plan')).toBeOnTheScreen();
+  });
+
+  it('uses the clock it is given for the timestamps of the store', async () => {
+    const repos = createMemoryRepositories();
+    const now = () => new Date('2031-05-06T07:08:09.000Z');
+    function Starter() {
+      const start = useAppStore((s) => s.startFreeWorkout);
+      const startedAt = useAppStore((s) => s.currentWorkout?.startedAt);
+      return (
+        <>
+          <Button label="start" onPress={() => start('Free')} />
+          <Text>{`startedAt:${startedAt ?? ''}`}</Text>
+        </>
+      );
+    }
+    await render(
+      <AppProviders openRepositories={() => Promise.resolve(repos)} now={now}>
+        <Starter />
+      </AppProviders>,
+    );
+    await fireEvent.press(await screen.findByRole('button', { name: 'start' }));
+    expect(await screen.findByText('startedAt:2031-05-06T07:08:09.000Z')).toBeOnTheScreen();
+  });
+
+  it('provides a pre-built store without booting it twice', async () => {
+    const repos = createMemoryRepositories();
+    const store = createAppStore(repos);
+    await store.getState().init('Existing');
+    await render(
+      <AppProviders openRepositories={() => Promise.resolve(repos)} store={store}>
+        <Probe />
+      </AppProviders>,
+    );
+    expect(await screen.findByText('profile:Existing')).toBeOnTheScreen();
   });
 });
