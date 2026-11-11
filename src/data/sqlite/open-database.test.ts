@@ -35,6 +35,7 @@ describe('openSqliteRepositories', () => {
       language: 'system',
       theme: 'dark',
       onboardingCompleted: false,
+      experience: 'intermediate',
     });
   });
 });

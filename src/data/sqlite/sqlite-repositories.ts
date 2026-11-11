@@ -1,4 +1,5 @@
 import type { SqlDatabase } from '../database';
+import { assertExperience } from '../logbook-shared';
 import {
   ProfileNotFoundError,
   type Clock,
@@ -7,6 +8,9 @@ import {
   type Settings,
   type SettingsPatch,
 } from '../repositories';
+import { createSqliteExerciseRepository } from './exercise-repository';
+import { createSqlitePlanRepository } from './plan-repository';
+import { createSqliteWorkoutRepository } from './workout-repository';
 
 type ProfileRow = { id: number; name: string; created_at: string };
 // The legacy formula column added by migration 008 stays in the table but is no longer read or written.
@@ -15,6 +19,7 @@ type SettingsRow = {
   language: Settings['language'];
   theme: Settings['theme'];
   onboarding_completed: number;
+  experience: Settings['experience'];
 };
 
 const toProfile = (row: ProfileRow): Profile => ({
@@ -28,6 +33,7 @@ const toSettings = (row: SettingsRow): Settings => ({
   language: row.language,
   theme: row.theme,
   onboardingCompleted: row.onboarding_completed === 1,
+  experience: row.experience,
 });
 
 /** Column for each patchable settings field (allowlist: never interpolate caller keys). */
@@ -35,6 +41,7 @@ const SETTINGS_COLUMNS: Record<keyof SettingsPatch, string> = {
   language: 'language',
   theme: 'theme',
   onboardingCompleted: 'onboarding_completed',
+  experience: 'experience',
 };
 
 const toSqlValue = (value: string | boolean | undefined): string | number =>
@@ -47,7 +54,7 @@ export function createSqliteRepositories(
 ): Repositories {
   async function getSettings(profileId: number): Promise<Settings> {
     const row = await db.getFirstAsync<SettingsRow>(
-      'SELECT profile_id, language, theme, onboarding_completed FROM settings WHERE profile_id = ?',
+      'SELECT profile_id, language, theme, onboarding_completed, experience FROM settings WHERE profile_id = ?',
       [profileId],
     );
     if (!row) throw new ProfileNotFoundError(profileId);
@@ -112,6 +119,7 @@ export function createSqliteRepositories(
     settings: {
       get: getSettings,
       async update(profileId, patch) {
+        if (patch.experience !== undefined) assertExperience(patch.experience);
         const entries = (Object.keys(SETTINGS_COLUMNS) as (keyof SettingsPatch)[])
           .filter((key) => patch[key] !== undefined)
           .map((key) => [SETTINGS_COLUMNS[key], toSqlValue(patch[key])] as const);
@@ -126,5 +134,8 @@ export function createSqliteRepositories(
         return getSettings(profileId);
       },
     },
+    exercises: createSqliteExerciseRepository(db, clock),
+    plans: createSqlitePlanRepository(db, clock),
+    workouts: createSqliteWorkoutRepository(db, clock),
   };
 }

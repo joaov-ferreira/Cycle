@@ -6,11 +6,12 @@ SQLite (`expo-sqlite`) database, versioned migrations and repositories.
 - `migrate.ts` + `migrations/NNN_<name>.ts` — schema versions tracked in
   `PRAGMA user_version`; each migration runs in its own transaction. Append new files and
   register them in `migrations/index.ts`; never edit a released migration.
-- `repositories.ts` — repository **interfaces** and entity types: `profiles` (incl. rename and the
-  remembered active profile) and `settings` (`language`, `theme`, `onboardingCompleted`). The
-  legacy formula column of `settings` and the other v1 tables created by migrations 001–009 stay in the
-  database (installed apps keep their history) but no repository reads or writes them; the v2
-  logbook repositories are added in later stages.
+- `repositories.ts` — repository **interfaces**, entity types and error classes: `profiles`, `settings`
+  (`language`, `theme`, `onboardingCompleted`, `experience`), `exercises` (custom exercises, increment
+  overrides), `plans` (plan CRUD, archive, active plan, cycle state) and `workouts` (draft, complete,
+  amend, delete, listings, exercise sessions). Repositories check structure and state only; business
+  validation belongs to the caller. v1 tables (migrations 001–009) stay in the database untouched;
+  migration 010 copies completed v1 sessions into `workouts` (SPEC §11.3) and no repository reads v1 tables.
 - `memory/` — in-memory implementation (tests).
 - `sqlite/` — SQLite implementation and `openAppDatabase()` / `openSqliteRepositories()`.
 - `repositories.contract.ts` — one behavioral test suite run against **both**
