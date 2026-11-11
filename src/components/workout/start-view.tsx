@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { spacing } from '@/constants/theme';
+import { weekTargetRir } from '@/domain/cycle';
 import type { Plan } from '@/domain/plan';
 import { useI18n } from '@/i18n';
 import {
@@ -97,6 +98,7 @@ function PlanWorkoutCard({ plan, workoutId, isSuggested, onSelect, onStart }: Pl
 
   const { cycleNumber, phase, week } = plan.cycleState;
   const deload = phase === 'deload';
+  const rampRir = weekTargetRir(plan.cycle, plan.cycleState);
 
   return (
     <Card testID="next-workout">
@@ -131,7 +133,12 @@ function PlanWorkoutCard({ plan, workoutId, isSuggested, onSelect, onStart }: Pl
             <View key={pe.id} testID={`preview-${pe.id}`} style={styles.exercise}>
               <Text variant="label">{exercise ? exerciseLabel(exercise) : pe.exerciseId}</Text>
               <Text variant="caption" tone="secondary" tabular>
-                {targetLine(t, pe, suggestion?.sets)}
+                {targetLine(
+                  t,
+                  rampRir === undefined ? pe : { ...pe, targetRir: rampRir },
+                  suggestion?.sets,
+                  rampRir !== undefined,
+                )}
               </Text>
               {suggestion ? (
                 <>
