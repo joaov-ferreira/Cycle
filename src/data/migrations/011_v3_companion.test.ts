@@ -76,7 +76,7 @@ describe('011_v3_companion schema', () => {
     expect(await db.getAllAsync('SELECT * FROM workout_exercises', [])).toEqual([
       {
         id: 1, workout_id: 1, position: 0, exercise_id: 'x', plan_exercise_id: null, target: null,
-        note: 'n', superset_group: null,
+        note: 'n', superset_group: null, prescription: null,
       },
     ]);
   });
