@@ -71,8 +71,8 @@ describe('SetRow (en)', () => {
 
   it('gives the reps and RIR inputs their column widths', async () => {
     await renderRow();
-    expect(screen.getByLabelText('Set 2 reps')).toHaveStyle({ width: 60 });
-    expect(screen.getByLabelText('Set 2 RIR')).toHaveStyle({ width: 52 });
+    expect(screen.getByLabelText('Set 2 reps')).toHaveStyle({ width: 56 });
+    expect(screen.getByLabelText('Set 2 RIR')).toHaveStyle({ width: 48 });
   });
 
   it('lets the weight field grow to at least 72 pt', async () => {
