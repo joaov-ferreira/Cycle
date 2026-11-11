@@ -63,6 +63,7 @@ export const entry = (
   planExerciseId: null,
   target: null,
   note: '',
+  supersetGroup: null,
   sets,
   ...overrides,
 });

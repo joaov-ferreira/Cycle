@@ -219,4 +219,112 @@ export function describeExerciseContract(factory: (clock: Clock) => Promise<Repo
       await expect(repos.exercises.setIncrementOverride(99, 'x', 2)).rejects.toThrow(ProfileNotFoundError);
     });
   });
+
+  describe('exercises: note and bar weight', () => {
+    it('starts empty', async () => {
+      const { repos, a } = await setup();
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({});
+    });
+
+    it('sets, trims, changes and removes a note', async () => {
+      const { repos, a } = await setup();
+      await repos.exercises.setExerciseNote(a, 'leg-press', '  seat on position 4  ');
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({ 'leg-press': { note: 'seat on position 4' } });
+      await repos.exercises.setExerciseNote(a, 'leg-press', 'seat 5');
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({ 'leg-press': { note: 'seat 5' } });
+      await repos.exercises.setExerciseNote(a, 'leg-press', null);
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({});
+    });
+
+    it('removes the note when it is empty or blank, and accepts removing a missing one', async () => {
+      const { repos, a } = await setup();
+      await repos.exercises.setExerciseNote(a, 'x', 'n');
+      await repos.exercises.setExerciseNote(a, 'x', '   ');
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({});
+      await repos.exercises.setExerciseNote(a, 'x', '');
+      await repos.exercises.setExerciseNote(a, 'never-set', null);
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({});
+    });
+
+    it('accepts a note of 200 characters and rejects 201', async () => {
+      const { repos, a } = await setup();
+      await repos.exercises.setExerciseNote(a, 'x', 'n'.repeat(200));
+      await expect(repos.exercises.setExerciseNote(a, 'x', 'n'.repeat(201))).rejects.toThrow(RangeError);
+      await expect(repos.exercises.setExerciseNote(a, 'x', ` ${'n'.repeat(201)} `)).rejects.toThrow(RangeError);
+      await repos.exercises.setExerciseNote(a, 'y', ` ${'n'.repeat(200)} `);
+      expect((await repos.exercises.getExerciseSettings(a)).x.note).toHaveLength(200);
+      expect((await repos.exercises.getExerciseSettings(a)).y.note).toHaveLength(200);
+    });
+
+    it('sets, changes and removes a bar weight within the limits', async () => {
+      const { repos, a } = await setup();
+      await repos.exercises.setExerciseBar(a, 'ez-bar-curl', 10);
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({ 'ez-bar-curl': { barKg: 10 } });
+      await repos.exercises.setExerciseBar(a, 'ez-bar-curl', 0);
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({ 'ez-bar-curl': { barKg: 0 } });
+      await repos.exercises.setExerciseBar(a, 'ez-bar-curl', 50);
+      await repos.exercises.setExerciseBar(a, 'ez-bar-curl', null);
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({});
+      for (const bad of [-0.5, 50.5, 12.25, NaN, Infinity]) {
+        await expect(repos.exercises.setExerciseBar(a, 'x', bad)).rejects.toThrow(RangeError);
+      }
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({});
+    });
+
+    it('keeps increment, note and bar weight independent of each other', async () => {
+      const { repos, a } = await setup();
+      await repos.exercises.setIncrementOverride(a, 'x', 2);
+      await repos.exercises.setExerciseNote(a, 'x', 'note');
+      await repos.exercises.setExerciseBar(a, 'x', 15);
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({
+        x: { incrementKg: 2, note: 'note', barKg: 15 },
+      });
+      await repos.exercises.setIncrementOverride(a, 'x', 5);
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({ x: { incrementKg: 5, note: 'note', barKg: 15 } });
+      expect(await repos.exercises.getIncrementOverrides(a)).toEqual({ x: 5 });
+
+      // Removing the increment never loses the note or the bar weight.
+      expect(await repos.exercises.setIncrementOverride(a, 'x', null)).toEqual({});
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({ x: { note: 'note', barKg: 15 } });
+
+      await repos.exercises.setExerciseNote(a, 'x', null);
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({ x: { barKg: 15 } });
+      await repos.exercises.setIncrementOverride(a, 'x', 3);
+      await repos.exercises.setExerciseBar(a, 'x', null);
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({ x: { incrementKg: 3 } });
+      await repos.exercises.setIncrementOverride(a, 'x', null);
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({});
+    });
+
+    it('lists overrides only for exercises that have an increment', async () => {
+      const { repos, a } = await setup();
+      await repos.exercises.setExerciseNote(a, 'x', 'note');
+      await repos.exercises.setIncrementOverride(a, 'y', 2);
+      expect(await repos.exercises.getIncrementOverrides(a)).toEqual({ y: 2 });
+    });
+
+    it('scopes note and bar weight to the profile', async () => {
+      const { repos, a, b } = await setup();
+      await repos.exercises.setExerciseNote(a, 'x', 'note');
+      await repos.exercises.setExerciseBar(a, 'x', 15);
+      expect(await repos.exercises.getExerciseSettings(b)).toEqual({});
+      await repos.exercises.setExerciseNote(b, 'x', null);
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({ x: { note: 'note', barKg: 15 } });
+    });
+
+    it('deletes the note and bar weight together with a custom exercise', async () => {
+      const { repos, a } = await setup();
+      const created = await repos.exercises.createCustom(a, customInput());
+      await repos.exercises.setExerciseNote(a, created.id, 'note');
+      await repos.exercises.setExerciseBar(a, created.id, 10);
+      await repos.exercises.deleteCustom(a, created.id);
+      expect(await repos.exercises.getExerciseSettings(a)).toEqual({});
+    });
+
+    it('throws ProfileNotFoundError for an unknown profile', async () => {
+      const { repos } = await setup();
+      await expect(repos.exercises.setExerciseNote(99, 'x', 'n')).rejects.toThrow(ProfileNotFoundError);
+      await expect(repos.exercises.setExerciseBar(99, 'x', 10)).rejects.toThrow(ProfileNotFoundError);
+    });
+  });
 }

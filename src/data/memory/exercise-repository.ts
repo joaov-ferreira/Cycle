@@ -1,5 +1,7 @@
 import {
+  assertExerciseBar,
   assertIncrementOverride,
+  normalizeExerciseNote,
   parseCustomExerciseId,
   planReferencesExercise,
   toCustomExercise,
@@ -8,6 +10,7 @@ import {
   CustomExerciseNotFoundError,
   ExerciseInUseError,
   type ExerciseRepository,
+  type ExerciseSettingsEntry,
 } from '../repositories';
 import { requireProfile, type MemoryState, type StoredCustomExercise } from './memory-state';
 
@@ -31,7 +34,28 @@ export function createMemoryExerciseRepository(state: MemoryState): ExerciseRepo
     return inPlan || inWorkout;
   }
 
-  const overrides = (profileId: number) => Object.fromEntries(state.increments.get(profileId) ?? []);
+  const entries = (profileId: number) => state.exerciseSettings.get(profileId) ?? new Map<string, ExerciseSettingsEntry>();
+
+  const overrides = (profileId: number) =>
+    Object.fromEntries(
+      [...entries(profileId)]
+        .filter(([, entry]) => entry.incrementKg !== undefined)
+        .map(([id, entry]) => [id, entry.incrementKg as number]),
+    );
+
+  /** Applies a change to one exercise's settings, dropping the row when nothing is left in it. */
+  function change(
+    profileId: number,
+    exerciseId: string,
+    apply: (entry: ExerciseSettingsEntry) => void,
+  ): void {
+    const map = entries(profileId);
+    const entry = { ...map.get(exerciseId) };
+    apply(entry);
+    if (Object.keys(entry).length === 0) map.delete(exerciseId);
+    else map.set(exerciseId, entry);
+    state.exerciseSettings.set(profileId, map);
+  }
 
   return {
     async listCustom(profileId) {
@@ -62,7 +86,7 @@ export function createMemoryExerciseRepository(state: MemoryState): ExerciseRepo
       const stored = find(profileId, id);
       if (await isReferenced(profileId, id)) throw new ExerciseInUseError(id);
       state.customExercises.delete(stored.id);
-      state.increments.get(profileId)?.delete(id);
+      state.exerciseSettings.get(profileId)?.delete(id);
     },
     isReferenced,
     async getIncrementOverrides(profileId) {
@@ -70,15 +94,31 @@ export function createMemoryExerciseRepository(state: MemoryState): ExerciseRepo
     },
     async setIncrementOverride(profileId, exerciseId, incrementKg) {
       requireProfile(state, profileId);
-      if (incrementKg === null) {
-        state.increments.get(profileId)?.delete(exerciseId);
-      } else {
-        assertIncrementOverride(incrementKg);
-        const map = state.increments.get(profileId) ?? new Map<string, number>();
-        map.set(exerciseId, incrementKg);
-        state.increments.set(profileId, map);
-      }
+      if (incrementKg !== null) assertIncrementOverride(incrementKg);
+      change(profileId, exerciseId, (entry) => {
+        if (incrementKg === null) delete entry.incrementKg;
+        else entry.incrementKg = incrementKg;
+      });
       return overrides(profileId);
+    },
+    async getExerciseSettings(profileId) {
+      return Object.fromEntries([...entries(profileId)].map(([id, entry]) => [id, { ...entry }]));
+    },
+    async setExerciseNote(profileId, exerciseId, note) {
+      requireProfile(state, profileId);
+      const normalized = normalizeExerciseNote(note);
+      change(profileId, exerciseId, (entry) => {
+        if (normalized === null) delete entry.note;
+        else entry.note = normalized;
+      });
+    },
+    async setExerciseBar(profileId, exerciseId, barKg) {
+      requireProfile(state, profileId);
+      if (barKg !== null) assertExerciseBar(barKg);
+      change(profileId, exerciseId, (entry) => {
+        if (barKg === null) delete entry.barKg;
+        else entry.barKg = barKg;
+      });
     },
   };
 }

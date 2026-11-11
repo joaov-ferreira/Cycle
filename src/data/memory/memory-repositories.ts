@@ -1,11 +1,16 @@
-import { assertExperience } from '../logbook-shared';
 import {
-  DEFAULT_SETTINGS,
+  assertSettingsPatch,
+  defaultSettings,
+  normalizeSettingsPatch,
+} from '../logbook-shared';
+import {
   ProfileNotFoundError,
   type Clock,
   type Repositories,
   type Settings,
 } from '../repositories';
+import { createMemoryBackupRepository } from './backup-repository';
+import { createMemoryBodyMetricRepository } from './body-repository';
 import { createMemoryExerciseRepository } from './exercise-repository';
 import { createMemoryState, requireProfile } from './memory-state';
 import { createMemoryPlanRepository } from './plan-repository';
@@ -22,7 +27,9 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
     return found;
   }
 
-  return {
+  const copyOf = (settings: Settings): Settings => ({ ...settings, platesKg: [...settings.platesKg] });
+
+  const repositories: Repositories = {
     profiles: {
       async list() {
         return [...state.profiles.values()].map((p) => ({ ...p }));
@@ -34,7 +41,7 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
       async create({ name }) {
         const profile = { id: state.nextId.profile++, name, createdAt: clock().toISOString() };
         state.profiles.set(profile.id, profile);
-        state.settings.set(profile.id, { profileId: profile.id, ...DEFAULT_SETTINGS });
+        state.settings.set(profile.id, { profileId: profile.id, ...defaultSettings() });
         return { ...profile };
       },
       async rename(id, name) {
@@ -52,18 +59,21 @@ export function createMemoryRepositories({ clock = () => new Date() }: { clock?:
     },
     settings: {
       async get(profileId) {
-        return { ...requireSettings(profileId) };
+        return copyOf(requireSettings(profileId));
       },
       async update(profileId, patch) {
         const current = requireSettings(profileId);
-        if (patch.experience !== undefined) assertExperience(patch.experience);
-        const updated = { ...current, ...patch, profileId };
-        state.settings.set(profileId, updated);
-        return { ...updated };
+        assertSettingsPatch(patch);
+        const updated = { ...current, ...normalizeSettingsPatch(patch), profileId };
+        state.settings.set(profileId, copyOf(updated));
+        return copyOf(updated);
       },
     },
     exercises: createMemoryExerciseRepository(state),
     plans: createMemoryPlanRepository(state),
     workouts: createMemoryWorkoutRepository(state),
+    bodyMetrics: createMemoryBodyMetricRepository(state),
+    backup: createMemoryBackupRepository(state, () => repositories),
   };
+  return repositories;
 }
