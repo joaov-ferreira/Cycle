@@ -30,8 +30,8 @@
 | Stage | Wave | Scope | Model | Status |
 |---|---|---|---|---|
 | 0 | — | Spec v2, plan v2, AGENTS.md update | orchestrator | ✅ |
-| 1 | 1 | Remove v1 features, v2 skeleton (routes, tabs, catalogs split) | sonnet | ⬜ |
-| 2 | 2 | Domain types, metrics, rounding helpers | haiku | ⬜ |
+| 1 | 1 | Remove v1 features, v2 skeleton (routes, tabs, catalogs split) | sonnet | ✅ |
+| 2 | 2 | Domain types, metrics, rounding helpers | haiku | ✅ |
 | 3a | 3 | Built-in exercise library + registry | haiku | ⬜ |
 | 3b | 3 | Exercise matching, plan validation, import/export | sonnet | ⬜ |
 | 3c | 3 | Cycle engine, progression engine, deload advice | sonnet | ⬜ |
