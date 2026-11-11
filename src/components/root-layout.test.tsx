@@ -49,6 +49,7 @@ describe('root layout', () => {
   it('shows the tabs and completes the onboarding after choosing "Later"', async () => {
     const { repos, profileId } = await useRepositories({ onboarded: false });
     await renderRouter(routes, { initialUrl: '/' });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Continue' }));
     await fireEvent.press(await screen.findByRole('button', { name: 'Later' }));
     expect(await screen.findByRole('header', { name: 'Home' })).toBeOnTheScreen();
     expect(screen.queryByRole('header', { name: 'Welcome to CYCLE' })).toBeNull();

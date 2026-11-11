@@ -25,6 +25,7 @@ export const onboarding = {
     title: 'Your lifts',
     intro: 'Enter the 1RM of the lifts you train, or estimate it from a set. Empty rows are skipped; you can add them later.',
     kgLabel: '1RM of {{exercise}}',
+    rowAction: '{{action}}: {{exercise}}',
     remove: 'Remove {{exercise}}',
     add: 'Add exercise',
     pickerTitle: 'Add a lift',

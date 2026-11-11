@@ -17,6 +17,11 @@ beforeEach(() => {
   onFinish.mockReset();
 });
 
+/** The first step asks the training focus; General is preselected, so Continue reaches the experience step. */
+async function toExperienceStep() {
+  await fireEvent.press(await screen.findByRole('button', { name: 'Continue' }));
+}
+
 describe('OnboardingGate', () => {
   it('shows the app straight away once onboarding is completed', async () => {
     await renderInApp(<App />, { onboarded: true });
@@ -32,6 +37,7 @@ describe('OnboardingGate', () => {
 
   it('shows the experience levels with Intermediate selected by default', async () => {
     await renderInApp(<App />, { onboarded: false });
+    await toExperienceStep();
     expect(await screen.findByRole('button', { name: 'Intermediate', selected: true })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Beginner', selected: false })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Advanced', selected: false })).toBeOnTheScreen();
@@ -40,6 +46,7 @@ describe('OnboardingGate', () => {
 
   it('updates the suggested cycle when another level is chosen', async () => {
     await renderInApp(<App />, { onboarded: false });
+    await toExperienceStep();
     await fireEvent.press(await screen.findByRole('button', { name: 'Advanced' }));
     expect(await screen.findByRole('button', { name: 'Advanced', selected: true })).toBeOnTheScreen();
     expect(screen.getByText('Sets the suggested cycle: 4 load weeks + 1 deload.')).toBeOnTheScreen();
@@ -47,6 +54,7 @@ describe('OnboardingGate', () => {
 
   it('stores the level, completes onboarding and finishes to the templates on "Choose a template"', async () => {
     const { repos, profileId } = await renderInApp(<App />, { onboarded: false });
+    await toExperienceStep();
     await fireEvent.press(await screen.findByRole('button', { name: 'Advanced' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Choose a template' }));
 
@@ -61,6 +69,7 @@ describe('OnboardingGate', () => {
 
   it('finishes to the import on "Import a plan"', async () => {
     const { repos, profileId } = await renderInApp(<App />, { onboarded: false });
+    await toExperienceStep();
     await fireEvent.press(await screen.findByRole('button', { name: 'Beginner' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Import a plan' }));
 
@@ -74,6 +83,7 @@ describe('OnboardingGate', () => {
 
   it('finishes to the home on "Later", keeping the default level', async () => {
     const { repos, profileId } = await renderInApp(<App />, { onboarded: false });
+    await toExperienceStep();
     await fireEvent.press(await screen.findByRole('button', { name: 'Later' }));
 
     expect(await screen.findByText('app content')).toBeOnTheScreen();
@@ -81,13 +91,17 @@ describe('OnboardingGate', () => {
     expect(await repos.settings.get(profileId)).toMatchObject({
       experience: 'intermediate',
       onboardingCompleted: true,
+      focus: 'general',
     });
   });
 
   it('is available in Portuguese', async () => {
     await renderInApp(<App />, { onboarded: false, language: 'pt-BR' });
     expect(await screen.findByRole('header', { name: 'Bem-vindo ao CYCLE' })).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Intermediário', selected: true })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Treino geral', selected: true })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Força', selected: false })).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Continuar' }));
+    expect(await screen.findByRole('button', { name: 'Intermediário', selected: true })).toBeOnTheScreen();
     expect(screen.getByText('Define o ciclo sugerido: 6 semanas de carga + 1 de deload.')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Escolher um modelo' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Importar periodização' })).toBeOnTheScreen();

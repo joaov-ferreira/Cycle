@@ -27,6 +27,7 @@ export const onboarding: typeof enOnboarding = {
     title: 'Seus levantamentos',
     intro: 'Informe o 1RM dos levantamentos que você treina, ou estime-o a partir de uma série. Linhas vazias são ignoradas; você pode preenchê-las depois.',
     kgLabel: '1RM de {{exercise}}',
+    rowAction: '{{action}}: {{exercise}}',
     remove: 'Remover {{exercise}}',
     add: 'Adicionar exercício',
     pickerTitle: 'Adicionar um levantamento',
