@@ -39,7 +39,7 @@ describe('formatKg', () => {
 });
 
 describe('formatPercent', () => {
-  it('formats a fraction of 1RM as a percentage', () => {
+  it('formats a fraction as a percentage', () => {
     expect(formatPercent(0.75, 'en')).toBe('75%');
     expect(formatPercent(0.875, 'en')).toBe('87.5%');
     expect(formatPercent(0.875, 'pt-BR')).toBe('87,5%');

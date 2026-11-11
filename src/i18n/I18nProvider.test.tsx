@@ -9,7 +9,7 @@ function Probe() {
   return (
     <>
       <Text>{locale}</Text>
-      <Text>{t('tabs.periodization')}</Text>
+      <Text>{t('tabs.plan')}</Text>
       <Text>{t('validation.tooManyDecimals', { count: 2 })}</Text>
       <Text>{formatKg(96.25)}</Text>
       <Text>{formatNumber(1234.5)}</Text>
@@ -27,7 +27,7 @@ describe('I18nProvider', () => {
       </I18nProvider>,
     );
     expect(screen.getByText('en')).toBeOnTheScreen();
-    expect(screen.getByText('Periodization')).toBeOnTheScreen();
+    expect(screen.getByText('Plan')).toBeOnTheScreen();
     expect(screen.getByText('Use at most 2 decimal places')).toBeOnTheScreen();
     expect(screen.getByText('96.25 kg')).toBeOnTheScreen();
     expect(screen.getByText('1,234.5')).toBeOnTheScreen();
@@ -56,7 +56,7 @@ describe('I18nProvider', () => {
         <Probe />
       </I18nProvider>,
     );
-    expect(screen.getByText('Periodization')).toBeOnTheScreen();
+    expect(screen.getByText('Plan')).toBeOnTheScreen();
     await view.rerender(
       <I18nProvider locale="pt-BR">
         <Probe />
@@ -67,6 +67,6 @@ describe('I18nProvider', () => {
 
   it('defaults to English outside a provider', async () => {
     await render(<Probe />);
-    expect(screen.getByText('Periodization')).toBeOnTheScreen();
+    expect(screen.getByText('Plan')).toBeOnTheScreen();
   });
 });
