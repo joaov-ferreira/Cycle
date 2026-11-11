@@ -2,7 +2,8 @@
 
 > Implements [`SPEC-v4.md`](./SPEC-v4.md) ("strength mode") on top of v2 ([`SPEC.md`](./SPEC.md)) and
 > v3 ([`SPEC-v3.md`](./SPEC-v3.md)), following [`../AGENTS.md`](../AGENTS.md). The v3 plan is archived
-> in [`archive/PLAN-v3.md`](./archive/PLAN-v3.md). v3 was merged into `main` in PR #3.
+> in [`archive/PLAN-v3.md`](./archive/PLAN-v3.md). v3 was merged into `main` in PR #3 (`cfcc1d4`) and
+> v4 in PR #4 (`0d87453`).
 
 ## How this plan works
 
@@ -48,7 +49,7 @@ Same method as v2 and v3:
 | 4d | 4 | 1RMs screens, 1RM calculator, Settings "Strength" section, onboarding focus and lifts steps, More and sidebar entries | sonnet | ✅ |
 | 4e | 4 | Progress Strength tab, Home (program week, rest day, missing 1RMs), cycle report "Programs and 1RMs", history prescribed vs actual | sonnet | ✅ |
 | 5 | 5 | Integration: E2E v4 flow, audits, docs (IMPORT_FORMAT, schema, AI prompts, BACKUP_FORMAT, README), screenshots, version 4.0.0 | sonnet | ✅ |
-| 6 | — | Final review, PR, CI, APK on the PR, merge, release check | orchestrator | ⬜ |
+| 6 | — | Final review, PR, CI, APK on the PR, merge, release check | orchestrator | ✅ |
 
 Legend: ⬜ pending · 🟨 in progress · ✅ done · ⚠️ done with a recorded gap.
 
