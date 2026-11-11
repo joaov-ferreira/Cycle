@@ -32,11 +32,11 @@ export type SetRowProps = {
  * line `[set 44] [kg flex] [reps] [RIR] [done 44]`, separated by `gap`.
  */
 export const SET_ROW_LAYOUT = {
-  gap: spacing.sm,
+  gap: spacing.xs,
   control: layout.minTouchTarget,
-  reps: 60,
-  rir: 52,
-  weightMinWidth: 72,
+  reps: 56,
+  rir: 48,
+  weightMinWidth: 64,
 } as const;
 
 /** Localized message key for every error code of `SetErrors`. */

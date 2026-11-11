@@ -77,7 +77,7 @@ describe('SetRow (en)', () => {
 
   it('lets the weight field grow to at least 72 pt', async () => {
     await renderRow();
-    expect(screen.getByTestId('set-row-weight')).toHaveStyle({ flexGrow: 1, minWidth: 72 });
+    expect(screen.getByTestId('set-row-weight')).toHaveStyle({ flexGrow: 1, minWidth: 64 });
   });
 
   it('reports parsed weight, reps and RIR', async () => {

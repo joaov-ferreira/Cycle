@@ -19,6 +19,7 @@ export const common: typeof enCommon = {
   custom: 'Personalizado',
   kg: 'kg',
   reps: 'Repetições',
+  repsShort: 'Reps',
   sets: 'Séries',
   set: 'Série',
   rir: 'RIR',

@@ -17,6 +17,7 @@ export const common = {
   custom: 'Custom',
   kg: 'kg',
   reps: 'Reps',
+  repsShort: 'Reps',
   sets: 'Sets',
   set: 'Set',
   rir: 'RIR',

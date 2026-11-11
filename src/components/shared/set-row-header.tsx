@@ -26,7 +26,7 @@ export function SetRowHeader({ testID }: { testID?: string }) {
       </View>
       <View style={styles.reps}>
         <Text variant="caption" tone="secondary" numberOfLines={1}>
-          {t('common.reps')}
+          {t('common.repsShort')}
         </Text>
       </View>
       <View style={styles.rir}>

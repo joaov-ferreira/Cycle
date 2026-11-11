@@ -25,7 +25,7 @@ describe('SetRowHeader', () => {
     await renderHeader('pt-BR');
     expect(screen.getByText('Série')).toBeOnTheScreen();
     expect(screen.getByText('kg')).toBeOnTheScreen();
-    expect(screen.getByText('Repetições')).toBeOnTheScreen();
+    expect(screen.getByText('Reps')).toBeOnTheScreen();
     expect(screen.getByText('RIR')).toBeOnTheScreen();
   });
 
