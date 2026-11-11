@@ -70,7 +70,7 @@ export const PLAN_LIMITS = {
   reps: { min: 1, max: 100 },
   targetRir: { min: 0, max: 5 },
   restSeconds: { min: 0, max: 900 },
-  startLoadKg: { min: 0, max: 1000, decimals: 2 },
+  startLoadKg: { min: 0, max: 1000, maxDecimals: 2 },
   note: { max: 200 },
   sessionsPerWeek: { min: 1, max: 14 },
   loadWeeks: { min: 1, max: 16 },
