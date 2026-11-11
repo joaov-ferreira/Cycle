@@ -41,7 +41,7 @@ AGENTS.md as the extension of `docs/SPEC.md`.
 | 1f | 1 | AI review prompt builder | haiku | ✅ |
 | 2a | 2 | RIR ramp and cycle report | sonnet | ✅ |
 | 2b | 2 | Persistence: migration 011, repositories, bulk export/import | sonnet | ✅ |
-| 3 | 3 | State store: timer, tools settings, supersets, ramp, reports, backup, body, insights | sonnet | ⬜ |
+| 3 | 3 | State store: timer, tools settings, supersets, ramp, reports, backup, body, insights | sonnet | ✅ |
 | 4a | 4 | Logger: rest timer bar, notifications, keep-awake, plates, warm-ups, notes | sonnet | ⬜ |
 | 4b | 4 | Logger and plan editor: supersets, drop sets, similar exercises, repeat workout | sonnet | ⬜ |
 | 4c | 4 | Cycle: RIR ramp settings, timeline, report screen, cycle history, Review with AI, update in place | sonnet | ⬜ |
