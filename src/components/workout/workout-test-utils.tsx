@@ -1,4 +1,6 @@
 /** Shared setup of the workout screen tests: a seeded store, a fixed clock and the rendered screen. */
+import { act } from '@testing-library/react-native';
+
 import type { Plan } from '@/domain/plan';
 import type { LanguageSetting } from '@/i18n/locale';
 import type { TestClock } from '@/test-utils/clock';
@@ -8,23 +10,20 @@ import type { AppStore } from '@/state';
 
 import { WorkoutScreen } from './workout-screen';
 
-export type WorkoutSetup = {
-  store: AppStore;
-  clock: TestClock;
-  plan: Plan | null;
-  /** The next-workout/free-workout setup runs before the screen renders. */
-  prepare?: (ctx: { store: AppStore; clock: TestClock; plan: Plan | null }) => Promise<void>;
-};
+export type WorkoutContext = { store: AppStore; clock: TestClock; plan: Plan | null };
 
 export async function renderWorkout(
   options: {
     language?: LanguageSetting;
     /** Create and activate the sample plan (default true). */
     withPlan?: boolean;
-    prepare?: WorkoutSetup['prepare'];
+    /** Runs against the store before the screen renders (booting the app clears `lastFinish`). */
+    prepare?: (ctx: WorkoutContext) => Promise<void>;
+    /** Runs against the store after the screen rendered, inside `act`. */
+    afterRender?: (ctx: WorkoutContext) => Promise<void>;
   } = {},
 ) {
-  const { language = 'en', withPlan = true, prepare } = options;
+  const { language = 'en', withPlan = true, prepare, afterRender } = options;
   const { store, repos, clock } = await createTestStore();
   const plan = withPlan ? await seedPlan(store) : null;
   await prepare?.({ store, clock, plan });
@@ -35,6 +34,11 @@ export async function renderWorkout(
     repos,
     language,
   });
+  if (afterRender) {
+    await act(async () => {
+      await afterRender({ store, clock, plan });
+    });
+  }
   return { store, repos, clock, plan, onNewPlan, onOpenWorkoutDetail };
 }
 

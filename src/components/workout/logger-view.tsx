@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -23,13 +23,6 @@ import { ExerciseCard } from './exercise-card';
 import { NoteField } from './note-field';
 import { useAction } from './use-action';
 
-/** Keeps the previous reference while the value is deeply equal (cards are memoized on it). */
-function useStableValue<T>(value: T): T {
-  const ref = useRef(value);
-  if (ref.current !== value && JSON.stringify(ref.current) !== JSON.stringify(value)) ref.current = value;
-  return ref.current;
-}
-
 type Picker = { mode: 'add' } | { mode: 'replace'; index: number };
 
 /** The workout in progress (SPEC §7.3): header, one card per exercise, notes, finish and discard. */
@@ -37,7 +30,7 @@ export function WorkoutLogger({ workout }: { workout: Workout }) {
   const { colors } = useTheme();
   const { t, formatDate } = useI18n();
   const exerciseLabel = useExerciseName();
-  const suggestions: Record<string, Suggestion> = useStableValue(useAppStore(selectWorkoutSuggestions));
+  const suggestions: Record<string, Suggestion> = useAppStore(selectWorkoutSuggestions);
   const plan = useAppStore(selectActivePlan);
   const allExercises = useAppStore(selectAllExercises);
   const findExercise = useAppStore(selectFindExercise);

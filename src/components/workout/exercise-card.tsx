@@ -24,6 +24,22 @@ export type ExerciseCardProps = {
   onRequestRemove: (index: number) => void;
 };
 
+/**
+ * The store recomputes every suggestion object on each edit; a card only needs to re-render
+ * when its own exercise or the numbers of its suggestion change.
+ */
+function sameProps(previous: ExerciseCardProps, next: ExerciseCardProps): boolean {
+  return (
+    previous.index === next.index &&
+    previous.exercise === next.exercise &&
+    previous.deloadLoadFactor === next.deloadLoadFactor &&
+    previous.onRequestReplace === next.onRequestReplace &&
+    previous.onRequestRemove === next.onRequestRemove &&
+    (previous.suggestion === next.suggestion ||
+      JSON.stringify(previous.suggestion) === JSON.stringify(next.suggestion))
+  );
+}
+
 /** One exercise of the workout in progress: target, suggestion, notes and its set rows (SPEC §7.3). */
 export const ExerciseCard = memo(function ExerciseCard({
   index,
@@ -160,7 +176,7 @@ export const ExerciseCard = memo(function ExerciseCard({
       <Button variant="secondary" label={t('workout.addSet')} onPress={() => void run(() => addSet(index))} />
     </Card>
   );
-});
+}, sameProps);
 
 const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
